@@ -17,12 +17,13 @@ answered in Win32 (see [the window](window.md)); the tokens, the stylesheets
 and the exports run anywhere.
 
 ```bash
-pip install -e ".[shell]"
+pip install "slantui[shell]"
 ```
 
 The `shell` extra is PyQt6 with QtWebEngine, which only `slantui.shell`
 imports. `slantui.tokens` has no dependencies at all, so a build step or a
-hook can validate a palette on a machine with nothing installed.
+hook can install the package plain and validate a palette on a machine with
+nothing else on it.
 
 ## Four files
 

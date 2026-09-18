@@ -364,16 +364,24 @@ never heard of.
 ## Install
 
 ```bash
-pip install -e ".[shell,dev]"
-python -m pytest tests -q
+pip install "slantui[shell]"
 ```
 
 `slantui.tokens` has no dependencies. The colour maths, sRGB through OKLab and
 OKLCH, is written out in `slantui/tokens/color.py` so that a palette can be
 checked on a machine with nothing installed. The `shell` extra is PyQt6 with
-QtWebEngine, which only `slantui.shell` imports. The `dev` extra adds pytest
-and `mini-racer`, which is V8 as a wheel; without it the script tests skip
-and everything else still runs.
+QtWebEngine, which only `slantui.shell` imports, and a build step that only
+wants the tokens installs the package with no extra at all.
+
+To work on the library instead:
+
+```bash
+pip install -e ".[shell,dev]"
+python -m pytest tests -q
+```
+
+The `dev` extra adds pytest and `mini-racer`, which is V8 as a wheel; without
+it the script tests skip and everything else still runs.
 
 Three test files open a real window for a few seconds and check the frame,
 the work area, the example and the gallery from the outside. They run only
