@@ -40,10 +40,17 @@ _HTML_IMAGE = re.compile(r"<(?:img|source)\b[^>]*?\b(?:src|srcset)\s*=\s*\"([^\"
                          re.IGNORECASE)
 
 
+# Generated from a page, and not a page. PYPI.md is README.md with its links
+# made absolute for an index, so every picture in it is somewhere else and
+# there is nothing here to carry.
+GENERATED = {"PYPI.md"}
+
+
 def pages() -> list[Path]:
-    """Every markdown file that would end up in the repository."""
+    """Every markdown file a reader of this repository opens."""
     return sorted(p for p in ROOT.rglob("*.md")
-                  if not SKIP & set(p.parts) and not p.name.endswith(".egg-info"))
+                  if not SKIP & set(p.parts) and p.name not in GENERATED
+                  and not p.name.endswith(".egg-info"))
 
 
 def image_refs(page: Path) -> list[str]:

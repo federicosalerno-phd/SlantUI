@@ -9,11 +9,16 @@ patterns are checked against what is actually in the folder.
 The version is written in two places, because a build backend reads the one in
 ``pyproject.toml`` and the library reports the other. They have to agree, and
 ``slantui/design.json`` carries it into every export, so it comes third.
+
+``PYPI.md`` is the description an index shows. It is generated, and it is the
+one file here that nothing renders until the package is published, which is
+the definition of a file that goes stale in silence.
 """
 from __future__ import annotations
 
 import fnmatch
 import re
+import sys
 from pathlib import Path
 
 import slantui
@@ -22,11 +27,18 @@ ROOT = Path(__file__).resolve().parent.parent
 PKG = Path(slantui.__file__).resolve().parent
 PYPROJECT = ROOT / "pyproject.toml"
 
+sys.path.insert(0, str(ROOT / "tools"))
+import pypi_readme  # noqa: E402  the generator of the file two tests below check
+
 # Files that belong to the checkout and not to the package. The README in each
 # folder is a note to somebody reading the source; the documentation people
-# install is on the repository, and none of it is read at run time.
+# read is on the repository, and none of it is used at run time.
 IGNORED = {"__pycache__", ".pytest_cache"}
 IGNORED_SUFFIXES = {".py", ".pyc", ".pyo", ".md"}
+
+_MD_IMAGE = re.compile(r"!\[[^\]]*\]\(([^)\s]+)\)")
+_HTML_IMAGE = re.compile(r"<img[^>]*?src=\"([^\"]+)\"", re.IGNORECASE)
+_MD_LINK = re.compile(r"(?<!!)\[[^\]]*\]\(([^)\s]+)\)")
 
 
 def _package_data_patterns() -> list[str]:
@@ -59,8 +71,38 @@ def test_the_design_data_carries_the_version():
 
     data = json.loads((PKG / "design.json").read_text(encoding="utf-8"))
     assert data["slantui"] == slantui.__version__, (
-        "slantui/design.json was written by another version. Run\n"
-        "    python -m slantui.tokens json -o slantui/design.json")
+        "slantui/design.json was written by another version. Run: "
+        "python -m slantui.tokens json -o slantui/design.json")
+
+
+def test_the_description_the_index_shows_is_current():
+    assert (ROOT / "PYPI.md").read_text(encoding="utf-8") == pypi_readme.current(), (
+        "PYPI.md is behind README.md. Run: python tools/pypi_readme.py")
+
+
+def test_the_description_the_index_shows_points_at_nothing_relative():
+    """An index is not a repository. A relative path in the description draws
+    a broken image on the project page and a dead link under it."""
+    text = (ROOT / "PYPI.md").read_text(encoding="utf-8")
+    refs = _MD_IMAGE.findall(text) + _HTML_IMAGE.findall(text) + _MD_LINK.findall(text)
+    assert len(refs) > 20, "almost no links found, so this is reading the wrong file"
+    relative = [r for r in refs
+                if not r.startswith(("http:", "https:", "data:", "mailto:", "#"))]
+    assert not relative, ("the index would draw these as broken:\n  "
+                          + "\n  ".join(relative))
+
+
+def test_the_readme_itself_stays_relative():
+    """The other half of the deal. GitHub resolves repository relative paths,
+    the pictures live in this repository, and docs/publish.py is what puts them
+    there, so the README keeps them relative and only the generated copy moves.
+    """
+    text = (ROOT / "README.md").read_text(encoding="utf-8")
+    images = _MD_IMAGE.findall(text) + _HTML_IMAGE.findall(text)
+    absolute = [i for i in images if i.startswith(("http:", "https:"))]
+    assert not absolute, ("README.md points at pictures outside the repository, "
+                          "which docs/publish.py cannot carry:\n  "
+                          + "\n  ".join(absolute))
 
 
 def test_every_file_the_package_carries_is_in_the_wheel():

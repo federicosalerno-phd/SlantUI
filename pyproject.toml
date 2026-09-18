@@ -6,7 +6,10 @@ build-backend = "setuptools.build_meta"
 name = "slantui"
 version = "0.2.0"
 description = "A window look as a library: an oblique title bar drawn by the page, a frameless Qt shell, a two level token system, and the same design for WPF and Unity."
-readme = "README.md"
+# The index shows this one: README.md with its repository relative links
+# made absolute, written by tools/pypi_readme.py. An index is not a
+# repository, so a relative path there finds nothing.
+readme = "PYPI.md"
 requires-python = ">=3.10"
 license = "LicenseRef-MIT-with-attribution"
 license-files = ["LICENSE"]
