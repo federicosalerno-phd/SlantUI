@@ -1,0 +1,46 @@
+MIT License with a visible attribution clause
+
+Copyright (c) 2026 Federico Salerno
+
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the two conditions below.
+
+
+CONDITION 1: THE USUAL ONE
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+
+CONDITION 2: THE CREDIT LINE STAYS ON SCREEN
+
+SlantUI draws a credit line in the title bar of every window it builds. It
+reads:
+
+    Layout by Federico Salerno
+
+You may not remove it, hide it, cover it, make it transparent, shrink it below
+the size SlantUI sets, or change its text. It has to stay legible in the
+running application, on every screen the application shows, for as long as the
+application uses any part of SlantUI's look.
+
+Everything else about your application is yours. Rename it, restyle it, change
+every colour, sell it, keep the source closed. The credit line is the only
+thing that has to survive.
+
+If you want the line gone, write to f.efi.salerno@gmail.com and ask for a
+licence without it.
+
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

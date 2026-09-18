@@ -1,0 +1,693 @@
+{
+  "slantui": "0.2.0",
+  "default": "gold-dark",
+  "roles": [
+    {
+      "name": "surface-0",
+      "group": "surface",
+      "purpose": "The window backdrop, the plane everything else sits on.",
+      "extended": false,
+      "alpha": false
+    },
+    {
+      "name": "surface-1",
+      "group": "surface",
+      "purpose": "Bands fixed to the window edge: title bar, step rail, side panel.",
+      "extended": false,
+      "alpha": false
+    },
+    {
+      "name": "surface-2",
+      "group": "surface",
+      "purpose": "Strips and toolbars inside the work area.",
+      "extended": false,
+      "alpha": false
+    },
+    {
+      "name": "surface-3",
+      "group": "surface",
+      "purpose": "The most raised plane: cards, popups, dialogs, panel headers.",
+      "extended": false,
+      "alpha": false
+    },
+    {
+      "name": "control",
+      "group": "control",
+      "purpose": "The resting fill of a secondary control: buttons, tracks, thumbs.",
+      "extended": false,
+      "alpha": false
+    },
+    {
+      "name": "control-hover",
+      "group": "control",
+      "purpose": "The same control under the pointer.",
+      "extended": false,
+      "alpha": false
+    },
+    {
+      "name": "control-active",
+      "group": "control",
+      "purpose": "The same control while it is being pressed.",
+      "extended": false,
+      "alpha": false
+    },
+    {
+      "name": "text-1",
+      "group": "text",
+      "purpose": "Primary text: values, titles, the label on a hovered button.",
+      "extended": false,
+      "alpha": false
+    },
+    {
+      "name": "text-2",
+      "group": "text",
+      "purpose": "Secondary text: body copy, the label on a resting button.",
+      "extended": false,
+      "alpha": false
+    },
+    {
+      "name": "text-3",
+      "group": "text",
+      "purpose": "Captions, row labels, units, hints.",
+      "extended": false,
+      "alpha": false
+    },
+    {
+      "name": "text-4",
+      "group": "text",
+      "purpose": "The faintest text allowed: uppercase section labels, placeholders, disabled controls. Never a sentence.",
+      "extended": false,
+      "alpha": false
+    },
+    {
+      "name": "accent",
+      "group": "accent",
+      "purpose": "The one colour that marks the action moving the workflow forward.",
+      "extended": false,
+      "alpha": false
+    },
+    {
+      "name": "accent-hover",
+      "group": "accent",
+      "purpose": "The accent fill under the pointer.",
+      "extended": false,
+      "alpha": false
+    },
+    {
+      "name": "accent-active",
+      "group": "accent",
+      "purpose": "The accent fill while it is being pressed.",
+      "extended": false,
+      "alpha": false
+    },
+    {
+      "name": "on-accent",
+      "group": "accent",
+      "purpose": "Text and glyphs drawn on an accent fill.",
+      "extended": false,
+      "alpha": false
+    },
+    {
+      "name": "accent-text",
+      "group": "accent",
+      "purpose": "The accent used as a text colour, and as the focus ring. On light palettes this is a darker shade of the same hue than the fill.",
+      "extended": true,
+      "alpha": false
+    },
+    {
+      "name": "accent-surface",
+      "group": "accent",
+      "purpose": "A surface tinted toward the accent: active tab, selected row, chip.",
+      "extended": true,
+      "alpha": false
+    },
+    {
+      "name": "accent-surface-hover",
+      "group": "accent",
+      "purpose": "The same tinted surface under the pointer.",
+      "extended": true,
+      "alpha": false
+    },
+    {
+      "name": "ok",
+      "group": "status",
+      "purpose": "A filled indicator that something succeeded.",
+      "extended": false,
+      "alpha": false
+    },
+    {
+      "name": "warn",
+      "group": "status",
+      "purpose": "A filled indicator that something needs attention.",
+      "extended": false,
+      "alpha": false
+    },
+    {
+      "name": "err",
+      "group": "status",
+      "purpose": "A filled indicator that something failed.",
+      "extended": false,
+      "alpha": false
+    },
+    {
+      "name": "on-status",
+      "group": "status",
+      "purpose": "Text and glyphs drawn on an ok, warn or err fill.",
+      "extended": true,
+      "alpha": false
+    },
+    {
+      "name": "ok-text",
+      "group": "status",
+      "purpose": "A success colour used as text, with no fill behind it.",
+      "extended": true,
+      "alpha": false
+    },
+    {
+      "name": "warn-text",
+      "group": "status",
+      "purpose": "A warning colour used as text, with no fill behind it.",
+      "extended": true,
+      "alpha": false
+    },
+    {
+      "name": "err-text",
+      "group": "status",
+      "purpose": "A failure colour used as text, with no fill behind it.",
+      "extended": true,
+      "alpha": false
+    },
+    {
+      "name": "warn-surface",
+      "group": "status",
+      "purpose": "A surface tinted toward warn: the caution note, the chip on a condition the user should see before going on.",
+      "extended": true,
+      "alpha": false
+    },
+    {
+      "name": "err-surface",
+      "group": "status",
+      "purpose": "A surface tinted toward err: the destructive button.",
+      "extended": true,
+      "alpha": false
+    },
+    {
+      "name": "err-surface-hover",
+      "group": "status",
+      "purpose": "The same tinted surface under the pointer.",
+      "extended": true,
+      "alpha": false
+    },
+    {
+      "name": "scrim",
+      "group": "depth",
+      "purpose": "Covers the work area while the application is busy.",
+      "extended": false,
+      "alpha": true
+    },
+    {
+      "name": "shadow",
+      "group": "depth",
+      "purpose": "The colour a popup casts. Used inside a box-shadow.",
+      "extended": false,
+      "alpha": true
+    },
+    {
+      "name": "overlay",
+      "group": "depth",
+      "purpose": "A plate drawn over content of an unknown colour, such as the label over a photograph.",
+      "extended": false,
+      "alpha": true
+    }
+  ],
+  "metrics": [
+    {
+      "name": "r-xs",
+      "group": "radius",
+      "value": "4px",
+      "purpose": "A field you type or pick into.",
+      "kind": "length"
+    },
+    {
+      "name": "r",
+      "group": "radius",
+      "value": "5px",
+      "purpose": "Anything you press: buttons, tabs, chips, rows.",
+      "kind": "length"
+    },
+    {
+      "name": "r-md",
+      "group": "radius",
+      "value": "6px",
+      "purpose": "A raised card, or a plate over the stage.",
+      "kind": "length"
+    },
+    {
+      "name": "r-lg",
+      "group": "radius",
+      "value": "7px",
+      "purpose": "A framed pane, a dialog, an image.",
+      "kind": "length"
+    },
+    {
+      "name": "r-pill",
+      "group": "radius",
+      "value": "99px",
+      "purpose": "A pill: any height, fully round ends.",
+      "kind": "length"
+    },
+    {
+      "name": "font",
+      "group": "type",
+      "value": "'Segoe UI',system-ui,-apple-system,sans-serif",
+      "purpose": "Every piece of text but the application name.",
+      "kind": "font"
+    },
+    {
+      "name": "font-brand",
+      "group": "type",
+      "value": "'Abadi','Abadi MT Std','Segoe UI Variable Display','Selawik','Segoe UI',system-ui,sans-serif",
+      "purpose": "The application name in the title bar, and nothing else. A modern humanist sans if the machine has one, Segoe UI Variable next on Windows 11, plain Segoe UI last.",
+      "kind": "font"
+    },
+    {
+      "name": "mono",
+      "group": "type",
+      "value": "Consolas,'Courier New',monospace",
+      "purpose": "Numbers in a column, paths, anything measured.",
+      "kind": "font"
+    },
+    {
+      "name": "fs",
+      "group": "type",
+      "value": "12.5px",
+      "purpose": "Body.",
+      "kind": "length"
+    },
+    {
+      "name": "fs-sm",
+      "group": "type",
+      "value": "11.5px",
+      "purpose": "Captions.",
+      "kind": "length"
+    },
+    {
+      "name": "fs-xs",
+      "group": "type",
+      "value": "10px",
+      "purpose": "Uppercase section labels.",
+      "kind": "length"
+    },
+    {
+      "name": "fs-lg",
+      "group": "type",
+      "value": "13.5px",
+      "purpose": "Panel titles.",
+      "kind": "length"
+    },
+    {
+      "name": "tbar-h",
+      "group": "band",
+      "value": "44px",
+      "purpose": "The thick end, on the left, under the logo and the name.",
+      "kind": "length"
+    },
+    {
+      "name": "tbar-thin",
+      "group": "band",
+      "value": "28px",
+      "purpose": "The thin end, on the right, under the window buttons.",
+      "kind": "length"
+    },
+    {
+      "name": "tbar-slant",
+      "group": "band",
+      "value": "38px",
+      "purpose": "The horizontal run of the oblique between the two.",
+      "kind": "length"
+    },
+    {
+      "name": "tbar-join",
+      "group": "band",
+      "value": "8px",
+      "purpose": "The radius the oblique's two vertices are rounded by.",
+      "kind": "length"
+    },
+    {
+      "name": "tab-h",
+      "group": "rail",
+      "value": "42px",
+      "purpose": "The height of the rail and of a step tab.",
+      "kind": "length"
+    },
+    {
+      "name": "tab-w",
+      "group": "rail",
+      "value": "132px",
+      "purpose": "Every step tab is this wide, so the numbers line up in one column and the initials in another. They shrink together, never one at a time, when the window is narrow.",
+      "kind": "length"
+    },
+    {
+      "name": "rp-w",
+      "group": "panel",
+      "value": "244px",
+      "purpose": "The width of the panel down the right.",
+      "kind": "length"
+    },
+    {
+      "name": "t-in",
+      "group": "motion",
+      "value": "120ms",
+      "purpose": "A control answering the pointer.",
+      "kind": "time"
+    },
+    {
+      "name": "t-out",
+      "group": "motion",
+      "value": "180ms",
+      "purpose": "The same control letting go.",
+      "kind": "time"
+    },
+    {
+      "name": "t-chg",
+      "group": "motion",
+      "value": "140ms",
+      "purpose": "A state changing on its own: a status dot, a step marked done.",
+      "kind": "time"
+    }
+  ],
+  "band": {
+    "height": 44.0,
+    "thin": 28.0,
+    "slant": 38.0,
+    "join": 8.0,
+    "drop": 16.0,
+    "angle": 22.8337
+  },
+  "palettes": {
+    "gold-dark": {
+      "name": "Gold Dark",
+      "scheme": "dark",
+      "note": "Gold on near black. It's the palette the design was drawn in.",
+      "values": {
+        "surface-0": "#0D0D0F",
+        "surface-1": "#101013",
+        "surface-2": "#121216",
+        "surface-3": "#16161B",
+        "control": "#1E1E24",
+        "control-hover": "#33333B",
+        "control-active": "#26262B",
+        "text-1": "#E6E6EC",
+        "text-2": "#C8C8D0",
+        "text-3": "#A0A0AA",
+        "text-4": "#80808A",
+        "accent": "#F5C542",
+        "accent-hover": "#FFD45E",
+        "accent-active": "#C9A033",
+        "on-accent": "#0D0D0F",
+        "accent-text": "#F5C542",
+        "accent-surface": "#2A2519",
+        "accent-surface-hover": "#332C1D",
+        "ok": "#2F7A46",
+        "warn": "#8F6410",
+        "err": "#B0524A",
+        "on-status": "#FFFFFF",
+        "ok-text": "#58B36B",
+        "warn-text": "#E0A93C",
+        "err-text": "#F77D67",
+        "warn-surface": "#282218",
+        "err-surface": "#2C1F1E",
+        "err-surface-hover": "#3A2724",
+        "scrim": "#0D0D0FB8",
+        "shadow": "#00000099",
+        "overlay": "#101013F2"
+      }
+    },
+    "gold-light": {
+      "name": "Gold Light",
+      "scheme": "light",
+      "note": "The same gold on paper. The surfaces and the text are the ones a printed report uses.",
+      "values": {
+        "surface-0": "#EFEFF2",
+        "surface-1": "#F1F1F4",
+        "surface-2": "#F7F7F9",
+        "surface-3": "#FFFFFF",
+        "control": "#DDDDE0",
+        "control-hover": "#CECED1",
+        "control-active": "#D6D6D9",
+        "text-1": "#17171B",
+        "text-2": "#3B3C40",
+        "text-3": "#545458",
+        "text-4": "#6E6E73",
+        "accent": "#F5C542",
+        "accent-hover": "#E4B52B",
+        "accent-active": "#D2A300",
+        "on-accent": "#17171B",
+        "accent-text": "#764A00",
+        "accent-surface": "#FFF8E4",
+        "accent-surface-hover": "#FCEFCD",
+        "ok": "#2F7A46",
+        "warn": "#8F6410",
+        "err": "#B0524A",
+        "on-status": "#FFFFFF",
+        "ok-text": "#0F612F",
+        "warn-text": "#7F4600",
+        "err-text": "#913630",
+        "warn-surface": "#F2EBE0",
+        "err-surface": "#F7E8E8",
+        "err-surface-hover": "#F1DCDC",
+        "scrim": "#EFEFF2B8",
+        "shadow": "#00000038",
+        "overlay": "#F1F1F4F2"
+      }
+    },
+    "teal-dark": {
+      "name": "Teal Dark",
+      "scheme": "dark",
+      "note": "Gold Dark with a teal accent in front.",
+      "values": {
+        "surface-0": "#0D0D0F",
+        "surface-1": "#101013",
+        "surface-2": "#121216",
+        "surface-3": "#16161B",
+        "control": "#1E1E24",
+        "control-hover": "#33333B",
+        "control-active": "#26262B",
+        "text-1": "#E6E6EC",
+        "text-2": "#C8C8D0",
+        "text-3": "#A0A0AA",
+        "text-4": "#80808A",
+        "accent": "#3FBFB0",
+        "accent-hover": "#55D1C1",
+        "accent-active": "#14A697",
+        "on-accent": "#0D0D0F",
+        "accent-text": "#3FBFB0",
+        "accent-surface": "#1D2428",
+        "accent-surface-hover": "#202C2F",
+        "ok": "#2F7A46",
+        "warn": "#8F6410",
+        "err": "#B0524A",
+        "on-status": "#FFFFFF",
+        "ok-text": "#58B36B",
+        "warn-text": "#E0A93C",
+        "err-text": "#F77D67",
+        "warn-surface": "#282218",
+        "err-surface": "#2C1F1E",
+        "err-surface-hover": "#3A2724",
+        "scrim": "#0D0D0FB8",
+        "shadow": "#00000099",
+        "overlay": "#101013F2"
+      }
+    },
+    "blue-dark": {
+      "name": "Blue Dark",
+      "scheme": "dark",
+      "note": "Gold Dark with a blue accent in front.",
+      "values": {
+        "surface-0": "#0D0D0F",
+        "surface-1": "#101013",
+        "surface-2": "#121216",
+        "surface-3": "#16161B",
+        "control": "#1E1E24",
+        "control-hover": "#33333B",
+        "control-active": "#26262B",
+        "text-1": "#E6E6EC",
+        "text-2": "#C8C8D0",
+        "text-3": "#A0A0AA",
+        "text-4": "#80808A",
+        "accent": "#5B8DEF",
+        "accent-hover": "#6B9EFF",
+        "accent-active": "#4A7ADB",
+        "on-accent": "#0D0D0F",
+        "accent-text": "#6CA0FF",
+        "accent-surface": "#1D212D",
+        "accent-surface-hover": "#202737",
+        "ok": "#2F7A46",
+        "warn": "#8F6410",
+        "err": "#B0524A",
+        "on-status": "#FFFFFF",
+        "ok-text": "#58B36B",
+        "warn-text": "#E0A93C",
+        "err-text": "#F77D67",
+        "warn-surface": "#282218",
+        "err-surface": "#2C1F1E",
+        "err-surface-hover": "#3A2724",
+        "scrim": "#0D0D0FB8",
+        "shadow": "#00000099",
+        "overlay": "#101013F2"
+      }
+    },
+    "purple-dark": {
+      "name": "Purple Dark",
+      "scheme": "dark",
+      "note": "Gold Dark with a purple accent in front.",
+      "values": {
+        "surface-0": "#0D0D0F",
+        "surface-1": "#101013",
+        "surface-2": "#121216",
+        "surface-3": "#16161B",
+        "control": "#1E1E24",
+        "control-hover": "#33333B",
+        "control-active": "#26262B",
+        "text-1": "#E6E6EC",
+        "text-2": "#C8C8D0",
+        "text-3": "#A0A0AA",
+        "text-4": "#80808A",
+        "accent": "#B07CF0",
+        "accent-hover": "#C18DFF",
+        "accent-active": "#9763D5",
+        "on-accent": "#0D0D0F",
+        "accent-text": "#BC88FD",
+        "accent-surface": "#231F2D",
+        "accent-surface-hover": "#2A2537",
+        "ok": "#2F7A46",
+        "warn": "#8F6410",
+        "err": "#B0524A",
+        "on-status": "#FFFFFF",
+        "ok-text": "#58B36B",
+        "warn-text": "#E0A93C",
+        "err-text": "#F77D67",
+        "warn-surface": "#282218",
+        "err-surface": "#2C1F1E",
+        "err-surface-hover": "#3A2724",
+        "scrim": "#0D0D0FB8",
+        "shadow": "#00000099",
+        "overlay": "#101013F2"
+      }
+    },
+    "green-dark": {
+      "name": "Green Dark",
+      "scheme": "dark",
+      "note": "Gold Dark with a green accent in front. The accent and the ok colour share a hue here, so read the shape, not the colour.",
+      "values": {
+        "surface-0": "#0D0D0F",
+        "surface-1": "#101013",
+        "surface-2": "#121216",
+        "surface-3": "#16161B",
+        "control": "#1E1E24",
+        "control-hover": "#33333B",
+        "control-active": "#26262B",
+        "text-1": "#E6E6EC",
+        "text-2": "#C8C8D0",
+        "text-3": "#A0A0AA",
+        "text-4": "#80808A",
+        "accent": "#57B26A",
+        "accent-hover": "#69C47B",
+        "accent-active": "#3C9952",
+        "on-accent": "#0D0D0F",
+        "accent-text": "#58B36B",
+        "accent-surface": "#1D2323",
+        "accent-surface-hover": "#212B27",
+        "ok": "#2F7A46",
+        "warn": "#8F6410",
+        "err": "#B0524A",
+        "on-status": "#FFFFFF",
+        "ok-text": "#58B36B",
+        "warn-text": "#E0A93C",
+        "err-text": "#F77D67",
+        "warn-surface": "#282218",
+        "err-surface": "#2C1F1E",
+        "err-surface-hover": "#3A2724",
+        "scrim": "#0D0D0FB8",
+        "shadow": "#00000099",
+        "overlay": "#101013F2"
+      }
+    },
+    "slate-light": {
+      "name": "Slate Light",
+      "scheme": "light",
+      "note": "Cool greys and a blue accent, for an application that should not look like the default.",
+      "values": {
+        "surface-0": "#E9EBEF",
+        "surface-1": "#EDEFF3",
+        "surface-2": "#F1F3F7",
+        "surface-3": "#F5F7FB",
+        "control": "#D7D9DD",
+        "control-hover": "#C8CACE",
+        "control-active": "#D0D2D6",
+        "text-1": "#1A1C22",
+        "text-2": "#373940",
+        "text-3": "#4F5159",
+        "text-4": "#696C73",
+        "accent": "#3B72D9",
+        "accent-hover": "#2D62C8",
+        "accent-active": "#1C52B6",
+        "on-accent": "#FFFFFF",
+        "accent-text": "#164BAF",
+        "accent-surface": "#E2EAF9",
+        "accent-surface-hover": "#D7E3F8",
+        "ok": "#2F7A46",
+        "warn": "#8F6410",
+        "err": "#AB4E46",
+        "on-status": "#FFFFFF",
+        "ok-text": "#095E2C",
+        "warn-text": "#7C4300",
+        "err-text": "#8E332E",
+        "warn-surface": "#EBE5DD",
+        "err-surface": "#EEE3E5",
+        "err-surface-hover": "#EBD9DA",
+        "scrim": "#E9EBEFB8",
+        "shadow": "#00000038",
+        "overlay": "#EDEFF3F2"
+      }
+    },
+    "high-contrast": {
+      "name": "High Contrast",
+      "scheme": "dark",
+      "note": "Pure black, pure white, saturated accents. Nothing in it is near a threshold, and the surfaces are far enough apart to be told apart without a divider.",
+      "values": {
+        "surface-0": "#000000",
+        "surface-1": "#0A0A0A",
+        "surface-2": "#141414",
+        "surface-3": "#1E1E1E",
+        "control": "#2B2B2B",
+        "control-hover": "#3D3D3D",
+        "control-active": "#333333",
+        "text-1": "#FFFFFF",
+        "text-2": "#F0F0F0",
+        "text-3": "#DCDCDC",
+        "text-4": "#B4B4B4",
+        "accent": "#FFD400",
+        "accent-hover": "#FFE44A",
+        "accent-active": "#D9B400",
+        "on-accent": "#000000",
+        "accent-text": "#FFD400",
+        "accent-surface": "#332B00",
+        "accent-surface-hover": "#4A3E00",
+        "ok": "#0A6B28",
+        "warn": "#8A5200",
+        "err": "#A81E16",
+        "on-status": "#FFFFFF",
+        "ok-text": "#3FD174",
+        "warn-text": "#FFB020",
+        "err-text": "#FF9080",
+        "warn-surface": "#351700",
+        "err-surface": "#3A0F0C",
+        "err-surface-hover": "#4F1612",
+        "scrim": "#000000CC",
+        "shadow": "#000000B3",
+        "overlay": "#000000F2"
+      }
+    }
+  }
+}

@@ -1,0 +1,54 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "slantui"
+version = "0.2.0"
+description = "A window look as a library: an oblique title bar drawn by the page, a frameless Qt shell, a two level token system, and the same design for WPF and Unity."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "LicenseRef-MIT-with-attribution"
+license-files = ["LICENSE"]
+authors = [{ name = "Federico Salerno", email = "f.efi.salerno@gmail.com" }]
+keywords = ["ui", "design tokens", "qt", "pyqt", "wcag", "frameless window"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: X11 Applications :: Qt",
+    "Intended Audience :: Developers",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3",
+    "Topic :: Software Development :: User Interfaces",
+]
+
+# slantui.tokens has no dependencies at all, on purpose: the colour maths is
+# written out in slantui/tokens/color.py so that a palette can be validated
+# anywhere, including in a hook on a machine with nothing installed. The Qt
+# shell is the "shell" extra below, so the tokens stay that way.
+dependencies = []
+
+# shell: what slantui.shell imports. PyQt5 with PyQtWebEngine works too, as
+# a fallback the shim picks up by itself, but PyQt6 is what is developed on.
+# dev: mini-racer is V8 as a wheel. The tests run the browser side scripts
+# in it against a small fake DOM; without it those tests skip.
+[project.optional-dependencies]
+shell = ["PyQt6>=6.5", "PyQt6-WebEngine>=6.5"]
+dev = ["pytest>=7.0", "mini-racer>=0.12"]
+
+[project.urls]
+Source = "https://github.com/federicosalerno-phd/SlantUI"
+
+[project.scripts]
+slantui-tokens = "slantui.tokens.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["slantui*"]
+
+[tool.setuptools.package-data]
+slantui = ["css/*.css", "js/*.js", "assets/*", "shell/*.qml",
+           "wpf/*.psm1", "wpf/*.psd1", "design.json"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+addopts = "-q"

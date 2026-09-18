@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en" data-palette="gold-dark">
+<head>
+<meta charset="UTF-8"/>
+<title>SlantUI Gallery</title>
+<!-- Two files, both written next to this one by capture.py: the five SlantUI
+     stylesheets in load order, then the dozen rules this page adds. The
+     gallery is a SlantUI window like any other, so the shell around the
+     catalogue is the real thing and the shots of it are of the window you
+     are looking at. -->
+<link rel="stylesheet" href="slantui.css"/>
+<link rel="stylesheet" href="gallery.css"/>
+</head>
+<body>
+<div class="app" data-shot="window" data-pad="0">
+
+  <!-- ══ title bar ══════════════════════════════════════════════════════════
+       The window is frameless, so this is the title bar, and it is also the
+       first thing the catalogue shows: the shot called "titlebar" is of this
+       element. titlebar.js cuts the band to shape and writes the credit line
+       the licence asks for. ============================================== -->
+  <div class="titlebar" data-shot="titlebar" data-pad="0">
+    <div class="tbar-band"></div>
+    <div class="tbar-brand">
+      <svg class="tbar-logo" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M2 4h20v5.6h-6.1L9.6 16.4H2z"/>
+      </svg>
+      <span class="tbar-name"><b>SlantUI</b>&nbsp;&nbsp;Gallery</span>
+    </div>
+    <div class="tbar-drag"></div>
+    <div class="tbar-btns">
+      <div class="wbtn wbtn-min" title="Minimise">
+        <svg viewBox="0 0 12 12"><line x1="2" y1="6" x2="10" y2="6"/></svg>
+      </div>
+      <div class="wbtn wbtn-max" title="Maximise">
+        <svg viewBox="0 0 12 12"><rect x="2.5" y="2.5" width="7" height="7" rx="1"/></svg>
+      </div>
+      <div class="wbtn wbtn-close" title="Close">
+        <svg viewBox="0 0 12 12"><line x1="3" y1="3" x2="9" y2="9"/><line x1="9" y1="3" x2="3" y2="9"/></svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ step rail: here the four sections of the catalogue ═════════════════ -->
+  <div class="topbar" data-shot="steps" data-pad="0">
+    <div class="tabbar">
+      <div class="tab active" data-sec="0"><div class="tn">1</div><span>Shell</span></div>
+      <div class="tab" data-sec="1"><div class="tn">2</div><span>Controls</span></div>
+      <div class="tab" data-sec="2"><div class="tn">3</div><span>Panel</span></div>
+      <div class="tab" data-sec="3"><div class="tn">4</div><span>Overlays</span></div>
+    </div>
+
+    <div class="tb-gap"></div>
+
+    <div class="tb-r">
+      <button class="btn btn-2 btn-sm" id="btnAbout" title="What this window is running on">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16.5"/><line x1="12" y1="7.6" x2="12" y2="8"/></svg>
+        <span class="btn-label">About</span>
+      </button>
+      <div class="stpill"><div class="sd" id="sd"></div><span id="st">Gold Dark</span></div>
+    </div>
+  </div>
+
+  <!-- ══ work area ══════════════════════════════════════════════════════════ -->
+  <div class="work">
+    <div class="main">
+
+      <div class="toolbar" data-shot="toolbar" data-pad="0">
+        <div class="ct" id="ctNames" title="Show the name each shot is saved under">
+          <svg viewBox="0 0 24 24"><path d="M4 7.5V5.6A1.6 1.6 0 0 1 5.6 4h12.8A1.6 1.6 0 0 1 20 5.6v1.9"/><line x1="12" y1="4.6" x2="12" y2="19.4"/><line x1="8.6" y1="19.4" x2="15.4" y2="19.4"/></svg>
+        </div>
+        <div class="ct" id="ctTwin" title="Jump to the light palette, or back to the dark one">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="6.5"/><path d="M12 5.5a6.5 6.5 0 0 0 0 13z" fill="currentColor" stroke="none"/></svg>
+        </div>
+        <div class="ctsep"></div>
+        <div class="ct" id="ctTop" title="Back to the top of the catalogue">
+          <svg viewBox="0 0 24 24"><polyline points="5 14.5 12 7.5 19 14.5"/></svg>
+        </div>
+        <div class="ct danger ghost" id="ctClear" title="Clear the overlay that is showing">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><line x1="6.3" y1="17.7" x2="17.7" y2="6.3"/></svg>
+        </div>
+        <span class="cthint" id="cthint">Every cell below is one shot, in all eight palettes</span>
+        <svg class="ct-file" id="fileIcon" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.8" cy="9" r="1.6"/><path d="M21 15l-5-5L5 21"/></svg>
+        <span class="ct-fname fit" id="fname"></span>
+      </div>
+
+      <!-- The stage holds the catalogue, which scrolls. -->
+      <div class="stage" id="stage">
+        <div class="gal" id="gal">
+
+          <!-- ── 1. the shell ──────────────────────────────────────────── -->
+          <div class="gal-sec" data-sec="0">
+            <div class="gal-h">The shell</div>
+            <p class="note">
+              The four parts of the window itself are shot where they are: the
+              band above this page, the rail under it, the strip of small
+              controls over the stage, and the panel on the right. The window
+              shot is all of it at once.
+            </p>
+            <div class="gal-grid">
+              <div class="gal-cell wide">
+                <div class="sec-lbl">What is shot, and from where</div>
+                <div class="pi-row"><span class="pi-l">window</span><span>the whole page, 1240 by 800</span></div>
+                <div class="pi-row"><span class="pi-l">titlebar</span><span>.titlebar, the band above</span></div>
+                <div class="pi-row"><span class="pi-l">steps</span><span>.topbar, the rail of four</span></div>
+                <div class="pi-row"><span class="pi-l">toolbar</span><span>.toolbar, over the stage</span></div>
+                <div class="pi-row"><span class="pi-l">panel</span><span>.rp, on the right</span></div>
+              </div>
+              <div class="gal-cell">
+                <div class="sec-lbl">The edges</div>
+                <p class="note">
+                  Eight invisible strips of five pixels sit on the window's
+                  edges and hand a drag straight to Windows, which is what
+                  keeps the snapping. Nothing to see, so nothing to shoot.
+                </p>
+                <div class="row">
+                  <span class="note grow">Frameless, and still native</span>
+                  <span class="chip chip-accent">.rz</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── 2. the controls ───────────────────────────────────────── -->
+          <div class="gal-sec" data-sec="1">
+            <div class="gal-h">Controls</div>
+            <p class="note">
+              Fills, never outlines. A control is told apart from what is
+              behind it by being another surface, and its states are fills
+              too. The states that need a pointer on them are not in the
+              catalogue: a shot cannot hover.
+            </p>
+            <div class="gal-grid">
+
+              <div class="gal-cell">
+                <div class="sec-lbl">Buttons</div>
+                <div class="row" data-shot="buttons">
+                  <button class="btn btn-primary">
+                    <svg viewBox="0 0 24 24"><path d="M7 4.6 19 12 7 19.4z"/></svg>
+                    <span class="btn-label">Run</span>
+                  </button>
+                  <button class="btn btn-2">
+                    <svg viewBox="0 0 24 24"><polyline points="4 5.5 4 11 9.5 11"/><path d="M4.6 15a8 8 0 1 0 1.2-7"/></svg>
+                    <span class="btn-label">Reset</span>
+                  </button>
+                  <button class="btn btn-danger">
+                    <svg viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" rx="1.5"/></svg>
+                    <span class="btn-label">Stop</span>
+                  </button>
+                </div>
+                <div class="gal-name hidden">buttons</div>
+              </div>
+
+              <div class="gal-cell">
+                <div class="sec-lbl">Disabled, and the small size</div>
+                <div class="row" data-shot="buttons-off">
+                  <button class="btn btn-primary" disabled>
+                    <span class="btn-label">Next</span>
+                    <svg class="r" viewBox="0 0 24 24"><polyline points="9.5 5 16.5 12 9.5 19"/></svg>
+                  </button>
+                  <button class="btn btn-2" disabled>
+                    <span class="btn-label">Back</span>
+                  </button>
+                  <button class="btn btn-2 btn-sm">
+                    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16.5"/><line x1="12" y1="7.6" x2="12" y2="8"/></svg>
+                    <span class="btn-label">About</span>
+                  </button>
+                </div>
+                <div class="gal-name hidden">buttons-off</div>
+              </div>
+
+              <div class="gal-cell">
+                <div class="sec-lbl">Filling the width</div>
+                <div class="col" data-shot="buttons-wide">
+                  <button class="btn btn-primary btn-wide">
+                    <svg viewBox="0 0 24 24"><polyline points="5 12.5 10 17.5 19 7"/></svg>
+                    <span class="btn-label">Say it worked</span>
+                  </button>
+                  <div class="rp-nav">
+                    <button class="btn btn-2 btn-grow">
+                      <svg viewBox="0 0 24 24"><polyline points="14.5 5 7.5 12 14.5 19"/></svg>
+                      <span class="btn-label">Back</span>
+                    </button>
+                    <button class="btn btn-2 btn-grow">
+                      <span class="btn-label">Next</span>
+                      <svg class="r" viewBox="0 0 24 24"><polyline points="9.5 5 16.5 12 9.5 19"/></svg>
+                    </button>
+                  </div>
+                </div>
+                <div class="gal-name hidden">buttons-wide</div>
+              </div>
+
+              <div class="gal-cell">
+                <div class="sec-lbl">The window buttons</div>
+                <div class="row" data-shot="window-buttons">
+                  <div class="wbtn" title="Minimise">
+                    <svg viewBox="0 0 12 12"><line x1="2" y1="6" x2="10" y2="6"/></svg>
+                  </div>
+                  <div class="wbtn" title="Maximise">
+                    <svg viewBox="0 0 12 12"><rect x="2.5" y="2.5" width="7" height="7" rx="1"/></svg>
+                  </div>
+                  <div class="wbtn wbtn-close" title="Close">
+                    <svg viewBox="0 0 12 12"><line x1="3" y1="3" x2="9" y2="9"/><line x1="9" y1="3" x2="3" y2="9"/></svg>
+                  </div>
+                  <span class="note grow">Close turns red under the pointer</span>
+                </div>
+                <div class="gal-name hidden">window-buttons</div>
+              </div>
+
+              <div class="gal-cell">
+                <div class="sec-lbl">Toolbar buttons</div>
+                <div class="row" data-shot="toolbar-buttons">
+                  <div class="ct" title="Zoom in">
+                    <svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><line x1="15.4" y1="15.4" x2="20" y2="20"/><line x1="7.6" y1="10.5" x2="13.4" y2="10.5"/><line x1="10.5" y1="7.6" x2="10.5" y2="13.4"/></svg>
+                  </div>
+                  <div class="ct on" title="A toggle that is on">
+                    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 0 0 16z" fill="currentColor" stroke="none"/></svg>
+                  </div>
+                  <div class="ctsep"></div>
+                  <div class="ct danger" title="Destructive">
+                    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><line x1="6.3" y1="17.7" x2="17.7" y2="6.3"/></svg>
+                  </div>
+                  <span class="cthint">A gap between groups, never a rule</span>
+                </div>
+                <div class="gal-name hidden">toolbar-buttons</div>
+              </div>
+
+              <div class="gal-cell">
+                <div class="sec-lbl">Text field</div>
+                <div class="row" data-shot="input">
+                  <input type="text" class="input" value="Sample name" spellcheck="false"/>
+                  <span class="input-unit">px</span>
+                </div>
+                <div class="gal-name hidden">input</div>
+              </div>
+
+              <div class="gal-cell">
+                <div class="sec-lbl">Number field, with its own stepper</div>
+                <div class="row" data-shot="number">
+                  <div class="numwrap">
+                    <input type="number" id="num" class="input" value="150" min="40" max="400" step="10"/>
+                    <div class="spin">
+                      <div class="spin-b" data-step-for="num" data-dir="1" title="Increase">
+                        <svg viewBox="0 0 10 6"><path d="M5 0.7 9.2 5.5 0.8 5.5z"/></svg>
+                      </div>
+                      <div class="spin-b" data-step-for="num" data-dir="-1" title="Decrease">
+                        <svg viewBox="0 0 10 6"><path d="M5 5.3 0.8 0.5 9.2 0.5z"/></svg>
+                      </div>
+                    </div>
+                  </div>
+                  <span class="input-unit">px</span>
+                </div>
+                <div class="gal-name hidden">number</div>
+              </div>
+
+              <div class="gal-cell">
+                <div class="sec-lbl">Dropdown</div>
+                <div class="row">
+                  <div class="combo" id="combo" tabindex="0" role="button" aria-haspopup="listbox"
+                       data-shot="dropdown"
+                       data-options="control|accent|surface-2|err" data-value="control">
+                    <span class="combo-v">control</span>
+                    <svg class="combo-c" viewBox="0 0 24 24"><polyline points="7.5 10 12 14.5 16.5 10"/></svg>
+                  </div>
+                </div>
+                <div class="gal-name hidden">dropdown</div>
+              </div>
+
+              <div class="gal-cell">
+                <div class="sec-lbl">The same one, open</div>
+                <div class="row">
+                  <div class="combo" id="comboOpen" tabindex="0" role="button" aria-haspopup="listbox"
+                       data-shot="dropdown-open"
+                       data-options="Gold Dark|Teal Dark|Slate Light|High Contrast" data-value="Teal Dark">
+                    <span class="combo-v">Teal Dark</span>
+                    <svg class="combo-c" viewBox="0 0 24 24"><polyline points="7.5 10 12 14.5 16.5 10"/></svg>
+                  </div>
+                </div>
+                <p class="note">
+                  The popup is a list in the page, drawn in the palette. A
+                  native one is handed to the platform, which paints it
+                  outside the page in colours of its own.
+                </p>
+                <button class="btn btn-2 btn-sm btn-wide" data-pose="dropdown-open">
+                  <span class="btn-label">Open it here</span>
+                </button>
+                <div class="gal-name hidden">dropdown-open</div>
+              </div>
+
+              <div class="gal-cell">
+                <div class="sec-lbl">Sliders</div>
+                <div data-shot="sliders">
+                  <div class="slrow">
+                    <span class="sl-l">Thin end</span>
+                    <input type="range" min="10" max="60" value="28" step="1"/>
+                    <span class="sl-v">28 px</span>
+                  </div>
+                  <div class="slrow">
+                    <span class="sl-l">Taper</span>
+                    <input type="range" min="0" max="160" value="38" step="1"/>
+                    <span class="sl-v">38 px</span>
+                  </div>
+                  <div class="slrow">
+                    <span class="sl-l">Joints</span>
+                    <input type="range" min="0" max="30" value="8" step="1"/>
+                    <span class="sl-v">8 px</span>
+                  </div>
+                </div>
+                <div class="gal-name hidden">sliders</div>
+              </div>
+
+              <div class="gal-cell">
+                <div class="sec-lbl">A list to choose from</div>
+                <div data-shot="chooser">
+                  <div class="mitem sel">
+                    <span class="mitem-name">Rounded</span><span class="mbadge">DEFAULT</span>
+                  </div>
+                  <div class="mitem">
+                    <span class="mitem-name">Sharp</span><span class="mbadge">FALLBACK</span>
+                  </div>
+                  <div class="mitem off" title="Not available here">
+                    <span class="mitem-name">Concave</span><span class="mbadge">OFF</span>
+                  </div>
+                </div>
+                <div class="gal-name hidden">chooser</div>
+              </div>
+
+              <div class="gal-cell wide">
+                <div class="sec-lbl">Step tabs, in their three states</div>
+                <div class="tabbar" data-shot="tabs">
+                  <div class="tab done"><div class="tn">1</div><span>Done</span></div>
+                  <div class="tab active"><div class="tn">2</div><span>Where you are</span></div>
+                  <div class="tab"><div class="tn">3</div><span>Not yet</span></div>
+                </div>
+                <div class="gal-name hidden">tabs</div>
+              </div>
+
+              <div class="gal-cell wide">
+                <div class="sec-lbl">Status pill</div>
+                <!-- Five states of one pill. A pill is 150 wide whatever it
+                     says, so five of them do not fit on a line here. -->
+                <div class="col" data-shot="status-pill">
+                  <div class="row">
+                    <div class="stpill"><div class="sd"></div><span>Ready</span></div>
+                    <div class="stpill"><div class="sd ok"></div><span>Done</span></div>
+                    <div class="stpill"><div class="sd warn"></div><span>Cancelled</span></div>
+                  </div>
+                  <div class="row">
+                    <div class="stpill"><div class="sd err"></div><span>Failed</span></div>
+                    <div class="stpill"><div class="sd busy"></div><span>Working</span></div>
+                  </div>
+                </div>
+                <div class="gal-name hidden">status-pill</div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- ── 3. the panel ──────────────────────────────────────────── -->
+          <div class="gal-sec" data-sec="2">
+            <div class="gal-h">What the side panel is made of</div>
+            <p class="note">
+              A panel is a header, a scrolling middle and a footer, and the
+              middle is these. Nothing in it draws a line to separate one
+              thing from the next: the fill does that.
+            </p>
+            <div class="gal-grid">
+
+              <div class="gal-cell">
+                <div class="sec-lbl">Label and body copy</div>
+                <div data-shot="labels">
+                  <div class="sec-lbl">Where the name ends</div>
+                  <p class="note">
+                    A sentence is never fainter than text-3, and the label
+                    above it is the one place text-4 is allowed to carry
+                    words.
+                  </p>
+                </div>
+                <div class="gal-name hidden">labels</div>
+              </div>
+
+              <div class="gal-cell">
+                <div class="sec-lbl">Card</div>
+                <div class="card col" data-shot="card">
+                  <p class="note">
+                    A card is another surface and a radius of six. It holds a
+                    note, a row of controls, or both.
+                  </p>
+                  <div class="row">
+                    <span class="note grow">Cut once, painted twice</span>
+                    <span class="chip chip-accent">titlebar.js</span>
+                  </div>
+                </div>
+                <div class="gal-name hidden">card</div>
+              </div>
+
+              <div class="gal-cell">
+                <div class="sec-lbl">Chips</div>
+                <div class="row" data-shot="chips">
+                  <span class="chip">plain</span>
+                  <span class="chip chip-accent">accent</span>
+                  <span class="chip chip-warn">caution</span>
+                  <span class="chip chip-err">error</span>
+                </div>
+                <div class="gal-name hidden">chips</div>
+              </div>
+
+              <div class="gal-cell">
+                <div class="sec-lbl">Callouts</div>
+                <div class="col" data-shot="callouts">
+                  <div class="callout">A paragraph to take in before going on.</div>
+                  <div class="callout callout-accent">The step you are on needs
+                    <b>one more input</b> before it can run.</div>
+                  <div class="callout callout-warn">Nothing is loaded yet, so
+                    the next step cannot run.</div>
+                  <div class="callout callout-err">The last export wrote a file
+                    that could not be read back.</div>
+                </div>
+                <div class="gal-name hidden">callouts</div>
+              </div>
+
+              <div class="gal-cell">
+                <div class="sec-lbl">Metric rows</div>
+                <div data-shot="metrics">
+                  <div class="mg" data-group="accent">The band</div>
+                  <div class="mrow active" data-group="accent"><span class="ml">Thin end</span><span class="mv">28 px</span></div>
+                  <div class="mrow" data-group="accent"><span class="ml">Taper</span><span class="mv">38 px</span></div>
+                  <div class="mg" data-group="ok">The job</div>
+                  <div class="mrow" data-group="ok"><span class="ml">Reports</span><span class="mv">41</span></div>
+                </div>
+                <div class="gal-name hidden">metrics</div>
+              </div>
+
+              <div class="gal-cell">
+                <div class="sec-lbl">Key and value rows</div>
+                <div data-shot="rows">
+                  <div class="pi-row"><span class="pi-l">Name</span><span>sample.tif</span></div>
+                  <div class="pi-row"><span class="pi-l">Type</span><span>image/tiff</span></div>
+                  <div class="pi-row"><span class="pi-l">Size</span><span class="num">204.8 kB</span></div>
+                </div>
+                <div class="gal-name hidden">rows</div>
+              </div>
+
+              <div class="gal-cell">
+                <div class="sec-lbl">Status words</div>
+                <div class="card" data-shot="status-words">
+                  <p class="note">
+                    A word in a status colour and nothing behind it:
+                    <span class="text-ok">passed</span>,
+                    <span class="text-warn">close</span>,
+                    <span class="text-err">short</span>.
+                    Each clears 4.5:1 on every surface in every palette.
+                  </p>
+                </div>
+                <div class="gal-name hidden">status-words</div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- ── 4. the overlays ───────────────────────────────────────── -->
+          <div class="gal-sec" data-sec="3">
+            <div class="gal-h">Over the work area</div>
+            <p class="note">
+              The last three are shot from the live overlay, since a scrim and
+              a toast belong to the window and not to a cell. The buttons here
+              put them on screen; a click on the scrim, or the red button in
+              the toolbar, takes them off again.
+            </p>
+            <div class="gal-grid">
+
+              <div class="gal-cell wide">
+                <div class="sec-lbl">Drop zone</div>
+                <div class="dz" data-shot="drop-zone">
+                  <svg viewBox="0 0 24 24"><path d="M12 15.5V3.8"/><polyline points="7.6 8.2 12 3.8 16.4 8.2"/><path d="M4 15.2v3.2A1.6 1.6 0 0 0 5.6 20h12.8a1.6 1.6 0 0 0 1.6-1.6v-3.2"/></svg>
+                  <div class="dz-lbl">Drop a file here</div>
+                  <div class="dz-sub">or click to pick one</div>
+                </div>
+                <div class="gal-name hidden">drop-zone</div>
+              </div>
+
+              <div class="gal-cell wide">
+                <div class="sec-lbl">The same card with a file over it</div>
+                <div class="dz dzover" data-shot="drop-zone-over">
+                  <svg viewBox="0 0 24 24"><path d="M12 15.5V3.8"/><polyline points="7.6 8.2 12 3.8 16.4 8.2"/><path d="M4 15.2v3.2A1.6 1.6 0 0 0 5.6 20h12.8a1.6 1.6 0 0 0 1.6-1.6v-3.2"/></svg>
+                  <div class="dz-lbl">Drop a file here</div>
+                  <div class="dz-sub">no dashed outline, a tint</div>
+                </div>
+                <div class="gal-name hidden">drop-zone-over</div>
+              </div>
+
+              <div class="gal-cell">
+                <div class="sec-lbl">Drawn over the stage</div>
+                <div class="gal-stage" data-shot="stage-chrome">
+                  <div class="covl">
+                    <div>band</div>
+                    <div>fill: control</div>
+                  </div>
+                  <div class="czoom">100 %</div>
+                </div>
+                <p class="note">
+                  Both sit on the overlay role, which is opaque enough to read
+                  over a photograph, so neither needs an outline.
+                </p>
+                <div class="gal-name hidden">stage-chrome</div>
+              </div>
+
+              <div class="gal-cell">
+                <div class="sec-lbl">Toast</div>
+                <p class="note">
+                  One line at the bottom of the window, gone after a couple of
+                  seconds, for what does not deserve a dialogue.
+                </p>
+                <button class="btn btn-2 btn-sm btn-wide" data-pose="toast">
+                  <span class="btn-label">Show the toast</span>
+                </button>
+                <div class="gal-name hidden">toast</div>
+              </div>
+
+              <div class="gal-cell">
+                <div class="sec-lbl">The scrim, with a spinner</div>
+                <p class="note">
+                  Work with no percentage to report. The scrim leaves the
+                  title bar and the rail on screen, so the window never turns
+                  into a black rectangle.
+                </p>
+                <button class="btn btn-2 btn-sm btn-wide" data-pose="spinner">
+                  <span class="btn-label">Show the spinner</span>
+                </button>
+                <div class="gal-name hidden">spinner</div>
+              </div>
+
+              <div class="gal-cell">
+                <div class="sec-lbl">The scrim, with a progress card</div>
+                <p class="note">
+                  Work that can count. The fill moves by transform, which the
+                  compositor does on its own, and never by width.
+                </p>
+                <button class="btn btn-2 btn-sm btn-wide" data-pose="progress">
+                  <span class="btn-label">Show the card</span>
+                </button>
+                <div class="gal-name hidden">progress</div>
+              </div>
+
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ side panel: the eight palettes ═══════════════════════════════════ -->
+    <div class="rp" data-shot="panel" data-pad="0">
+      <div class="rp-page show">
+        <div class="rp-hd">
+          <div class="rp-title">Palettes</div>
+          <div class="rp-sub">Eight, and the whole page follows the pick</div>
+        </div>
+        <div class="rp-scroll">
+          <div class="sec-lbl">The eight</div>
+          <div id="palettes"></div>
+          <p class="note">
+            Nothing in the stylesheets names a colour, so there is one set of
+            rules and eight palettes, not one set per scheme. The catalogue is
+            shot in all of them.
+          </p>
+        </div>
+        <div class="rp-foot">
+          <button class="btn btn-primary btn-wide" id="btnDefault">
+            <svg viewBox="0 0 24 24"><polyline points="4 5.5 4 11 9.5 11"/><path d="M4.6 15a8 8 0 1 0 1.2-7"/></svg>
+            <span class="btn-label">Back to the default</span>
+          </button>
+          <div class="rp-nav">
+            <button class="btn btn-2 btn-grow" id="btnPrev">
+              <svg viewBox="0 0 24 24"><polyline points="14.5 5 7.5 12 14.5 19"/></svg>
+              <span class="btn-label">Previous</span>
+            </button>
+            <button class="btn btn-2 btn-grow" id="btnNext">
+              <span class="btn-label">Next</span>
+              <svg class="r" viewBox="0 0 24 24"><polyline points="9.5 5 16.5 12 9.5 19"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ the eight resize strips of a frameless window ═════════════════════════ -->
+<div class="rz rz-n"  data-edge="n"></div>
+<div class="rz rz-s"  data-edge="s"></div>
+<div class="rz rz-w"  data-edge="w"></div>
+<div class="rz rz-e"  data-edge="e"></div>
+<div class="rz rz-nw" data-edge="nw"></div>
+<div class="rz rz-ne" data-edge="ne"></div>
+<div class="rz rz-sw" data-edge="sw"></div>
+<div class="rz rz-se" data-edge="se"></div>
+
+<div class="toast" id="toast" data-shot="toast"></div>
+
+<div class="scrim" id="busy">
+  <div class="busy-card" data-shot="spinner">
+    <div class="spinner"></div>
+    <div class="busy-text">Working on something with no percentage</div>
+  </div>
+</div>
+
+<div class="scrim" id="job">
+  <div class="progress-card" data-shot="progress">
+    <div class="progress-title">Running the job</div>
+    <div class="progress-pct">
+      <span class="progress-num" id="jobPct">62</span><span class="progress-sym">%</span>
+    </div>
+    <div class="progress-track"><div class="progress-fill" id="jobFill"></div></div>
+    <div class="progress-stage">Building the patch</div>
+  </div>
+</div>
+
+<!-- Qt serves the channel's own script out of its resources, and it has to be
+     there before bridge.js. Then SlantUI's four scripts, then this page. -->
+<script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+<script src="slantui.js"></script>
+<script src="gallery.js"></script>
+</body>
+</html>

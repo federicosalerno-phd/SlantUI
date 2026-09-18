@@ -1,0 +1,86 @@
+/* ============================================================================
+   Reset, document defaults, scrollbars, form control baselines, and the few
+   helpers every page uses.
+
+   Nothing here knows about any one application, only about "a SlantUI
+   window". The shell is layout.css, the widgets are components.css. Colours
+   arrive from palettes.css through the roles and are never written here as
+   values.
+   ========================================================================== */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+html,body{
+  width:100vw;height:100vh;overflow:hidden;
+  background:var(--surface-0);color:var(--text-1);
+  font-family:var(--font);font-size:var(--fs);line-height:1.45;
+  -webkit-font-smoothing:antialiased;
+}
+/* color-scheme is set next to the colours, in palettes.css, so the few
+   controls the engine paints itself (the number field's stepper is the one
+   that shows) follow the palette and not the page. */
+
+/* The window is a tool, not a document: no accidental text selection while
+   clicking on a canvas or dragging something. Inputs opt back in. */
+body{user-select:none;cursor:default}
+input,textarea{user-select:text}
+
+::selection{background:var(--accent);color:var(--on-accent)}
+
+button,input,select{font-family:inherit;font-size:inherit;color:inherit;outline:none}
+
+/* The engine's own number stepper is a small box with two triangles on it,
+   painted in the platform's colours, and its fill cannot be styled away. It is
+   removed here; the page draws the two triangles itself (.spin in
+   components.css, numStep() in js/widgets.js). */
+input[type=number]{-moz-appearance:textfield}
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+button{border:none;background:none;cursor:pointer}
+button:disabled{cursor:default}
+/* A page is better off with .combo, whose popup is drawn in the page and in
+   the palette. A page that keeps a native select gets at least the house
+   rule: the engine draws it with a grey hairline frame, and nothing in a
+   SlantUI window has a contour. */
+select{border:none}
+
+/* Keyboard focus stays visible, as an inset ring: nothing in a SlantUI window
+   draws an outline around a control. Mouse focus shows nothing. The ring is
+   the accent's text shade and not its fill, because on a light palette the
+   fill can vanish against a grey control and the text shade cannot. */
+:focus-visible{outline:none;box-shadow:inset 0 0 0 2px var(--accent-text)}
+
+/* Thin scrollbars. */
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--control);border-radius:var(--r-xs)}
+::-webkit-scrollbar-thumb:hover{background:var(--control-hover)}
+
+/* ── shared helpers ───────────────────────────────────────────────────────── */
+/* `gap` is unreliable in the Chromium shipped with Qt 5.15 (the PyQt5 fallback
+   path), so every spacing that matters is expressed with margins instead. */
+.row{display:flex;align-items:center}
+.row>*+*{margin-left:8px}
+.col{display:flex;flex-direction:column}
+.col>*+*{margin-top:8px}
+.grow{flex:1;min-width:0;min-height:0}
+.hidden{display:none !important}
+/* Invisible but still taking its space, so nothing next to it moves. */
+.ghost{visibility:hidden}
+
+/* Section label above a group of controls in the side panel. text-4 is the
+   one text role held to the 3:1 floor, and an uppercase label of two or three
+   words is the reason it exists. */
+.sec-lbl{
+  font-size:var(--fs-xs);font-weight:600;letter-spacing:.8px;text-transform:uppercase;
+  color:var(--text-4);padding:9px 0 4px;
+}
+.sec-lbl:first-child{padding-top:2px}
+
+/* Body copy inside the side panel. A sentence is never fainter than text-3. */
+.note{font-size:var(--fs-sm);color:var(--text-3);line-height:1.75}
+.num{font-variant-numeric:tabular-nums}
+
+/* A word in a status colour with nothing behind it. */
+.text-ok{color:var(--ok-text)}
+.text-warn{color:var(--warn-text)}
+.text-err{color:var(--err-text)}

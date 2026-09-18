@@ -1,0 +1,23 @@
+/* ============================================================================
+   What this page adds to SlantUI, which is as little as it sounds.
+
+   Three rules. Everything else on screen is a class out of layout.css or
+   components.css. The house rule holds here too: no colour is written as a
+   value, only as a role, so this file is right on all eight palettes.
+   ========================================================================== */
+
+/* The brand mark is an inline SVG filled with currentColor, so it takes the
+   accent of whatever palette is on. */
+.tbar-logo{color:var(--accent)}
+
+/* A dropdown stretches to its container, so the one in the top bar gets a
+   container with a width. */
+.palette-pick{width:158px;display:flex;flex-shrink:0}
+
+/* The word next to a glyph goes in a .btn-label, and a page that runs out of
+   width hides them and keeps the glyphs. The breakpoint belongs to the page,
+   since it depends on how many steps and actions the page has: four tabs of
+   --tab-w, the palette picker, one button and the status pill. */
+@media (max-width: 1080px){
+  .tb-r .btn-label{display:none}
+}

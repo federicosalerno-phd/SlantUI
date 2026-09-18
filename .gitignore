@@ -1,0 +1,19 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.venv/
+venv/
+docs/shots/
+
+# Written next to a page by the script that opens it, out of the library.
+examples/*/ui/slantui.css
+examples/*/ui/slantui.js
+docs/slantui.css
+docs/slantui.js
+
+# The working log. It names the applications this design came out of, so it
+# stays out of the repository.
+HANDOFF.md

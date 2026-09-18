@@ -1,0 +1,133 @@
+/* ============================================================================
+   The window shell: title bar, step rail, work area, side panel.
+   Structure and sizing only; how the widgets inside look is components.css.
+
+   No hairline dividers anywhere: bands are told apart by their fill. The
+   surfaces step from the window edge inwards. surface-1 is every band fixed
+   to the edge (title bar, step rail, side panel), surface-2 is a strip inside
+   the work area, surface-0 is the stage itself, and surface-3 is what is
+   raised above a band, such as the side panel's header and footer. That tells
+   them apart without drawing a line.
+
+   The shell is classes, not ids, so a page can give its elements whatever ids
+   it likes and js/titlebar.js still finds the parts it needs:
+
+     .app
+       .titlebar   .tbar-band .tbar-brand .tbar-drag .tbar-credit .tbar-btns
+       .topbar     .tabbar .tb-gap .tb-r
+       .work
+         .main     .toolbar .stage
+         .rp       .rp-page .rp-hd .rp-scroll .rp-foot
+   ========================================================================== */
+.app{display:flex;flex-direction:column;width:100vw;height:100vh;overflow:hidden}
+
+/* ── title bar ────────────────────────────────────────────────────────────── */
+/* The window is frameless, so this is the title bar. One band across the whole
+   window: thick on the left under the name, then a straight taper, then thin to
+   the right edge under the window buttons. The shape itself is clipped onto
+   .tbar-band by js/titlebar.js, which is also what rounds the two joints. */
+.titlebar{
+  position:relative;
+  height:var(--tbar-h);flex-shrink:0;
+  display:flex;align-items:flex-start;
+  background:var(--surface-1);
+}
+/* The band's fill is a flat palette colour, the one secondary controls use,
+   never a gradient. */
+.tbar-band{position:absolute;inset:0;background:var(--control);pointer-events:none}
+
+.tbar-brand{
+  position:relative;flex-shrink:0;
+  height:var(--tbar-h);display:flex;align-items:center;
+  padding:0 16px 0 14px;
+}
+.tbar-logo{width:22px;height:22px;flex-shrink:0;margin-right:11px;border-radius:5px}
+.tbar-name{
+  font-family:var(--font-brand);
+  font-size:14.5px;font-weight:400;letter-spacing:.15px;
+  color:var(--text-2);white-space:nowrap;
+}
+.tbar-name b{font-weight:600;color:var(--text-1);letter-spacing:.4px}
+
+.tbar-drag{flex:1;min-width:0;height:var(--tbar-h)}
+/* The credit line sits in the thin part of the band, centred on the window.
+   js/titlebar.js writes its text, and the licence says it stays at this size.
+   It takes no pointer events, so the bar still drags under it. */
+.tbar-credit{
+  position:absolute;left:50%;top:0;transform:translateX(-50%);
+  height:var(--tbar-thin);display:flex;align-items:center;
+  font-family:'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif;
+  font-size:11px;font-weight:400;font-style:italic;letter-spacing:.25px;
+  color:var(--text-4);white-space:nowrap;pointer-events:none;
+}
+/* The buttons live in the thin part of the band. */
+.tbar-btns{position:relative;display:flex;height:var(--tbar-thin);flex-shrink:0}
+
+/* ── top bar: the step rail and the actions, on one line ──────────────────── */
+.topbar{
+  height:var(--tab-h);flex-shrink:0;
+  display:flex;align-items:center;
+  padding:0 10px;
+  background:var(--surface-1);
+}
+.tabbar{display:flex;align-items:center;min-width:0;flex-shrink:1}
+.tabbar>*+*{margin-left:3px}
+/* Pushes the actions to the right edge. */
+.tb-gap{flex:1;min-width:8px}
+.tb-r{display:flex;align-items:center;flex-shrink:0}
+.tb-r>*+*{margin-left:7px}
+
+/* ── work area ────────────────────────────────────────────────────────────── */
+.work{flex:1;min-height:0;display:flex;overflow:hidden}
+.main{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden}
+
+/* A strip of small controls above the stage. It is on every screen, so the
+   stage under it never moves; what a screen cannot use is hidden in place
+   with .ghost, never removed. */
+.toolbar{
+  height:32px;flex-shrink:0;
+  display:flex;align-items:center;padding:0 8px;
+  background:var(--surface-2);
+}
+.toolbar>*+*{margin-left:3px}
+
+/* The stage: whatever the application shows, a canvas, a viewer or a form,
+   centred on the window backdrop. A canvas put straight inside it fills it. */
+.stage{
+  flex:1;min-height:0;position:relative;overflow:hidden;
+  background:var(--surface-0);
+  display:flex;align-items:center;justify-content:center;
+}
+.stage>canvas{position:absolute;top:0;left:0;display:block;width:100%;height:100%}
+
+/* ── side panel ───────────────────────────────────────────────────────────── */
+.rp{
+  width:var(--rp-w);flex-shrink:0;
+  display:flex;flex-direction:column;overflow:hidden;
+  background:var(--surface-1);
+}
+/* One page per step; the current one carries .show. */
+.rp-page{display:none;flex-direction:column;flex:1;overflow:hidden}
+.rp-page.show{display:flex}
+.rp-hd{padding:11px 14px 11px;background:var(--surface-3);flex-shrink:0}
+.rp-title{font-size:var(--fs-lg);font-weight:600;color:var(--text-1)}
+.rp-sub{font-size:var(--fs-sm);color:var(--text-3);margin-top:2px}
+
+.rp-scroll{flex:1;min-height:0;overflow-y:auto;padding:9px 13px 12px}
+/* 5px of the track are given away so the thumb never ends up under the
+   window's right resize strip. */
+.rp-scroll::-webkit-scrollbar{width:11px}
+.rp-scroll::-webkit-scrollbar-thumb{
+  background:var(--control);border-radius:3px;
+  border:3px solid transparent;border-right-width:6px;background-clip:content-box;
+}
+.rp-scroll::-webkit-scrollbar-thumb:hover{background:var(--control-hover);background-clip:content-box}
+
+.rp-foot{
+  flex-shrink:0;padding:11px 13px;
+  background:var(--surface-3);
+  display:flex;flex-direction:column;
+}
+.rp-foot>*+*{margin-top:7px}
+.rp-nav{display:flex}
+.rp-nav>*+*{margin-left:8px}

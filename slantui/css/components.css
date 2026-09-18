@@ -1,0 +1,423 @@
+/* ============================================================================
+   Widgets.
+
+   House rule: fills, never outlines. No control has a border. A button, a
+   chip or a card is told apart from what is behind it by being another
+   surface, and its states are fills too: rest, hover, selected. Nothing draws
+   a hairline to separate content either; bands change colour instead.
+
+   Every colour is a role from palettes.css. A widget that needs a colour the
+   roles cannot give it is a widget that needs a new role, not a hex value.
+
+   Rules of thumb:
+     primary button  = accent fill, on-accent text, radius 5
+     secondary       = control fill, radius 5
+     input           = surface-3 fill, height 32, radius 4, accent caret
+     card            = surface-3 fill, radius 6
+   ========================================================================== */
+
+/* -- buttons --------------------------------------------------------------- */
+/* Fixed heights, so a taller glyph in a label can never move a row. */
+.btn{
+  display:flex;align-items:center;justify-content:center;
+  height:31px;border-radius:var(--r);font-size:var(--fs);font-weight:500;
+  padding:0 12px;transition:background var(--t-out),color var(--t-chg);
+  white-space:nowrap;
+}
+.btn svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:1.8;
+         stroke-linecap:round;stroke-linejoin:round;margin-right:7px;flex-shrink:0}
+/* Trailing glyph (the chevron on Next): same icon set, other side. Every glyph
+   is an inline SVG stroked with the button's own text colour, so it can never
+   be a stray white dingbat from a fallback font. */
+.btn svg.r{margin-right:0;margin-left:7px}
+.btn svg.r:first-child{margin-left:0}
+
+/* primary: the one action that moves the workflow forward */
+.btn-primary{background:var(--accent);color:var(--on-accent);font-weight:600}
+.btn-primary:hover:not(:disabled){background:var(--accent-hover)}
+.btn-primary:active:not(:disabled){background:var(--accent-active)}
+.btn-primary:disabled{background:var(--control);color:var(--text-4)}
+
+/* secondary: everything else */
+.btn-2{background:var(--control);color:var(--text-2)}
+.btn-2:hover:not(:disabled){background:var(--control-hover);color:var(--text-1)}
+.btn-2:active:not(:disabled){background:var(--control-active)}
+.btn-2:disabled{background:var(--surface-2);color:var(--text-4)}
+
+/* destructive */
+.btn-danger{background:var(--err-surface);color:var(--err-text)}
+.btn-danger:hover:not(:disabled){background:var(--err-surface-hover)}
+
+.btn-wide{width:100%}
+.btn-grow{flex:1}
+.btn-sm{height:27px;padding:0 10px;font-size:var(--fs-sm)}
+/* The word next to a glyph goes in a .btn-label span. A page that runs out
+   of width hides those in a media query of its own and keeps the glyphs; the
+   breakpoint depends on how many steps and actions it has, so it is not
+   written here. */
+
+/* -- the one motion material ----------------------------------------------- */
+/* Everything above and below transitions over --t-out, and these take
+   --t-in on the way in. A control that answers the pointer faster than it
+   lets go feels like a thing being pressed; the same duration both ways
+   feels like a slide. */
+.btn:hover,.wbtn:hover,.ct:hover,.tab:hover,.combo:hover,.combo.open,
+.combo-opt:hover,.mitem:hover,.mrow:hover,.dz:hover,.spin-b:hover,
+.toast.show{transition-duration:var(--t-in)}
+
+/* -- window buttons -------------------------------------------------------- */
+.wbtn{
+  width:42px;height:100%;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;color:var(--text-3);
+  transition:background var(--t-out),color var(--t-chg);
+}
+.wbtn svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:1.35;
+          stroke-linecap:round;stroke-linejoin:round}
+/* The buttons sit on the band, whose fill is control, so the hover has to be
+   the next step up or it would not show. */
+.wbtn:hover{background:var(--control-hover);color:var(--text-1)}
+.wbtn-close:hover{background:var(--err);color:var(--on-status)}
+
+/* -- window resize edges (frameless window) -------------------------------- */
+/* Thin invisible strips; the drag itself is handed to Windows, which is why
+   snapping and edge magnetism still work. */
+.rz{position:fixed;z-index:10001}
+.rz-n{top:0;left:12px;right:12px;height:5px;cursor:ns-resize}
+.rz-s{bottom:0;left:12px;right:12px;height:5px;cursor:ns-resize}
+.rz-w{left:0;top:12px;bottom:12px;width:5px;cursor:ew-resize}
+.rz-e{right:0;top:12px;bottom:12px;width:5px;cursor:ew-resize}
+.rz-nw{top:0;left:0;width:12px;height:12px;cursor:nwse-resize}
+.rz-ne{top:0;right:0;width:12px;height:12px;cursor:nesw-resize}
+.rz-sw{bottom:0;left:0;width:12px;height:12px;cursor:nesw-resize}
+.rz-se{bottom:0;right:0;width:12px;height:12px;cursor:nwse-resize}
+body.maximized .rz{display:none}
+
+/* -- status pill ----------------------------------------------------------- */
+/* One width whatever the text says, so nothing to its left moves when the
+   status changes. Long texts are cut short. */
+.stpill{
+  display:flex;align-items:center;flex-shrink:0;width:150px;
+  padding:5px 11px;border-radius:var(--r-pill);
+  font-size:var(--fs-sm);color:var(--text-3);background:var(--surface-2);
+}
+.stpill span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sd{width:6px;height:6px;border-radius:50%;background:var(--text-4);
+    margin-right:7px;flex-shrink:0;transition:background var(--t-chg)}
+.sd.ok{background:var(--ok)}
+.sd.warn{background:var(--warn)}
+.sd.err{background:var(--err)}
+.sd.busy{background:var(--accent);animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+
+/* -- step tabs ------------------------------------------------------------- */
+/* The selected step is an accent tinted pill, not an underline. All tabs are
+   the same width and left aligned, so the numbers and the initials line up.
+   A step not yet reached is text-4 on purpose: it recedes. */
+.tab{
+  display:flex;align-items:center;justify-content:flex-start;
+  width:var(--tab-w);min-width:84px;flex-shrink:1;
+  padding:7px 11px;border-radius:var(--r);
+  cursor:pointer;font-size:var(--fs);font-weight:500;color:var(--text-4);
+  white-space:nowrap;overflow:hidden;transition:background var(--t-out),color var(--t-chg);
+}
+.tab span{overflow:hidden;text-overflow:ellipsis}
+.tab:hover{background:var(--control);color:var(--text-2)}
+.tab.active{background:var(--accent-surface);color:var(--accent-text)}
+.tab.done{color:var(--text-3)}
+.tn{
+  width:17px;height:17px;border-radius:50%;flex-shrink:0;margin-right:8px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:10px;font-weight:600;
+  background:var(--control);color:var(--text-4);
+  transition:background var(--t-out),color var(--t-chg);
+}
+.tab.active .tn{background:var(--accent);color:var(--on-accent)}
+.tab.done .tn{background:var(--accent-surface-hover);color:var(--accent-text)}
+
+/* -- toolbar buttons ------------------------------------------------------- */
+.ct{
+  width:24px;height:24px;border-radius:var(--r-xs);flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;color:var(--text-3);
+  transition:background var(--t-out),color var(--t-chg);
+}
+.ct svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.8;
+        stroke-linecap:round;stroke-linejoin:round}
+.ct:hover{background:var(--control);color:var(--text-1)}
+.ct.on{background:var(--control);color:var(--accent-text)}
+.ct.danger{color:var(--err-text)}
+.ct.danger:hover{background:var(--err-surface)}
+/* A gap, not a rule: toolbar groups are separated by space. */
+.ctsep{width:10px;flex-shrink:0}
+/* A hint for the current tool, a sentence long, so it is text-3. */
+.cthint{font-size:var(--fs-sm);color:var(--text-3);margin-left:6px;flex:1;
+        overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* The file that is open, at the far end of the toolbar. */
+.ct-file{width:13px;height:13px;flex-shrink:0;margin:0 7px 0 10px;
+         stroke:var(--text-4);fill:none;stroke-width:1.7;
+         stroke-linecap:round;stroke-linejoin:round}
+.ct-fname{font-size:var(--fs-sm);color:var(--text-3);flex-shrink:0;max-width:280px;
+          overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* -- on stage chrome ------------------------------------------------------- */
+/* Drawn over content of unknown colour, a photograph usually. The overlay
+   role is opaque enough to read on anything, so it needs no outline either. */
+.covl{
+  position:absolute;top:10px;left:10px;pointer-events:none;
+  background:var(--overlay);border-radius:var(--r-md);
+  padding:6px 10px;font-size:var(--fs-sm);color:var(--text-3);line-height:1.7;
+}
+.czoom{
+  position:absolute;bottom:8px;right:8px;pointer-events:none;
+  background:var(--overlay);border-radius:var(--r-xs);
+  padding:4px 9px;font-size:11px;color:var(--text-4);
+}
+
+/* -- inputs ---------------------------------------------------------------- */
+/* Focus is an inset ring (no layout shift, no permanent outline). The fill
+   is surface-3: on a dark palette a step up from the panel, on a light one
+   the paper white a field is expected to be. */
+.input{
+  height:32px;width:100%;
+  background:var(--surface-3);color:var(--text-1);caret-color:var(--accent-text);
+  border:none;border-radius:var(--r-xs);
+  padding:0 12px;font-size:var(--fs);
+}
+.input:focus{box-shadow:inset 0 0 0 1px var(--accent-text)}
+.input::placeholder{color:var(--text-4)}
+.input-unit{font-size:var(--fs);color:var(--text-3);margin-left:8px;flex-shrink:0}
+
+/* Number stepper: two triangles on the input's own fill, nothing behind them.
+   Faint until the pointer is on the field, accent under the pointer. */
+.numwrap{position:relative;flex:1;min-width:0;display:flex}
+.numwrap .input{padding-right:28px}
+.spin{
+  position:absolute;right:7px;top:0;bottom:0;width:14px;
+  display:flex;flex-direction:column;justify-content:center;
+}
+.spin-b{
+  height:12px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;color:var(--text-4);
+  transition:color var(--t-chg);
+}
+.numwrap:hover .spin-b{color:var(--text-3)}
+.spin-b:hover{color:var(--accent-text)}
+.spin-b svg{width:9px;height:5.5px;fill:currentColor;stroke:none;display:block}
+
+/* -- dropdown (js/widgets.js) ---------------------------------------------- */
+/* A native <select> hands its popup to the platform, which paints it with its
+   own colours outside the page: inside the embedded browser you cannot see
+   which row you are about to pick. This one is a list in the page. */
+.combo{
+  flex:1;min-width:0;height:28px;display:flex;align-items:center;
+  padding:0 6px 0 10px;border-radius:var(--r-xs);cursor:pointer;
+  background:var(--control);color:var(--text-2);
+  transition:background var(--t-out),color var(--t-chg);
+}
+.combo:hover,.combo.open{background:var(--control-hover);color:var(--text-1)}
+.combo-v{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+       font-size:var(--fs)}
+.combo-c{width:13px;height:13px;flex-shrink:0;margin-left:4px;
+       stroke:currentColor;fill:none;stroke-width:1.9;
+       stroke-linecap:round;stroke-linejoin:round;opacity:.75}
+.combo.open .combo-c{transform:rotate(180deg)}
+/* Fixed position: no scroll container can clip it. A fill and a shadow tell it
+   from the panel behind, never an outline. */
+.combopop{
+  position:fixed;z-index:10002;
+  background:var(--surface-3);border-radius:var(--r-md);
+  padding:4px;box-shadow:0 10px 26px var(--shadow);
+}
+.combo-opt{
+  padding:6px 10px;border-radius:var(--r-xs);cursor:pointer;
+  font-size:var(--fs);color:var(--text-2);white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;
+}
+.combo-opt:hover{background:var(--control);color:var(--text-1)}
+.combo-opt.combo-on{background:var(--accent-surface);color:var(--accent-text);font-weight:600}
+.combo-opt.combo-on:hover{background:var(--accent-surface-hover)}
+
+/* -- sliders --------------------------------------------------------------- */
+/* An accent thumb on a track in the control fill. */
+input[type=range]{
+  -webkit-appearance:none;flex:1;min-width:0;height:3px;
+  background:var(--control);border-radius:2px;cursor:pointer;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:12px;height:12px;border-radius:50%;
+  background:var(--accent);cursor:pointer;
+}
+.slrow{display:flex;align-items:center;padding:4px 0}
+.slrow>*+*{margin-left:9px}
+/* The value has a fixed width: a longer one ("20.3 mm") must never shorten
+   the track, or the thumb would slide on its own. The labels are static. */
+.sl-l{font-size:var(--fs);color:var(--text-3);min-width:58px;flex-shrink:0}
+.sl-v{font-size:var(--fs);font-weight:600;width:56px;text-align:right;
+      color:var(--text-1);flex-shrink:0;white-space:nowrap;font-variant-numeric:tabular-nums}
+
+/* -- cards ----------------------------------------------------------------- */
+.card{background:var(--surface-3);border-radius:var(--r-md);padding:9px 12px}
+
+/* -- text that must never spill out of its box ----------------------------- */
+/* fitOneLine() in js/widgets.js measures scrollWidth against clientWidth, which
+   only means something when the text is on one line and the box clips. */
+.fit{white-space:nowrap;overflow:hidden}
+
+/* -- a list to choose from ------------------------------------------------- */
+/* One row per item, a name on the left and a badge on the right, one of them
+   selected. Rest is a card, hover is the control fill, selected is the accent
+   tint, and an item that cannot be chosen is faded. */
+.mitem{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:9px 11px;margin-bottom:5px;
+  background:var(--surface-3);border-radius:var(--r-md);
+  cursor:pointer;transition:background var(--t-out);
+}
+.mitem:hover{background:var(--control)}
+.mitem.sel{background:var(--accent-surface)}
+.mitem.sel:hover{background:var(--accent-surface-hover)}
+.mitem.off{opacity:.45;cursor:not-allowed}
+.mitem-name{font-size:var(--fs);font-weight:500;color:var(--text-2)}
+.mitem.sel .mitem-name{color:var(--accent-text)}
+.mbadge{font-size:10.5px;font-weight:600;padding:2px 8px;border-radius:var(--r-pill);
+        letter-spacing:.3px;background:var(--control);color:var(--text-4)}
+.mitem.sel .mbadge{background:var(--accent);color:var(--on-accent)}
+
+/* -- metric rows ----------------------------------------------------------- */
+/* A group heading with a dot in the group's own colour, which the page sets
+   as `color` on the heading, then rows of label and value. The marker is a
+   dot, not a rule. The active row carries a 3px bar in --gc, the group
+   colour the page sets on the row, or the accent when it set none. */
+.mg{
+  display:flex;align-items:center;
+  font-size:var(--fs-xs);font-weight:600;letter-spacing:.8px;text-transform:uppercase;
+  padding:14px 4px 6px;
+}
+.mg::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor;
+            margin-right:9px;flex-shrink:0}
+.mg:first-child{padding-top:3px}
+.mrow{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:5px 8px;border-radius:var(--r-xs);cursor:pointer;
+  font-size:var(--fs);transition:background var(--t-out);
+}
+.mrow:hover{background:var(--control)}
+.mrow.active{background:var(--control);box-shadow:inset 3px 0 0 var(--gc,var(--accent-text))}
+.ml{color:var(--text-3);flex:1;min-width:0;padding-right:8px}
+.mv{font-weight:600;color:var(--text-1);text-align:right;min-width:56px;
+    font-variant-numeric:tabular-nums;letter-spacing:.2px}
+
+/* -- key and value rows ---------------------------------------------------- */
+/* Separated by their own fill and a 3px gap instead of a rule. */
+.pi-row{
+  display:flex;justify-content:space-between;
+  padding:5px 9px;margin-bottom:3px;
+  background:var(--surface-3);border-radius:var(--r-xs);
+  font-size:var(--fs);
+}
+.pi-l{color:var(--text-3)}
+.pi-row span:last-child{font-variant-numeric:tabular-nums;color:var(--text-2)}
+
+/* -- inline chips ---------------------------------------------------------- */
+.chip{
+  display:inline-flex;align-items:center;
+  padding:5px 12px;border-radius:var(--r-pill);
+  font-size:var(--fs);font-weight:500;
+  background:var(--control);color:var(--text-3);
+}
+.chip-accent{background:var(--accent-surface);color:var(--accent-text)}
+.chip-warn{background:var(--warn-surface);color:var(--warn-text)}
+.chip-err{background:var(--err-surface);color:var(--err-text)}
+
+/* -- callout --------------------------------------------------------------- */
+/* A paragraph the reader has to take in before going on: a missing input, a
+   condition that changes what the next step does. It is a filled block in a
+   status tint, never a bordered box, and the text on it stays text-1 so the
+   tint carries the meaning and the sentence stays readable. */
+.callout{
+  padding:9px 12px;border-radius:var(--r-md);
+  font-size:var(--fs-sm);line-height:1.6;color:var(--text-1);
+  background:var(--surface-3);
+}
+.callout b{font-weight:600}
+.callout-accent{background:var(--accent-surface)}
+.callout-warn{background:var(--warn-surface)}
+.callout-err{background:var(--err-surface)}
+
+/* -- toast ----------------------------------------------------------------- */
+.toast{
+  position:fixed;bottom:16px;left:50%;
+  transform:translateX(-50%) translateY(6px);
+  background:var(--control);border-radius:var(--r-md);
+  padding:9px 16px;font-size:var(--fs);color:var(--text-1);
+  opacity:0;transition:opacity var(--t-out),transform var(--t-out);pointer-events:none;
+  white-space:nowrap;z-index:9999;
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* -- the scrim and what sits on it ----------------------------------------- */
+/* While the application works, the work area sits under a scrim with one
+   filled card in the middle; the title bar and the steps stay on screen, so
+   the window never turns black. Shown and hidden instantly, and hidden means
+   display:none, not opacity 0: an invisible layer with a spinner turning in
+   it would keep the compositor producing a frame every vsync for as long as
+   the window is open. */
+.scrim{
+  position:fixed;left:0;right:0;bottom:0;top:calc(var(--tbar-h) + var(--tab-h));
+  background:var(--scrim);z-index:9998;
+  display:none;align-items:center;justify-content:center;
+}
+.scrim.show{display:flex}
+
+/* A spinner and a line of text. */
+.busy-card{
+  display:flex;flex-direction:column;align-items:center;
+  padding:22px 30px 20px;background:var(--surface-3);border-radius:var(--r-lg);
+}
+/* The one ring in the design that is geometry, not decoration. */
+.spinner{
+  width:24px;height:24px;border:2px solid var(--control);
+  border-top-color:var(--accent);border-radius:50%;animation:spin .65s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+.busy-text{font-size:var(--fs);color:var(--text-3);margin-top:12px}
+
+/* A title, a large percentage, a track, and a line naming the stage. */
+.progress-card{
+  width:300px;display:flex;flex-direction:column;align-items:center;
+  padding:28px 30px 24px;background:var(--surface-3);border-radius:var(--r-lg);
+}
+.progress-title{font-size:var(--fs);font-weight:500;color:var(--text-3);letter-spacing:.2px;margin-bottom:18px}
+.progress-pct{display:flex;align-items:flex-start;color:var(--text-1);line-height:1;margin-bottom:20px}
+.progress-num{font-size:52px;font-weight:300;letter-spacing:-1.5px;font-variant-numeric:tabular-nums}
+.progress-sym{font-size:20px;font-weight:300;color:var(--text-3);margin-top:5px;margin-left:3px}
+.progress-track{width:100%;height:3px;border-radius:var(--r-pill);background:var(--control);overflow:hidden}
+/* The fill moves through transform, which the compositor does on its own,
+   never through width, which is a layout. */
+.progress-fill{
+  height:100%;width:100%;border-radius:var(--r-pill);
+  transform:scaleX(0);transform-origin:left center;will-change:transform;
+  background:linear-gradient(90deg,var(--accent-active),var(--accent));
+}
+.progress-stage{font-size:var(--fs-sm);color:var(--text-4);margin-top:14px;min-height:16px;letter-spacing:.2px}
+
+/* -- drop zone ------------------------------------------------------------- */
+/* One card that takes a drop and opens a file dialog when clicked. No dashed
+   outline: with a file over it, the card takes the accent tint. The size is
+   a default for a page to override. */
+.dz{
+  width:440px;height:152px;
+  background:var(--surface-3);border-radius:var(--r-lg);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  cursor:pointer;color:var(--text-3);
+  transition:background var(--t-out),color var(--t-chg);
+}
+.dz:hover{background:var(--control);color:var(--text-1)}
+.dz.dzover{background:var(--accent-surface);color:var(--accent-text)}
+.dz svg{width:26px;height:26px;stroke:currentColor;fill:none;stroke-width:1.5;
+        stroke-linecap:round;stroke-linejoin:round;opacity:.65;margin-bottom:13px}
+.dz:hover svg,.dz.dzover svg{opacity:1}
+.dz-lbl{font-size:14px;font-weight:600;text-align:center;line-height:1.5;margin-bottom:6px}
+.dz-sub{font-size:var(--fs-sm);color:var(--text-4)}

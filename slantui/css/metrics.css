@@ -1,0 +1,67 @@
+/* SlantUI metrics: radii, type, and the geometry of the shell.
+   Written by `python -m slantui.tokens metrics -o slantui/css/metrics.css`
+   from slantui/tokens/metrics.py. Edit the Python and run that; a test fails
+   while this file is behind it.
+
+   Everything here is a length or a font and is the same on every palette. The
+   colours are in palettes.css. An application that wants a wider side panel or
+   a taller band redefines the property after this file is loaded, and every
+   rule that reads it follows.
+
+   The Python holds them because a toolkit that is not a browser cannot read a
+   stylesheet, and the four numbers under "the title band" are the shape of the
+   band itself. slantui/export writes the same values for WPF, for Unity and as
+   plain data. */
+
+:root{
+  /* radii, on one scale: 4 inputs, 5 buttons, 6 cards, 7 panels */
+  --r-xs:4px;         /* A field you type or pick into. */
+  --r:5px;            /* Anything you press: buttons, tabs, chips, rows. */
+  --r-md:6px;         /* A raised card, or a plate over the stage. */
+  --r-lg:7px;         /* A framed pane, a dialog, an image. */
+  --r-pill:99px;      /* A pill: any height, fully round ends. */
+
+  /* type */
+  /* Every piece of text but the application name. */
+  --font:'Segoe UI',system-ui,-apple-system,sans-serif;
+  /* The application name in the title bar, and nothing else. A modern humanist sans if */
+  /* the machine has one, Segoe UI Variable next on Windows 11, plain Segoe UI last. */
+  --font-brand:'Abadi','Abadi MT Std','Segoe UI Variable Display','Selawik','Segoe UI',system-ui,sans-serif;
+  /* Numbers in a column, paths, anything measured. */
+  --mono:Consolas,'Courier New',monospace;
+  --fs:12.5px;        /* Body. */
+  --fs-sm:11.5px;     /* Captions. */
+  --fs-xs:10px;       /* Uppercase section labels. */
+  --fs-lg:13.5px;     /* Panel titles. */
+
+  /* the title band */
+  /* The band runs the whole width of the window. Its lower profile, */
+  /* measured down from the window's top edge, is --tbar-h on the left */
+  /* (where the logo and the name are), then a straight oblique run of */
+  /* --tbar-slant, then --tbar-thin all the way to the right edge (where */
+  /* the window buttons are). The two vertices of that run are rounded by */
+  /* --tbar-join. slantui/geometry.py turns these four into the profile, */
+  /* and js/titlebar.js cuts the band to it. */
+  --tbar-h:44px;      /* The thick end, on the left, under the logo and the name. */
+  --tbar-thin:28px;   /* The thin end, on the right, under the window buttons. */
+  --tbar-slant:38px;  /* The horizontal run of the oblique between the two. */
+  --tbar-join:8px;    /* The radius the oblique's two vertices are rounded by. */
+
+  /* the step rail under it */
+  --tab-h:42px;       /* The height of the rail and of a step tab. */
+  /* Every step tab is this wide, so the numbers line up in one column and the initials */
+  /* in another. They shrink together, never one at a time, when the window is narrow. */
+  --tab-w:132px;
+
+  /* the side panel */
+  --rp-w:244px;       /* The width of the panel down the right. */
+
+  /* motion. One material, three durations */
+  /* A control answers the pointer faster than it lets go, which is what */
+  /* makes it feel like a thing and not a slide. The rule the components */
+  /* keep: everything transitions over --t-out, and the :hover state */
+  /* overrides the duration to --t-in. */
+  --t-in:120ms;       /* A control answering the pointer. */
+  --t-out:180ms;      /* The same control letting go. */
+  --t-chg:140ms;      /* A state changing on its own: a status dot, a step marked done. */
+}

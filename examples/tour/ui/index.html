@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en" data-palette="gold-dark">
+<head>
+<meta charset="UTF-8"/>
+<title>SlantUI Tour</title>
+<!-- Two files, both written next to this one by main.py: the five SlantUI
+     stylesheets in load order, then this page's own handful of rules. The
+     page's sheet comes last, so it can redefine a metric and every library
+     rule that reads it follows. -->
+<link rel="stylesheet" href="slantui.css"/>
+<link rel="stylesheet" href="app.css"/>
+</head>
+<body>
+<div class="app">
+
+  <!-- ══ title bar ══════════════════════════════════════════════════════════
+       The window is frameless, so this is the title bar. The band behind it
+       is cut to shape by titlebar.js, which also writes the credit line the
+       licence asks for into a .tbar-credit of its own. Dragging the bar and
+       the three buttons go through the bridge to Qt, so Windows keeps doing
+       the snapping and the shadow itself. ================================== -->
+  <div class="titlebar">
+    <div class="tbar-band"></div>
+    <div class="tbar-brand">
+      <svg class="tbar-logo" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M2 4h20v5.6h-6.1L9.6 16.4H2z"/>
+      </svg>
+      <span class="tbar-name"><b>SlantUI</b>&nbsp;&nbsp;Tour</span>
+    </div>
+    <div class="tbar-drag"></div>
+    <div class="tbar-btns">
+      <div class="wbtn wbtn-min" title="Minimise">
+        <svg viewBox="0 0 12 12"><line x1="2" y1="6" x2="10" y2="6"/></svg>
+      </div>
+      <div class="wbtn wbtn-max" title="Maximise">
+        <svg viewBox="0 0 12 12"><rect x="2.5" y="2.5" width="7" height="7" rx="1"/></svg>
+      </div>
+      <div class="wbtn wbtn-close" title="Close">
+        <svg viewBox="0 0 12 12"><line x1="3" y1="3" x2="9" y2="9"/><line x1="9" y1="3" x2="3" y2="9"/></svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ step rail and the actions, on one line ═════════════════════════════
+       The window's own title bar already carries the name, so there is
+       nothing to put in a second band above this one. ===================== -->
+  <div class="topbar">
+    <div class="tabbar">
+      <div class="tab active" data-step="0"><div class="tn">1</div><span>Start</span></div>
+      <div class="tab" data-step="1"><div class="tn">2</div><span>Controls</span></div>
+      <div class="tab" data-step="2"><div class="tn">3</div><span>Run</span></div>
+      <div class="tab" data-step="3"><div class="tn">4</div><span>Results</span></div>
+    </div>
+
+    <div class="tb-gap"></div>
+
+    <div class="tb-r">
+      <!-- The palette switcher. Theme.setPalette() puts the slug on <html>,
+           where palettes.css keys on it, and tells the window through a slot
+           so the colour behind the page follows. -->
+      <div class="palette-pick">
+        <div class="combo" id="palette" tabindex="0" role="button" aria-haspopup="listbox"
+             data-options="Gold Dark|Gold Light|Teal Dark|Blue Dark|Purple Dark|Green Dark|Slate Light|High Contrast"
+             data-value="Gold Dark">
+          <span class="combo-v">Gold Dark</span>
+          <svg class="combo-c" viewBox="0 0 24 24"><polyline points="7.5 10 12 14.5 16.5 10"/></svg>
+        </div>
+      </div>
+      <button class="btn btn-2 btn-sm" id="btnAbout" title="What this window is made of">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16.5"/><line x1="12" y1="7.6" x2="12" y2="8"/></svg>
+        <span class="btn-label">About</span>
+      </button>
+      <div class="stpill"><div class="sd" id="sd"></div><span id="st">Ready</span></div>
+    </div>
+  </div>
+
+  <!-- ══ work area ══════════════════════════════════════════════════════════ -->
+  <div class="work">
+
+    <div class="main">
+
+      <!-- The toolbar is on every step, so the stage under it never moves.
+           What a step cannot use is hidden in place with .ghost. -->
+      <div class="toolbar">
+        <div class="ct" id="ctIn" title="Zoom in">
+          <svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><line x1="15.4" y1="15.4" x2="20" y2="20"/><line x1="7.6" y1="10.5" x2="13.4" y2="10.5"/><line x1="10.5" y1="7.6" x2="10.5" y2="13.4"/></svg>
+        </div>
+        <div class="ct" id="ctOut" title="Zoom out">
+          <svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><line x1="15.4" y1="15.4" x2="20" y2="20"/><line x1="7.6" y1="10.5" x2="13.4" y2="10.5"/></svg>
+        </div>
+        <div class="ct" id="ctFit" title="Fit the drawing to the stage">
+          <svg viewBox="0 0 24 24"><path d="M4 9.5V5.6A1.6 1.6 0 0 1 5.6 4h3.9"/><path d="M14.5 4h3.9A1.6 1.6 0 0 1 20 5.6v3.9"/><path d="M20 14.5v3.9a1.6 1.6 0 0 1-1.6 1.6h-3.9"/><path d="M9.5 20H5.6A1.6 1.6 0 0 1 4 18.4v-3.9"/></svg>
+        </div>
+        <div class="ctsep"></div>
+        <!-- A toggle: .ct.on is the state, set by the page. -->
+        <div class="ct" id="ctRoles" title="Name the roles the drawing uses">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 0 0 16z" fill="currentColor" stroke="none"/></svg>
+        </div>
+        <div class="ct danger" id="ctClear" title="Forget the file">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><line x1="6.3" y1="17.7" x2="17.7" y2="6.3"/></svg>
+        </div>
+        <span class="cthint" id="cthint">Drop a file on the card, or click it</span>
+        <svg class="ct-file hidden" id="fileIcon" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.8" cy="9" r="1.6"/><path d="M21 15l-5-5L5 21"/></svg>
+        <span class="ct-fname fit" id="fname"></span>
+      </div>
+
+      <!-- The stage. The canvas fills it (layout.css does that), the drop
+           zone is centred on it, and the two chrome boxes sit over both. -->
+      <div class="stage" id="stage">
+        <canvas id="cv"></canvas>
+
+        <div class="dz" id="dz">
+          <svg viewBox="0 0 24 24"><path d="M12 15.5V3.8"/><polyline points="7.6 8.2 12 3.8 16.4 8.2"/><path d="M4 15.2v3.2A1.6 1.6 0 0 0 5.6 20h12.8a1.6 1.6 0 0 0 1.6-1.6v-3.2"/></svg>
+          <div class="dz-lbl">Drop a file here</div>
+          <div class="dz-sub">or click to pick one</div>
+        </div>
+
+        <div class="covl hidden" id="covl">
+          <div id="covlA">band</div>
+          <div id="covlB">fill: control</div>
+        </div>
+        <div class="czoom hidden" id="czoom">100 %</div>
+      </div>
+    </div>
+
+    <!-- ══ side panel: one page per step, the current one carries .show ════ -->
+    <div class="rp">
+
+      <!-- ── step 1 ──────────────────────────────────────────────────────── -->
+      <div class="rp-page show" data-step="0">
+        <div class="rp-hd">
+          <div class="rp-title">Start</div>
+          <div class="rp-sub">Four steps, one of every widget in the set</div>
+        </div>
+        <div class="rp-scroll">
+          <div class="sec-lbl">What this is</div>
+          <p class="note">
+            A window built on SlantUI and nothing else. The band above, the rail
+            of steps, this panel and every control in it come from the library's
+            five stylesheets and four scripts.
+          </p>
+          <div class="sec-lbl">The file</div>
+          <p class="note">
+            Nothing is read off disk here. The card on the stage takes a drop and
+            hands the name to the toolbar, which is where fitOneLine() shortens a
+            long one and keeps the extension.
+          </p>
+          <div class="pi-row"><span class="pi-l">Name</span><span id="piName">none</span></div>
+          <div class="pi-row"><span class="pi-l">Type</span><span id="piType">none</span></div>
+          <div class="pi-row"><span class="pi-l">Size</span><span class="num" id="piSize">0</span></div>
+          <div class="sec-lbl">Palette</div>
+          <p class="note">
+            The switcher at the top right changes every colour on screen, in this
+            page and in the window behind it. Nothing in the stylesheets names a
+            colour, so there is no second set of rules for the light ones.
+          </p>
+        </div>
+        <div class="rp-foot">
+          <div class="rp-nav">
+            <button class="btn btn-2 btn-grow" disabled>
+              <svg viewBox="0 0 24 24"><polyline points="14.5 5 7.5 12 14.5 19"/></svg>
+              <span class="btn-label">Back</span>
+            </button>
+            <button class="btn btn-primary btn-grow" data-go="1">
+              <span class="btn-label">Controls</span>
+              <svg class="r" viewBox="0 0 24 24"><polyline points="9.5 5 16.5 12 9.5 19"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── step 2 ──────────────────────────────────────────────────────── -->
+      <div class="rp-page" data-step="1">
+        <div class="rp-hd">
+          <div class="rp-title">Controls</div>
+          <div class="rp-sub">Every one of these draws the shape on the stage</div>
+        </div>
+        <div class="rp-scroll">
+          <div class="sec-lbl">The band</div>
+          <div class="slrow">
+            <span class="sl-l">Thin end</span>
+            <input type="range" id="slThin" min="10" max="60" value="28" step="1"/>
+            <span class="sl-v" id="svThin">28 px</span>
+          </div>
+          <div class="slrow">
+            <span class="sl-l">Taper</span>
+            <input type="range" id="slSlant" min="0" max="160" value="38" step="1"/>
+            <span class="sl-v" id="svSlant">38 px</span>
+          </div>
+          <div class="slrow">
+            <span class="sl-l">Joints</span>
+            <input type="range" id="slJoin" min="0" max="30" value="8" step="1"/>
+            <span class="sl-v" id="svJoin">8 px</span>
+          </div>
+
+          <div class="sec-lbl">Fill</div>
+          <!-- Our own dropdown, not a native select: the popup a native one
+               opens is drawn by the platform outside the page, in the
+               platform's colours, and inside the embedded browser it comes up
+               unreadable. This one is a list in the page, in the palette. -->
+          <div class="combo" id="fill" tabindex="0" role="button" aria-haspopup="listbox"
+               data-options="control|accent|surface-2|err" data-value="control">
+            <span class="combo-v">control</span>
+            <svg class="combo-c" viewBox="0 0 24 24"><polyline points="7.5 10 12 14.5 16.5 10"/></svg>
+          </div>
+
+          <div class="sec-lbl">Where the name ends</div>
+          <div class="row">
+            <div class="numwrap">
+              <input type="number" id="brandW" class="input" value="150" min="40" max="400" step="10"/>
+              <div class="spin">
+                <div class="spin-b" data-step-for="brandW" data-dir="1" title="Increase">
+                  <svg viewBox="0 0 10 6"><path d="M5 0.7 9.2 5.5 0.8 5.5z"/></svg>
+                </div>
+                <div class="spin-b" data-step-for="brandW" data-dir="-1" title="Decrease">
+                  <svg viewBox="0 0 10 6"><path d="M5 5.3 0.8 0.5 9.2 0.5z"/></svg>
+                </div>
+              </div>
+            </div>
+            <span class="input-unit">px</span>
+          </div>
+          <p class="note">
+            The real band takes this from the measured width of the brand block,
+            so the taper starts where the name ends whatever the name is.
+          </p>
+
+          <div class="sec-lbl">Corner</div>
+          <div class="mitem sel" data-corner="round">
+            <span class="mitem-name">Rounded</span><span class="mbadge">DEFAULT</span>
+          </div>
+          <div class="mitem" data-corner="sharp">
+            <span class="mitem-name">Sharp</span><span class="mbadge">FALLBACK</span>
+          </div>
+          <div class="mitem off" title="A curve this profile has no room for">
+            <span class="mitem-name">Concave</span><span class="mbadge">OFF</span>
+          </div>
+
+          <div class="sec-lbl">Notes</div>
+          <div class="card col">
+            <p class="note">
+              The shape is cut by roundedPolyPath() out of titlebar.js, the same
+              function the window's own band uses. The stage draws it through
+              Path2D, so there is one geometry and two ways of painting it.
+            </p>
+            <div class="row">
+              <span class="note grow">Cut once, painted twice</span>
+              <span class="chip chip-accent">titlebar.js</span>
+            </div>
+          </div>
+        </div>
+        <div class="rp-foot">
+          <button class="btn btn-2 btn-wide" id="btnReset">
+            <svg viewBox="0 0 24 24"><polyline points="4 5.5 4 11 9.5 11"/><path d="M4.6 15a8 8 0 1 0 1.2-7"/></svg>
+            <span class="btn-label">Back to the metrics</span>
+          </button>
+          <div class="rp-nav">
+            <button class="btn btn-2 btn-grow" data-go="0">
+              <svg viewBox="0 0 24 24"><polyline points="14.5 5 7.5 12 14.5 19"/></svg>
+              <span class="btn-label">Back</span>
+            </button>
+            <button class="btn btn-primary btn-grow" data-go="2">
+              <span class="btn-label">Run</span>
+              <svg class="r" viewBox="0 0 24 24"><polyline points="9.5 5 16.5 12 9.5 19"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── step 3 ──────────────────────────────────────────────────────── -->
+      <div class="rp-page" data-step="2">
+        <div class="rp-hd">
+          <div class="rp-title">Run</div>
+          <div class="rp-sub">A slot, a signal, and the two ways of waiting</div>
+        </div>
+        <div class="rp-scroll">
+          <div class="sec-lbl">The job</div>
+          <p class="note">
+            Run calls a slot on the bridge. Python answers with a signal every
+            60 ms, and the card in the middle follows it. The work itself is a
+            timer counting, which is all an example needs; the round trip is
+            the same when the work is real.
+          </p>
+          <div class="combo" id="length" tabindex="0" role="button" aria-haspopup="listbox"
+               data-options="Quick (1.2 s)|Normal (2.4 s)|Slow (4.8 s)" data-value="Normal (2.4 s)">
+            <span class="combo-v">Normal (2.4 s)</span>
+            <svg class="combo-c" viewBox="0 0 24 24"><polyline points="7.5 10 12 14.5 16.5 10"/></svg>
+          </div>
+          <div class="row">
+            <button class="btn btn-primary btn-grow" id="btnRun">
+              <svg viewBox="0 0 24 24"><path d="M7 4.6 19 12 7 19.4z"/></svg>
+              <span class="btn-label">Run</span>
+            </button>
+            <button class="btn btn-danger btn-grow" id="btnCancel" disabled>
+              <svg viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" rx="1.5"/></svg>
+              <span class="btn-label">Cancel</span>
+            </button>
+          </div>
+
+          <div class="sec-lbl">The other wait</div>
+          <p class="note">
+            A job with no percentage to report gets the spinner instead. Both
+            sit on the same scrim, which leaves the title bar and the rail on
+            screen, so the window never turns into a black rectangle.
+          </p>
+          <button class="btn btn-2 btn-wide" id="btnBusy">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><polyline points="12 7.5 12 12 15 14"/></svg>
+            <span class="btn-label">Show the spinner</span>
+          </button>
+
+          <div class="sec-lbl">Last run</div>
+          <div class="pi-row"><span class="pi-l">Ended</span><span id="piEnded">never</span></div>
+          <div class="pi-row"><span class="pi-l">Ticks</span><span class="num" id="piTicks">0</span></div>
+          <div class="row">
+            <span class="chip" id="chipRun">idle</span>
+            <span class="chip chip-warn hidden" id="chipStale">not measured</span>
+            <span class="chip chip-err hidden" id="chipCancel">cancelled</span>
+          </div>
+          <div class="callout callout-warn">Nothing here is measured. The job is
+            a timer, so a <b>run</b> only shows what the progress card does.</div>
+          <div class="callout callout-accent hidden" id="calloutRun">The job is
+            running. The stage is under the scrim until it ends.</div>
+          <div class="callout callout-err hidden" id="calloutErr">The job was
+            stopped before it finished.</div>
+        </div>
+        <div class="rp-foot">
+          <div class="rp-nav">
+            <button class="btn btn-2 btn-grow" data-go="1">
+              <svg viewBox="0 0 24 24"><polyline points="14.5 5 7.5 12 14.5 19"/></svg>
+              <span class="btn-label">Back</span>
+            </button>
+            <button class="btn btn-primary btn-grow" data-go="3">
+              <span class="btn-label">Results</span>
+              <svg class="r" viewBox="0 0 24 24"><polyline points="9.5 5 16.5 12 9.5 19"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── step 4 ──────────────────────────────────────────────────────── -->
+      <div class="rp-page" data-step="3">
+        <div class="rp-hd">
+          <div class="rp-title">Results</div>
+          <div class="rp-sub">Numbers in rows, and what is under the window</div>
+        </div>
+        <div class="rp-scroll">
+          <!-- A group heading takes its own colour, which the page sets from
+               Theme; the marker is a dot and never a rule. The row that is
+               selected carries a bar in the same colour through --gc. -->
+          <div class="mg" data-group="accent">The band</div>
+          <div class="mrow active" data-group="accent"><span class="ml">Thin end</span><span class="mv" id="mvThin">28 px</span></div>
+          <div class="mrow" data-group="accent"><span class="ml">Taper</span><span class="mv" id="mvSlant">38 px</span></div>
+          <div class="mrow" data-group="accent"><span class="ml">Joints</span><span class="mv" id="mvJoin">8 px</span></div>
+
+          <div class="mg" data-group="ok">The job</div>
+          <div class="mrow" data-group="ok"><span class="ml">Reports</span><span class="mv" id="mvTicks">0</span></div>
+          <div class="mrow" data-group="ok"><span class="ml">Last stage</span><span class="mv" id="mvStage">none</span></div>
+
+          <div class="sec-lbl">Under the window</div>
+          <div class="pi-row"><span class="pi-l">SlantUI</span><span id="piSlantui">reading...</span></div>
+          <div class="pi-row"><span class="pi-l">Python</span><span id="piPython">reading...</span></div>
+          <div class="pi-row"><span class="pi-l">Qt</span><span id="piQt">reading...</span></div>
+          <div class="pi-row"><span class="pi-l">Binding</span><span id="piBinding">reading...</span></div>
+
+          <div class="sec-lbl">Status words</div>
+          <div class="card">
+            <p class="note">
+              A word in a status colour and nothing behind it:
+              <span class="text-ok">passed</span>,
+              <span class="text-warn">close</span>,
+              <span class="text-err">short</span>.
+              Each one clears 4.5:1 on every surface in every palette, which is
+              what the audit measures and the test suite enforces.
+            </p>
+          </div>
+        </div>
+        <div class="rp-foot">
+          <button class="btn btn-primary btn-wide" id="btnFinish">
+            <svg viewBox="0 0 24 24"><polyline points="5 12.5 10 17.5 19 7"/></svg>
+            <span class="btn-label">Say it worked</span>
+          </button>
+          <div class="rp-nav">
+            <button class="btn btn-2 btn-grow" data-go="2">
+              <svg viewBox="0 0 24 24"><polyline points="14.5 5 7.5 12 14.5 19"/></svg>
+              <span class="btn-label">Back</span>
+            </button>
+            <button class="btn btn-2 btn-grow ghost">
+              <span class="btn-label">Keeps the space</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ══ the eight resize strips of a frameless window ═════════════════════════
+     Thin and invisible. The drag itself is handed to Windows through the
+     bridge, which is why the edge magnetism still works. ================== -->
+<div class="rz rz-n"  data-edge="n"></div>
+<div class="rz rz-s"  data-edge="s"></div>
+<div class="rz rz-w"  data-edge="w"></div>
+<div class="rz rz-e"  data-edge="e"></div>
+<div class="rz rz-nw" data-edge="nw"></div>
+<div class="rz rz-ne" data-edge="ne"></div>
+<div class="rz rz-sw" data-edge="sw"></div>
+<div class="rz rz-se" data-edge="se"></div>
+
+<div class="toast" id="toast"></div>
+
+<div class="scrim" id="busy">
+  <div class="busy-card">
+    <div class="spinner"></div>
+    <div class="busy-text">Working on something with no percentage</div>
+  </div>
+</div>
+
+<div class="scrim" id="job">
+  <div class="progress-card">
+    <div class="progress-title">Running the job</div>
+    <div class="progress-pct">
+      <span class="progress-num" id="jobPct">0</span><span class="progress-sym">%</span>
+    </div>
+    <div class="progress-track"><div class="progress-fill" id="jobFill"></div></div>
+    <div class="progress-stage" id="jobStage">Starting</div>
+  </div>
+</div>
+
+<!-- Qt serves the channel's own script out of its resources, and it has to be
+     there before bridge.js. Then SlantUI's four scripts, then the page. -->
+<script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+<script src="slantui.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
