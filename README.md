@@ -17,8 +17,8 @@ band above it.*
 side scripts and the Python shell all work and are tested, `examples/tour` is
 a window built on them and nothing else, and `docs/gallery.html` is the
 catalogue every picture on this page was taken from. Applications are built on
-it today, both pages in a Qt window and WPF windows that take the palette and
-the band's geometry as data.
+it today, both pages in a Qt window and WPF windows written in PowerShell,
+which wear the same frameless window now, and not just its palette.
 
 ## Documentation
 
@@ -341,7 +341,17 @@ enters the repository by being put in a page. See [docs/README.md](docs/README.m
 The look is not just for a page in a Qt window. Two of the applications that
 wear it are WPF windows written in PowerShell, so the palettes, the metrics
 and the band's profile are written out for a toolkit that cannot read a
-stylesheet.
+stylesheet, and the window itself is one call away:
+
+```powershell
+Import-Module .\SlantUI.psm1
+$chrome = Install-SlantWindow -Window $window -Bold 'My' -Name ' App'
+```
+
+That takes the Windows frame off, puts the oblique band above whatever the
+application had inside, and gives it the buttons, the resize edges and a
+maximise that never lets Windows zoom the window. It answers the same Win32
+messages the Qt side does, for the same reasons.
 
 ```bash
 python -m slantui.tokens json                 the whole design as data
@@ -358,8 +368,8 @@ are three implementations, in Python, in JavaScript and in PowerShell, and
 the tests run all three on the same windows and compare the strings.
 
 See [docs/beyond-the-browser.md](docs/beyond-the-browser.md), which carries
-the recipe in enough detail to draw the band in a toolkit this library has
-never heard of.
+the window in full and the recipe in enough detail to draw the band in a
+toolkit this library has never heard of.
 
 ## Install
 

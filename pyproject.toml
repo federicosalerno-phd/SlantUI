@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "slantui"
-version = "0.2.0"
+version = "0.3.0"
 description = "A window look as a library: an oblique title bar drawn by the page, a frameless Qt shell, a two level token system, and the same design for WPF and Unity."
 # The index shows this one: README.md with its repository relative links
 # made absolute, written by tools/pypi_readme.py. An index is not a

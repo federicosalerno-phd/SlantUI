@@ -34,14 +34,20 @@ purpose, and the export layer is held to the same promise by a test.
 | The thirty one roles | yes | yes | yes | yes, through `json` |
 | The metrics | yes | yes | lengths only | yes |
 | The band's profile | yes | yes | the numbers | the numbers, and the recipe below |
-| The widget set | yes | no | no | no |
-| The window's behaviour | yes | no | no | no |
+| The window's behaviour | yes | yes | no | no |
+| The widget set | yes | the window buttons | no | no |
 
-The colours and the shapes travel. The widgets and the frameless window do
-not, and pretending otherwise would be the wrong promise: a WPF button is a
+The colours, the shapes and the window travel. The widget set does not, and
+pretending otherwise would be the wrong promise: a WPF button is a
 ControlTemplate and a Unity button is a UXML element, and neither is a CSS
 rule with another syntax. What a toolkit gets is the vocabulary to draw its
 own widgets so they look like the others.
+
+The window is the exception, and it earned it. The frameless window, the
+band, the buttons, the resize edges and a maximise that never zooms are the
+same behaviour on both sides, and it is behaviour and not markup: an
+application that wrote it again would be writing the same eight Win32
+messages a second time and getting one of them wrong.
 
 ## The band
 
@@ -146,6 +152,8 @@ $path.Data = Get-SlantBandGeometry -Width 1040 -BrandWidth 210
 | `Get-SlantBandPath` | the profile as a path string |
 | `Get-SlantBandGeometry` | the same, as a frozen WPF `Geometry` |
 
+The module has a second half, below, that opens the window itself.
+
 WPF is loaded by the calls that draw and by nothing else, so the palette and
 the metrics are readable in a PowerShell with no display.
 
@@ -159,6 +167,84 @@ as a typo.
 This is the shape for a window that opens before there is a Python on the
 machine, which is what an installer does, and for a WPF window written in
 PowerShell, which cannot read a stylesheet at all.
+
+### The whole window
+
+Everything above draws with the design. A WPF window can wear it instead, and
+then it is the same window the Qt shell opens: no Windows frame, the oblique
+band as the title bar, the buttons, the eight resize edges, and a maximise
+that puts the window on the work area without ever letting Windows zoom it.
+
+```powershell
+$chrome = Install-SlantWindow -Window $window -Bold 'My' -Name ' App' -Logo $iconPath
+$chrome.SetStatus('ready')
+$chrome.OnMaximized = { param($on) Save-Setting 'maximised' $on }
+```
+
+It takes a window the application has already built and put its own layout
+in. What was inside moves down one row and is not touched, so an application
+keeps its arrangement and its icon and gains a title bar.
+
+| On `$chrome` | What it is |
+|---|---|
+| `Element` `Band` `Brand` `Logo` `Name` `Credit` | the parts of the bar |
+| `Extras` | a slot for the application's own line or small control, next to the buttons |
+| `Buttons` | `min`, `max` and `close`, by name |
+| `SetName(bold, name)` `SetStatus(text)` | change what the bar says |
+| `Maximize()` `Restore()` `ToggleMaximize()` `Minimize()` `Close()` | the state changes |
+| `IsMaximized()` `NormalBounds()` | what to write down when the window closes |
+| `OnMaximized` | a scriptblock called with true or false |
+| `StateMs` | how long a state change takes. Zero for none |
+
+`NormalBounds()` is the one worth knowing about. It answers with the
+rectangle a restore would use, whatever state the window is in, so an
+application that remembers where its window was writes that and the
+maximised flag and nothing else.
+
+Three things inside are not obvious, and each is a day someone else does not
+have to spend.
+
+**The frame is real and is never laid out.** Windows only animates a window
+that carries `WS_CAPTION` and `WS_THICKFRAME` when it minimises, restores
+and closes, and only such a window gets a shadow. So the window is given
+those styles and then answers `WM_NCCALCSIZE` with "the client area is the
+whole window", which takes the caption and the borders back out. It is the
+technique the browsers use.
+
+**The window never zooms.** A window carrying those styles is placed by
+Windows with its frame past the edge of the screen when it zooms, eleven
+pixels a side at 150 per cent, and it stays there. For a window whose client
+area is the whole window that is eleven pixels of the page cut off on every
+side. So maximised is a state the object keeps: the window animates onto the
+work area and remembers that it did, `Win+Up` and `Win+Down` and the taskbar
+menu arrive as system commands and are answered there, and a zoom Windows
+manages anyway is undone the moment WPF reports it. `Test-SlantWindowZoomed`
+is the check that says this still holds, and it belongs in an application's
+own tests.
+
+**The window procedure is compiled.** A scriptblock handed to a delegate is
+given a copy of anything passed by reference, so the `handled` flag an
+`HwndSource` hook sets never reaches the caller and the frame stays. The
+procedure is C# inside the module for that reason, and the one thing it
+hands back to PowerShell is the system command, which needs no reference
+parameter.
+
+The credit line the licence asks for is written by the module, not by the
+application, and there is no switch for it. That is condition 2 of `LICENSE`
+doing what it says.
+
+| Function | What it does |
+|---|---|
+| `Install-SlantWindow` | all of the above, on a window |
+| `New-SlantTitleBar` | the bar on its own, for a window that wants to place it itself |
+| `Set-SlantWindowFrame` | the styles and the subclass, on a bare handle |
+| `Set-SlantWindowScheme` | tells Windows the palette is dark or light |
+| `Set-SlantWindowTransitions` | the system's own state animation, on or off |
+| `Get-SlantWorkArea` | the work area of the window's screen, in the units WPF lays out in |
+| `Get-SlantWindowStyle` `Get-SlantWindowSizes` | what a test wants to read |
+| `Test-SlantWindowZoomed` | false, always, and a test should say so |
+| `Get-SlantCreditText` | the line the licence puts in the bar |
+
 
 The alternative to the module is the ResourceDictionary, for an application
 whose look lives in XAML:

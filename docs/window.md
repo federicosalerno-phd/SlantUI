@@ -196,6 +196,24 @@ draws every SlantUI application through software, for a machine with a driver
 that is broken in a way Chromium does not know about. `Application(gpu=False)`
 is the same switch for one application.
 
+## The same window in WPF
+
+Everything on this page is a Qt window, and a PowerShell application that
+draws with WPF cannot have one. It can have the same window: the module in
+`slantui/wpf` opens it with the frame styles behind it, the same answer to
+`WM_NCCALCSIZE`, the same eight resize edges and the same maximise that never
+zooms, from one call.
+
+```powershell
+$chrome = Install-SlantWindow -Window $window -Bold 'My' -Name ' App'
+```
+
+The two implementations answer the same Win32 messages for the same reasons,
+so a fix to one is a fix worth making to the other. What differs is only what
+the toolkit forces: WPF has no page inside the window, so the title bar is
+built as elements and the application puts its own layout under it.
+[Outside a browser](beyond-the-browser.md) has the whole of it.
+
 ## Off Windows
 
 `win32.py` does nothing at all when `sys.platform` is not `win32`, and the
@@ -221,6 +239,11 @@ say it should.
 
 Run them after touching anything in `slantui/shell`. The headless suite cannot
 see the frame.
+
+The same flag opens the WPF window in `tests/test_wpf.py`, which reads the
+same facts from the outside: the styles, the client area, the band's shape
+against the one the Python draws, the eight edges, the work area and the zoom
+state. Run it after touching `slantui/wpf/SlantUI.psm1`.
 
 ## What to read next
 
