@@ -348,7 +348,52 @@ $w.add_Loaded({{
             $w.UpdateLayout()
             $out.AfterZoom = @([SlantUI.Chrome]::IsZoomed($h), $chrome.IsMaximized(), "$($w.WindowState)")
             $chrome.Restore()
+
+            # Place: la finestra messa esattamente li', in una chiamata sola.
+            $chrome.StateMs = 0
+            $vuole = New-Object System.Windows.Rect 140, 120, 900, 620
+            $chrome.Place($vuole)
+            $w.UpdateLayout()
+            $out.Placed = @($w.Left, $w.Top, $w.ActualWidth, $w.ActualHeight)
+            $out.PlaceWanted = @($vuole.X, $vuole.Y, $vuole.Width, $vuole.Height)
+            $out.SizingAtRest = [SlantUI.Chrome]::IsSizing($h)
+
+            # La massimizzazione animata, che non puo' finire dentro questo
+            # tick: ha bisogno di fotogrammi, e i fotogrammi arrivano solo se
+            # il thread torna a comporre. Si avvia qui e si guarda da un
+            # secondo timer, che chiude la finestra quando ha finito.
             $chrome.StateMs = 240
+            $segni = New-Object System.Collections.ArrayList
+            $chrome.OnSizing = {{ param($attivo) [void]$segni.Add([bool]$attivo) }}.GetNewClosure()
+            $conta = @{{ N = 0 }}
+            $tela = [System.EventHandler] {{ param($s, $e) $conta.N++ }}.GetNewClosure()
+            [System.Windows.Media.CompositionTarget]::add_Rendering($tela)
+            $inizio = [DateTime]::UtcNow
+            $chrome.Maximize()
+
+            $t2 = New-Object System.Windows.Threading.DispatcherTimer
+            $t2.Interval = [TimeSpan]::FromMilliseconds(30)
+            $t2.add_Tick({{
+                try {{
+                    $scaduto = (([DateTime]::UtcNow - $inizio).TotalMilliseconds -gt 4000)
+                    if ($null -ne $chrome.Anim -and -not $scaduto) {{ return }}
+                    $args[0].Stop()
+                    [System.Windows.Media.CompositionTarget]::remove_Rendering($tela)
+                    $lavoro = Get-SlantWorkArea $w
+                    $out.AnimMs = [int]([DateTime]::UtcNow - $inizio).TotalMilliseconds
+                    $out.AnimFrames = $conta.N
+                    $out.AnimLanded = @($w.Left, $w.Top, $w.Width, $w.Height)
+                    $out.AnimWanted = @($lavoro.X, $lavoro.Y, $lavoro.Width, $lavoro.Height)
+                    $out.AnimTimedOut = $scaduto
+                    $out.SizingSeq = @($segni)
+                    $out.SizingAfter = [SlantUI.Chrome]::IsSizing($chrome.Handle)
+                }} catch {{
+                    $out.Error = "$($_.Exception.Message) @ $($_.InvocationInfo.ScriptLineNumber)"
+                }}
+                $w.Close()
+            }}.GetNewClosure())
+            $t2.Start()
+            return
         }} catch {{
             $out.Error = "$($_.Exception.Message) @ $($_.InvocationInfo.ScriptLineNumber)"
         }}
@@ -444,3 +489,32 @@ def test_a_zoom_windows_did_by_itself_is_undone(window):
     assert zoomed is False
     assert flag is True
     assert state == "Normal"
+
+
+def test_one_call_puts_the_window_exactly_there(window):
+    """Place goes through SetWindowPos with all four numbers at once, and
+    WPF reads its own Left, Top, Width and Height back out of the message.
+    A pixel of rounding is allowed: the call counts in real pixels and WPF
+    counts in its own."""
+    for got, want in zip(window["Placed"], window["PlaceWanted"]):
+        assert abs(got - want) <= 1, (window["Placed"], window["PlaceWanted"])
+    assert window["SizingAtRest"] is False
+
+
+def test_an_animated_state_change_runs_on_the_frame_clock(window):
+    """It lands on the work area, it takes about as long as it was asked to,
+    and it drew a frame for roughly every frame the compositor sent. A
+    handful is what a DispatcherTimer used to manage in the same time."""
+    assert window["AnimTimedOut"] is False
+    for got, want in zip(window["AnimLanded"], window["AnimWanted"]):
+        assert abs(got - want) < 1, (window["AnimLanded"], window["AnimWanted"])
+    assert 200 <= window["AnimMs"] <= 1500, window["AnimMs"]
+    assert window["AnimFrames"] >= 6, window["AnimFrames"]
+
+
+def test_the_application_is_told_a_size_is_about_to_move(window):
+    """Once before the geometry starts moving and once after it has
+    settled, so what would rewrap on every frame can be frozen and let go.
+    The same signal a drag of an edge raises."""
+    assert window["SizingSeq"] == [True, False]
+    assert window["SizingAfter"] is False

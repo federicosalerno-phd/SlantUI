@@ -84,6 +84,56 @@ keeps snapping, edge magnetism, the shadow, the resize cursors and the double
 click on the band. The page never implements any of it; it says which edge was
 grabbed and Windows does the rest.
 
+### An animation a heavy window is allowed to skip
+
+Animating a window's geometry costs whatever it costs to lay the content out,
+and that is not the library's to decide. Measured on 2026-09-20, on a WPF
+window with a hundred and twenty paragraphs of wrapping text under it: one step
+of a resize costs **78 ms**, because WPF lays the whole tree out inside the size
+message. Two hundred and forty milliseconds of hand animation over that is
+three visible steps, and three steps read worse than no animation at all.
+
+So the move measures itself. Each frame is timed, and two frames running slower
+than `SlowMs` (40 ms, which is under thirty a second) end the animation and put
+the window where it was going. A light window gets the curve; a heavy one gets
+a clean snap instead of a stutter. Nothing has to be configured for this.
+
+Two smaller things came out of the same measurement, and both are in the WPF
+module:
+
+- **one call, not four.** Writing `Left`, `Top`, `Width` and `Height` on a WPF
+  window is four calls into Windows and four layout passes. `Place` is one
+  `SetWindowPos` with all four numbers, which on an empty window costs 8.3 ms
+  against 10.4, and, the part that matters more, is *atomic*: there is no frame
+  in which the window is already the new size and still at the old position;
+- **the frame clock, not a timer.** A `DispatcherTimer` asked for 16 ms queues
+  behind layout and input at the same priority. Over 361 ms of a live resize it
+  delivered 9 ticks where the compositor composed 14 frames. `CompositionTarget.Rendering`
+  is raised once per composed frame, right before it goes out.
+
+### A gesture the application is told about
+
+Windows runs a modal loop while a window is dragged by an edge, and every pixel
+of it is a `WM_SIZE`. An application that reflows text on each one is doing the
+most expensive thing it owns, sixty times a second, for a layout nobody is
+reading yet: the words go round under the hand.
+
+The window procedure answers `WM_ENTERSIZEMOVE` and `WM_EXITSIZEMOVE` and hands
+the two ends of the gesture to the application, and the library raises the same
+signal around a state change it animates, because to an application a maximise
+and a drag of an edge are the same thing:
+
+```powershell
+$chrome.OnSizing = { param($active) $view.FreezeText($active) }
+```
+
+What to do with it is the application's, and the useful thing is small: give
+the panels that wrap text an explicit width while the gesture lasts, so they
+are clipped instead of reflowed, and take it off at the end for one last
+layout. On the measured window that took a step from 78 ms to 56.7 ms; on a
+real one, with documents paginated under it, it is the difference between a
+resize that follows the edge and one that lags behind it.
+
 ## Why a Quick window and not a widget
 
 `Window` is a `QQuickView` holding one QML `WebEngineView`, and not a widget
@@ -212,6 +262,11 @@ The two implementations answer the same Win32 messages for the same reasons,
 so a fix to one is a fix worth making to the other. What differs is only what
 the toolkit forces: WPF has no page inside the window, so the title bar is
 built as elements and the application puts its own layout under it.
+
+`OnSizing`, the self-measuring animation and `Place` are WPF's so far. Qt hands
+moving and resizing back to the window manager and draws through one swap
+chain, so the cost they answer does not arise there in the same way; the signal
+itself would still be worth having if a page ever needs it.
 [Outside a browser](beyond-the-browser.md) has the whole of it.
 
 ## Off Windows

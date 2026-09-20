@@ -1,4 +1,4 @@
-<#
+﻿<#
   SlantUI for WPF.
 
   A PowerShell window written with WPF can wear this design without copying a
@@ -351,6 +351,13 @@ namespace SlantUI
         const uint WM_NCHITTEST = 0x0084;
         const uint WM_NCACTIVATE = 0x0086;
         const uint WM_SYSCOMMAND = 0x0112;
+        // The modal loop Windows runs while a window is being dragged by an
+        // edge or by its band. Everything between these two is one gesture.
+        const uint WM_ENTERSIZEMOVE = 0x0231;
+        const uint WM_EXITSIZEMOVE = 0x0232;
+        const uint SWP_NOZORDER = 0x0004;
+        const uint SWP_NOACTIVATE = 0x0010;
+        const uint SWP_NOOWNERZORDER = 0x0200;
 
         class Win
         {
@@ -359,6 +366,8 @@ namespace SlantUI
             public bool Resize;
             public bool Max;
             public Func<IntPtr, int, bool> OnCommand;
+            public Action<IntPtr, bool> OnSizing;
+            public bool Sizing;
             public SubclassProc Proc;
         }
 
@@ -421,6 +430,7 @@ namespace SlantUI
                 _windows.Remove(h);
             }
             s.OnCommand = null;
+            s.OnSizing = null;
             if (s.Proc != null)
             {
                 RemoveWindowSubclass(h, s.Proc, (IntPtr)1);
@@ -432,6 +442,44 @@ namespace SlantUI
         public static void OnSysCommand(IntPtr h, Func<IntPtr, int, bool> f)
         {
             Win s = Of(h); if (s != null) s.OnCommand = f;
+        }
+        // A window moved and resized in one call.
+        //
+        // Writing Left, Top, Width and Height on a WPF window is four calls
+        // into Windows, and each one is a WM_WINDOWPOSCHANGED that makes the
+        // whole tree measure and arrange again. On a window with a document
+        // in it that is four layout passes a frame, and it is what a state
+        // change looked like: a stutter, not a move. One SetWindowPos is one
+        // layout pass, and WPF reads its own Left, Top, Width and Height back
+        // out of the message, so nothing drifts.
+        //
+        // Sizes are in real pixels here, not in the units WPF lays out in:
+        // the caller converts.
+        public static void Place(IntPtr h, int x, int y, int cx, int cy)
+        {
+            SetWindowPos(h, IntPtr.Zero, x, y, cx, cy,
+                SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOOWNERZORDER);
+        }
+
+        // Told when a drag of an edge, or of the band, starts and ends, so an
+        // application can stop its text reflowing on every pixel and let it
+        // settle once at the end. The window procedure calls this; the return
+        // value is nothing, so unlike the WM_NCCALCSIZE case a delegate made
+        // from a scriptblock is fine here.
+        public static void OnSizing(IntPtr h, Action<IntPtr, bool> f)
+        {
+            Win s = Of(h); if (s != null) s.OnSizing = f;
+        }
+        public static bool IsSizing(IntPtr h) { Win s = Of(h); return s != null && s.Sizing; }
+        // The same signal, raised by the library itself around a state change
+        // it animates: to the application a maximise and a drag of an edge
+        // are the same thing, a size that is about to keep changing.
+        public static void RaiseSizing(IntPtr h, bool active)
+        {
+            Win s = Of(h); if (s == null) return;
+            if (s.Sizing == active) return;
+            s.Sizing = active;
+            if (s.OnSizing != null) { try { s.OnSizing(h, active); } catch { } }
         }
         public static void SetMaximized(IntPtr h, bool on) { Win s = Of(h); if (s != null) s.Max = on; }
         public static void SetResizable(IntPtr h, bool on) { Win s = Of(h); if (s != null) s.Resize = on; }
@@ -528,6 +576,12 @@ namespace SlantUI
             // Say the caption is still active, so nothing repaints one.
             if (msg == WM_NCACTIVATE) return DefSubclassProc(h, msg, w, (IntPtr)(-1));
             if (msg == WM_NCHITTEST) return (IntPtr)HitTest(h, l);
+            // A drag of an edge or of the band starts a modal loop, and every
+            // pixel of it is a WM_SIZE. An application told where the loop
+            // begins and ends can freeze what would otherwise rewrap under
+            // the hand, and reflow once when the hand lets go.
+            if (msg == WM_ENTERSIZEMOVE) { RaiseSizing(h, true); }
+            if (msg == WM_EXITSIZEMOVE) { RaiseSizing(h, false); }
             if (msg == WM_SYSCOMMAND)
             {
                 Win s = Of(h);
@@ -933,13 +987,20 @@ function Install-SlantWindow {
         .PARAMETER Logo     A path to an image, a brush, or nothing.
         .PARAMETER Palette  A palette slug. The default palette otherwise.
         .PARAMETER StateMs  How long maximise and restore take. Zero for no
-                            animation at all, which a window with a heavy
-                            tree under it may want.
+                            animation at all. A window that turns out not to
+                            be able to keep up finishes the move at once by
+                            itself, so this rarely needs setting.
+        .PARAMETER SlowMs   A frame slower than this, twice running, ends the
+                            animation early. 40 ms is under thirty frames a
+                            second, which is where a move stops reading as
+                            one and starts reading as steps.
 
         .EXAMPLE
             $chrome = Install-SlantWindow -Window $w -Bold 'My' -Name ' App'
             $chrome.SetStatus('ready')
-            $chrome.OnMaximized = { param($on) Save-Pref 'maximised' $on }  #>
+            $chrome.OnMaximized = { param($on) Save-Pref 'maximised' $on }
+            # freeze what would rewrap under the hand, and let it settle once
+            $chrome.OnSizing = { param($active) $view.FreezeText($active) }  #>
     param(
         [Parameter(Mandatory = $true)]$Window,
         [string]$Bold = '',
@@ -949,6 +1010,7 @@ function Install-SlantWindow {
         [switch]$NoMinimize,
         [switch]$NoMaximize,
         [int]$StateMs = 240,
+        [int]$SlowMs = 40,
         [int]$Border = 5,
         [int]$Corner = 12)
 
@@ -1006,7 +1068,10 @@ function Install-SlantWindow {
         NormalRect = New-Object System.Windows.Rect 0, 0, 0, 0
         Anim       = $null
         Busy       = $false
+        Device     = $null
+        OnSizing   = $null
         StateMs    = $StateMs
+        SlowMs     = $SlowMs
         Border     = $Border
         Corner     = $Corner
         Resizable  = $resizable
@@ -1029,6 +1094,14 @@ function Install-SlantWindow {
             $taken = $false
             try { $taken = [bool]$me.SystemCommand($command) } catch { $taken = $false }
             return $taken
+        }.GetNewClosure())
+        # Un trascinamento di un bordo e' un ciclo modale di Windows, e ogni
+        # pixel e' un WM_SIZE. L'applicazione che sa dove quel ciclo comincia e
+        # dove finisce puo' fermare quello che altrimenti si riavvolgerebbe
+        # sotto le dita, e reimpaginare una volta sola alla fine.
+        [SlantUI.Chrome]::OnSizing($handle, [Action[IntPtr, bool]] {
+            param([IntPtr]$hwnd, [bool]$active)
+            if ($null -ne $me.OnSizing) { try { & $me.OnSizing $active } catch { } }
         }.GetNewClosure())
     }
 
@@ -1124,55 +1197,160 @@ function Install-SlantWindow {
         if ($null -ne $this.OnMaximized) { try { & $this.OnMaximized $On } catch { } }
     }
 
+    $chrome | Add-Member -MemberType ScriptMethod -Name StopAnim -Value {
+        <#  Take the frame handler off. It is a static event, so a handler
+            left on it goes on being raised for the life of the process, on
+            every frame, for a window that has finished moving.  #>
+        $run = $this.Anim
+        $this.Anim = $null
+        if ($null -eq $run) { return }
+        try { [System.Windows.Media.CompositionTarget]::remove_Rendering($run.Handler) } catch { }
+        $this.Busy = $false
+    }
+
+    $chrome | Add-Member -MemberType ScriptMethod -Name Place -Value {
+        <#  The window put exactly there, in one call.
+
+            Writing Left, Top, Width and Height is four calls into Windows
+            and four layout passes. During a move that is a frame's whole
+            budget spent four times over, and it is what a maximise looked
+            like on a window with a document in it. One SetWindowPos is one
+            pass, and WPF reads its own properties back out of the message.
+
+            Windows counts in real pixels and WPF in its own, so the
+            rectangle goes through the window's device transform, the same
+            way Get-SlantWorkArea brings one back the other way. Without a
+            handle there is nothing to call, and the properties are written
+            instead.  #>
+        param($To)
+        $w = $this.Window
+        $m = $this.Device
+        if ($this.Handle -eq [IntPtr]::Zero -or $null -eq $m) {
+            $w.Left = $To.X; $w.Top = $To.Y; $w.Width = $To.Width; $w.Height = $To.Height
+            return
+        }
+        $a = $m.Transform((New-Object System.Windows.Point $To.X, $To.Y))
+        $z = $m.Transform((New-Object System.Windows.Point ($To.X + $To.Width), ($To.Y + $To.Height)))
+        [SlantUI.Chrome]::Place($this.Handle,
+            [int][Math]::Round($a.X), [int][Math]::Round($a.Y),
+            [int][Math]::Round($z.X - $a.X), [int][Math]::Round($z.Y - $a.Y))
+    }
+
+    $chrome | Add-Member -MemberType ScriptMethod -Name Sizing -Value {
+        <#  The size is about to keep changing, or it has stopped. Raised by
+            the window procedure around a drag of an edge, and by the library
+            around a state change it animates: to an application the two are
+            the same thing, and there is one thing to do about both.  #>
+        param([bool]$Active)
+        if ($this.Handle -ne [IntPtr]::Zero) {
+            [SlantUI.Chrome]::RaiseSizing($this.Handle, $Active)
+            return
+        }
+        if ($null -ne $this.OnSizing) { try { & $this.OnSizing $Active } catch { } }
+    }
+
     $chrome | Add-Member -MemberType ScriptMethod -Name Animate -Value {
         <#  Move the window from where it is to a rectangle, over StateMs,
-            with an ease out. One timer, one placement a frame, because four
-            separate property animations on a window are four calls into
-            Windows a frame. A throw inside a tick stops that timer for good,
-            so every tick is inside a catch.  #>
+            with an ease out.
+
+            The clock is the compositor's, not a timer's. A DispatcherTimer
+            asked for sixteen milliseconds is handed twenty to forty, because
+            it queues behind layout and input at the same priority, and the
+            jitter is the whole of what a stutter is. Rendering is raised
+            once per composed frame, right before the frame goes out, so a
+            rectangle written in it lands in that frame and in no other.
+
+            One placement a frame, through SetWindowPos, for the reason
+            written above Place.
+
+            And a window that cannot keep up does not stutter, it snaps.
+            Measured on 2026-09-20, on a window with a hundred and twenty
+            paragraphs of wrapping text in it: one step of a resize costs
+            78 ms, because WPF lays the whole tree out inside the size
+            message. Two hundred and forty milliseconds of hand animation
+            over that is three visible steps, which reads worse than no
+            animation at all. So the first frames are measured, and if they
+            come in slower than SlowMs the rest of the move is done at once.
+            The animation is for windows that can afford it.
+
+            A throw inside a handler on a static event is worse than one in a
+            timer, so every frame is inside a catch and the handler takes
+            itself off.  #>
         param($To, $Done)
         $w = $this.Window
-        if ($null -ne $this.Anim) { $this.Anim.Stop(); $this.Anim = $null; $this.Busy = $false }
+        if ($null -ne $this.Anim) { $this.StopAnim() }
         $from = New-Object System.Windows.Rect $w.Left, $w.Top, $w.ActualWidth, $w.ActualHeight
         $jump = ($this.StateMs -le 0 -or [double]::IsNaN($from.X) -or $from.Width -le 0)
         if ($jump) {
             $this.Busy = $true
-            try {
-                $w.Left = $To.X; $w.Top = $To.Y; $w.Width = $To.Width; $w.Height = $To.Height
-            } finally { $this.Busy = $false }
+            try { $this.Place($To) } finally { $this.Busy = $false }
             if ($null -ne $Done) { & $Done }
             return
         }
-        $run = @{ Start = [DateTime]::UtcNow; From = $from; To = $To; Ms = [double]$this.StateMs
-                  Done = $Done; Owner = $this }
+
+        # il fattore di scala si legge una volta, non a ogni fotogramma
+        $this.Device = $null
+        if ($this.Handle -ne [IntPtr]::Zero) {
+            $src = [System.Windows.Interop.HwndSource]::FromHwnd($this.Handle)
+            if ($null -ne $src -and $null -ne $src.CompositionTarget) {
+                $this.Device = $src.CompositionTarget.TransformToDevice
+            }
+        }
+
+        $run = [PSCustomObject]@{
+            Start = [DateTime]::UtcNow; From = $from; To = $To; Ms = [double]$this.StateMs
+            Done = $Done; Owner = $this; Handler = $null
+            Last = [DateTime]::UtcNow; Frames = 0; Slow = 0
+        }
         $this.Busy = $true
-        $timer = New-Object System.Windows.Threading.DispatcherTimer
-        $timer.Interval = [TimeSpan]::FromMilliseconds(16)
-        $timer.add_Tick({
+        # l'applicazione lo sa prima che la geometria cominci a muoversi: cosi'
+        # quello che si riavvolgerebbe e' gia' fermo al primo fotogramma
+        $this.Sizing($true)
+        $handler = [System.EventHandler] {
+            param($sender, $e)
             $step = $run
             try {
-                $part = ([DateTime]::UtcNow - $step.Start).TotalMilliseconds / $step.Ms
+                $ora = [DateTime]::UtcNow
+                $part = ($ora - $step.Start).TotalMilliseconds / $step.Ms
                 if ($part -gt 1) { $part = 1 }
+                # quanto e' costato il fotogramma prima. Due lenti di fila e
+                # si smette di animare: meglio un salto che tre scatti
+                $step.Frames++
+                if ($step.Frames -gt 1) {
+                    $costo = ($ora - $step.Last).TotalMilliseconds
+                    if ($costo -gt $step.Owner.SlowMs) { $step.Slow++ } else { $step.Slow = 0 }
+                    if ($step.Slow -ge 2) { $part = 1 }
+                }
+                $step.Last = $ora
                 $ease = 1 - [Math]::Pow(1 - $part, 3)
-                $win = $step.Owner.Window
-                $win.Left = $step.From.X + ($step.To.X - $step.From.X) * $ease
-                $win.Top = $step.From.Y + ($step.To.Y - $step.From.Y) * $ease
-                $win.Width = $step.From.Width + ($step.To.Width - $step.From.Width) * $ease
-                $win.Height = $step.From.Height + ($step.To.Height - $step.From.Height) * $ease
+                $r = New-Object System.Windows.Rect `
+                    ($step.From.X + ($step.To.X - $step.From.X) * $ease),
+                    ($step.From.Y + ($step.To.Y - $step.From.Y) * $ease),
+                    ($step.From.Width + ($step.To.Width - $step.From.Width) * $ease),
+                    ($step.From.Height + ($step.To.Height - $step.From.Height) * $ease)
+                $step.Owner.Place($r)
                 if ($part -ge 1) {
-                    $args[0].Stop()
-                    $step.Owner.Anim = $null
-                    $step.Owner.Busy = $false
+                    $owner = $step.Owner
+                    $owner.StopAnim()
+                    # l'ultima parola alle proprieta' di WPF: la conversione in
+                    # pixel arrotonda, e la misura salvata dev'essere esatta
+                    $owner.Busy = $true
+                    try {
+                        $win = $owner.Window
+                        $win.Left = $step.To.X; $win.Top = $step.To.Y
+                        $win.Width = $step.To.Width; $win.Height = $step.To.Height
+                    } finally { $owner.Busy = $false }
+                    $owner.Sizing($false)
                     if ($null -ne $step.Done) { & $step.Done }
                 }
             } catch {
-                try { $args[0].Stop() } catch { }
-                $step.Owner.Anim = $null
-                $step.Owner.Busy = $false
+                try { $step.Owner.StopAnim() } catch { }
+                try { $step.Owner.Sizing($false) } catch { }
             }
-        }.GetNewClosure())
-        $this.Anim = $timer
-        $timer.Start()
+        }.GetNewClosure()
+        $run.Handler = $handler
+        $this.Anim = $run
+        [System.Windows.Media.CompositionTarget]::add_Rendering($handler)
     }
 
     $chrome | Add-Member -MemberType ScriptMethod -Name Maximize -Value {
@@ -1224,7 +1402,7 @@ function Install-SlantWindow {
             the zoom is undone at once, with the system transition off so
             nothing plays twice, and the window is put on the work area as
             the normal window it is everywhere else.  #>
-        if ($null -ne $this.Anim) { $this.Anim.Stop(); $this.Anim = $null }
+        if ($null -ne $this.Anim) { $this.StopAnim() }
         $w = $this.Window
         if ($this.Handle -ne [IntPtr]::Zero) {
             Set-SlantWindowTransitions -Handle $this.Handle -Enabled $false
