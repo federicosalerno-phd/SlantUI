@@ -349,7 +349,7 @@ $w.add_Loaded({{
             $out.AfterZoom = @([SlantUI.Chrome]::IsZoomed($h), $chrome.IsMaximized(), "$($w.WindowState)")
             $chrome.Restore()
 
-            # Place: la finestra messa esattamente li', in una chiamata sola.
+            # Place: the window put exactly there, in one call.
             $chrome.StateMs = 0
             $vuole = New-Object System.Windows.Rect 140, 120, 900, 620
             $chrome.Place($vuole)
@@ -358,10 +358,10 @@ $w.add_Loaded({{
             $out.PlaceWanted = @($vuole.X, $vuole.Y, $vuole.Width, $vuole.Height)
             $out.SizingAtRest = [SlantUI.Chrome]::IsSizing($h)
 
-            # La massimizzazione animata, che non puo' finire dentro questo
-            # tick: ha bisogno di fotogrammi, e i fotogrammi arrivano solo se
-            # il thread torna a comporre. Si avvia qui e si guarda da un
-            # secondo timer, che chiude la finestra quando ha finito.
+            # The animated maximise, which cannot finish inside this tick: it
+            # needs frames, and frames only arrive if the thread goes back to
+            # composing. It starts here and is watched by a second timer, which
+            # closes the window once it is done.
             $chrome.StateMs = 240
             $segni = New-Object System.Collections.ArrayList
             $chrome.OnSizing = {{ param($attivo) [void]$segni.Add([bool]$attivo) }}.GetNewClosure()

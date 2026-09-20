@@ -1124,7 +1124,7 @@ function Add-SlantSvgNode($nodo, $ospite, $eredita, [string]$Tint, $bc) {
             $op = ConvertTo-SlantSvgNumber "$($figlio.GetAttribute('opacity'))" 1.0
             if ($op -lt 0.999) {
                 $dentro.Opacity = $op
-                $mio.Remove('opacity')      # gia' applicata al gruppo
+                $mio.Remove('opacity')      # already applied to the group
             }
             Add-SlantSvgNode $figlio $dentro $mio $Tint $bc
             if ($dentro.Children.Count -gt 0) { [void]$ospite.Children.Add($dentro) }
@@ -1424,10 +1424,10 @@ function Install-SlantWindow {
             try { $taken = [bool]$me.SystemCommand($command) } catch { $taken = $false }
             return $taken
         }.GetNewClosure())
-        # Un trascinamento di un bordo e' un ciclo modale di Windows, e ogni
-        # pixel e' un WM_SIZE. L'applicazione che sa dove quel ciclo comincia e
-        # dove finisce puo' fermare quello che altrimenti si riavvolgerebbe
-        # sotto le dita, e reimpaginare una volta sola alla fine.
+        # A drag of an edge is a modal loop of Windows, and every pixel is a
+        # WM_SIZE. An application that knows where that loop starts and where it
+        # ends can freeze whatever would otherwise rewrap under the fingers, and
+        # lay it out once at the end.
         [SlantUI.Chrome]::OnSizing($handle, [Action[IntPtr, bool]] {
             param([IntPtr]$hwnd, [bool]$active)
             if ($null -ne $me.OnSizing) { try { & $me.OnSizing $active } catch { } }
@@ -1617,7 +1617,7 @@ function Install-SlantWindow {
             return
         }
 
-        # il fattore di scala si legge una volta, non a ogni fotogramma
+        # the scale factor is read once and not on every frame
         $this.Device = $null
         if ($this.Handle -ne [IntPtr]::Zero) {
             $src = [System.Windows.Interop.HwndSource]::FromHwnd($this.Handle)
@@ -1632,8 +1632,8 @@ function Install-SlantWindow {
             Last = [DateTime]::UtcNow; Frames = 0; Slow = 0
         }
         $this.Busy = $true
-        # l'applicazione lo sa prima che la geometria cominci a muoversi: cosi'
-        # quello che si riavvolgerebbe e' gia' fermo al primo fotogramma
+        # the application is told before the geometry starts moving: that way
+        # whatever would rewrap is already frozen on the first frame
         $this.Sizing($true)
         $handler = [System.EventHandler] {
             param($sender, $e)
@@ -1642,8 +1642,8 @@ function Install-SlantWindow {
                 $ora = [DateTime]::UtcNow
                 $part = ($ora - $step.Start).TotalMilliseconds / $step.Ms
                 if ($part -gt 1) { $part = 1 }
-                # quanto e' costato il fotogramma prima. Due lenti di fila e
-                # si smette di animare: meglio un salto che tre scatti
+                # what the frame before cost. Two slow ones running and the
+                # animation stops: better one jump than three jerks
                 $step.Frames++
                 if ($step.Frames -gt 1) {
                     $costo = ($ora - $step.Last).TotalMilliseconds
@@ -1661,8 +1661,9 @@ function Install-SlantWindow {
                 if ($part -ge 1) {
                     $owner = $step.Owner
                     $owner.StopAnim()
-                    # l'ultima parola alle proprieta' di WPF: la conversione in
-                    # pixel arrotonda, e la misura salvata dev'essere esatta
+                    # the last word to WPF's own properties: the conversion
+                    # into pixels rounds, and the size that is kept has to be
+                    # exact
                     $owner.Busy = $true
                     try {
                         $win = $owner.Window
@@ -1836,12 +1837,12 @@ function Get-SlantWidgetColours {
         TextDim   = $c['text-3']
         TextFaint = $c['text-4']
         Accent    = $c['accent']
-        Overlay   = $w['overlay']      # ha un alpha: la forma Wpf, non quella CSS
+        Overlay   = $w['overlay']      # it has an alpha: the Wpf form, not the CSS one
     }
 }
 
-# Il registro e' dell'applicazione, non della libreria: se ne ha uno lo
-# dichiara, e da quel momento anche i widget ci scrivono dentro.
+# The log belongs to the application and not to the library: if it has one it
+# says so, and from that moment the widgets write into it too.
 $script:SlantLogger = $null
 
 function Set-SlantLogger {
@@ -1856,18 +1857,19 @@ function Write-SlantNote([string]$riga) {
     if ($l) { try { & $l "slantui: $riga" } catch { } }
 }
 
-# --- hover uniforme -------------------------------------------------------------
-# Al passaggio del cursore il fondo schiarisce di poco: ColorAnimation di 120 ms
-# in entrata e 180 in uscita, QuadraticEase, sul solo colore del fondo. Nessun
-# bordo che compare, nessun cambio di misura. Vale per tutto: i Border costruiti
-# a mano e i bottoni templati, di cui si anima il primo Border del template.
-# L'animazione sta SOPRA la proprieta', non la sostituisce: in uscita si ferma
-# (FillBehavior Stop) e il fondo torna a quello che dicono setter e trigger in
-# quel momento (il giallo di una scheda scelta mentre ci si passava sopra, il
-# grigio di un bottone spento). Prima ogni template aveva il suo Trigger
-# IsMouseOver a scatto, e i Border a mano non avevano niente.
+# --- the one hover --------------------------------------------------------------
+# Under the pointer the background lightens a little: a ColorAnimation of 120 ms
+# going in and 180 coming out, QuadraticEase, on the colour of the background and
+# on nothing else. No border appearing, no change of size. It holds for
+# everything: the Borders built by hand and the templated buttons, where the
+# first Border of the template is the one animated. The animation sits ON TOP of
+# the property and does not replace it: coming out it stops (FillBehavior Stop)
+# and the background goes back to what setters and triggers say at that moment
+# (the yellow of a tab that was chosen while the pointer was over it, the grey of
+# a button that is off). Before this every template had its own IsMouseOver
+# trigger, switching at once, and the Borders built by hand had nothing.
 function Get-SlantHoverColor([System.Windows.Media.Color]$c, [double]$quanto) {
-    # su un fondo trasparente si posa un velo chiaro
+    # on a transparent background it lays down a pale veil
     if ($c.A -eq 0) { return [System.Windows.Media.Color]::FromArgb(0x1C, 0xFF, 0xFF, 0xFF) }
     $r = [byte][math]::Min(255, $c.R + (255 - $c.R) * $quanto)
     $g = [byte][math]::Min(255, $c.G + (255 - $c.G) * $quanto)
@@ -1875,8 +1877,8 @@ function Get-SlantHoverColor([System.Windows.Media.Color]$c, [double]$quanto) {
     return [System.Windows.Media.Color]::FromArgb($c.A, $r, $g, $b)
 }
 
-# Il Border da animare: l'elemento stesso, o il primo Border nel template di
-# un bottone (che va applicato, se non lo e' ancora).
+# The Border to animate: the element itself, or the first Border in the template
+# of a button (which has to be applied, if it has not been yet).
 function Find-SlantHoverTarget($el) {
     if ($el -is [System.Windows.Controls.Border]) { return $el }
     if ($el -is [System.Windows.Controls.Control]) { try { [void]$el.ApplyTemplate() } catch { } }
@@ -1909,18 +1911,19 @@ function New-SlantHoverStoryboard($target, [System.Windows.Media.Color]$to, [int
     return $sb
 }
 
-# Cambia il fondo di un Border con una transizione di colore (140 ms) invece
-# che a scatto: la base diventa subito il colore nuovo, e l'animazione va dal
-# vecchio al nuovo e poi si ferma, cosi' l'hover legge sempre la base giusta.
-# Il colore di BASE di un pennello: non quello che si vede, che durante un
-# hover o una transizione e' animato. Un pennello non congelato viene animato
-# in proprio (il Border tiene lo stesso oggetto), quindi .Color darebbe il
-# valore animato e un confronto "stesso colore?" fallirebbe sempre in hover.
+# The BASE colour of a brush: not the one that is seen, which during a hover or
+# a transition is animated. A brush that is not frozen is animated in place (the
+# Border holds the same object), so .Color would give the animated value and a
+# comparison "the same colour?" would fail every time under the pointer.
 function Get-SlantBaseBrushColor($brush) {
     try { return [System.Windows.Media.Color]$brush.GetAnimationBaseValue([System.Windows.Media.SolidColorBrush]::ColorProperty) }
     catch { return $brush.Color }
 }
 
+# Change a Border's background with a colour transition (140 ms) instead of
+# switching at once: the base becomes the new colour straight away, and the
+# animation runs from the old to the new and then stops, so the hover always
+# reads the right base.
 function Set-SlantBorderColor($border, [string]$hex, [bool]$animato = $true) {
     $bc = New-Object System.Windows.Media.BrushConverter
     $nuovo = $bc.ConvertFromString($hex)
@@ -1929,9 +1932,9 @@ function Set-SlantBorderColor($border, [string]$hex, [bool]$animato = $true) {
         $bb = $border.GetAnimationBaseValue([System.Windows.Controls.Border]::BackgroundProperty)
         if ($bb -is [System.Windows.Media.SolidColorBrush]) { $vecchio = Get-SlantBaseBrushColor $bb }
     } catch { }
-    # stesso colore: non si tocca niente. Riassegnare un pennello uguale
-    # staccherebbe l'animazione di hover in corso (che vive sul pennello), e il
-    # bottone sotto il cursore tornerebbe spento a ogni Update-Steps
+    # the same colour: nothing is touched. Assigning an equal brush would
+    # detach the hover animation that is running (it lives on the brush), and the
+    # button under the pointer would go back to unlit on every redraw
     if ($null -ne $vecchio -and $vecchio -eq $nuovo.Color) { return }
     $border.Background = $nuovo
     if ($animato -and $null -ne $vecchio) {
@@ -1942,23 +1945,23 @@ function Set-SlantBorderColor($border, [string]$hex, [bool]$animato = $true) {
 function Add-SlantHover {
     param($Element, $Target = $null, [double]$Amount = 0.10)
     if (-not $Element) { return }
-    # quello che si illumina al passaggio e' quello che si clicca, quindi qui
-    # sta anche la manina: un bottone che non la mostra sembra un'etichetta
+    # what lights up under the pointer is what gets clicked, so the hand belongs
+    # here too: a button that does not show it reads as a label
     try { if (-not $Element.Cursor) { $Element.Cursor = 'Hand' } } catch { }
     $stato = [PSCustomObject]@{ Target = $Target; Quanto = $Amount }
     $Element.add_MouseEnter({
         param($src, $e)
         try {
             $t = $stato.Target
-            if (-not $t) { $t = Find-SlantHoverTarget $src; if (-not $t) { $global:SlantHoverLast = "enter: nessun Border sotto $($src.GetType().Name)"; return }; $stato.Target = $t }
+            if (-not $t) { $t = Find-SlantHoverTarget $src; if (-not $t) { $global:SlantHoverLast = "enter: no Border under $($src.GetType().Name)"; return }; $stato.Target = $t }
             $bb = $t.GetAnimationBaseValue([System.Windows.Controls.Border]::BackgroundProperty)
-            if ($bb -isnot [System.Windows.Media.SolidColorBrush]) { $global:SlantHoverLast = "enter: fondo non SolidColorBrush su $($src.GetType().Name)"; return }
+            if ($bb -isnot [System.Windows.Media.SolidColorBrush]) { $global:SlantHoverLast = "enter: background is not a SolidColorBrush on $($src.GetType().Name)"; return }
             $a = Get-SlantHoverColor (Get-SlantBaseBrushColor $bb) $stato.Quanto
             $sb = New-SlantHoverStoryboard $t $a 120 'HoldEnd'
             $sb.Begin($t, $true)
-            # traccia per lo smoke test e per il registro: l'ultimo hover partito
+            # a trace for the smoke test and for the log: the last hover started
             $global:SlantHoverLast = "enter: $($src.GetType().Name) $($bb.Color) -> $a"
-        } catch { $global:SlantHoverLast = "enter: errore $($_.Exception.Message)" }
+        } catch { $global:SlantHoverLast = "enter: error $($_.Exception.Message)" }
     }.GetNewClosure())
     $Element.add_MouseLeave({
         param($src, $e)
@@ -1974,12 +1977,12 @@ function Add-SlantHover {
 }
 
 
-# Un elemento sta dentro un altro? Si risale l'albero visuale dalla sorgente
-# vera del clic (che e' sempre la foglia: un TextBlock, un Path) fino a
-# trovarlo. Serve alla tendina per sapere se un tasto premuto e' caduto sul suo
-# bottone, dentro di lei, o fuori da tutti e due; e va risalito l'albero
-# visuale, non quello logico, perche' il contenuto di un Popup vive in un albero
-# suo che parte dal PopupRoot.
+# Is one element inside another? The visual tree is walked up from the real
+# source of the click (which is always the leaf: a TextBlock, a Path) until it is
+# found. The dropdown needs it to know whether a press landed on its own button,
+# inside itself, or outside both; and it is the visual tree that has to be walked
+# and not the logical one, because the content of a Popup lives in a tree of its
+# own that starts at the PopupRoot.
 function Test-SlantVisualAncestor($nodo, $radice) {
     if ($null -eq $nodo -or $null -eq $radice) { return $false }
     try {
@@ -2007,11 +2010,11 @@ function New-SlantPicker {
         [double]$TagWidth = 0,
         [scriptblock]$OnChange = $null,
         [scriptblock]$OnOpen = $null,
-        # Quanto puo' essere alta la tendina, al massimo. Con sei motori non
-        # serve; con quaranta lingue si': una lista alta quanto la finestra e'
-        # un muro, e le ultime righe stanno comunque sotto il bordo. Piu' corta
-        # e con lo scorrimento si legge meglio, e la riga di adesso si porta in
-        # vista da sola all'apertura.
+        # How tall the dropdown is allowed to get. With six entries it is not
+        # needed; with forty it is: a list as tall as the window is a wall, and
+        # the last rows are under the edge anyway. Shorter, and scrolling, reads
+        # better, and the row that is current brings itself into view when it
+        # opens.
         [double]$MaxHeight = 0
     )
     $pal = Get-SlantWidgetColours
@@ -2039,9 +2042,9 @@ function New-SlantPicker {
     $sigla.VerticalAlignment = 'Center'
     $sigla.Margin = New-Object System.Windows.Thickness(7, 0, 0, 0)
     if ($TagWidth -gt 0) { $sigla.Width = $TagWidth }
-    # il pallino di stato, quando una voce ne ha uno: per i motori dice se il
-    # manoscritto resta su questa macchina o se esce, ed e' la cosa piu'
-    # importante che questa tendina abbia da dire
+    # the status dot, when an entry has one: it says whether the work stays on
+    # this machine or leaves it, and it is the most important thing this dropdown
+    # has to say
     $punto = New-Object System.Windows.Shapes.Ellipse
     $punto.Width = 6; $punto.Height = 6
     $punto.VerticalAlignment = 'Center'
@@ -2060,13 +2063,13 @@ function New-SlantPicker {
     [void]$radice.Children.Add($btn)
     Add-SlantHover $btn
 
-    # Una tendina aperta e' uno stato, e si deve vedere anche quando il mouse
-    # e' andato altrove: finche' resta giu', il fondo del bottone sta sul
-    # chiaro, e torna al suo quando si richiude (per un secondo clic, per una
-    # scelta, o per un clic fuori, che sono tutti Closed del popup). Il
-    # passaggio del mouse continua a schiarire come su ogni altro bottone: si
-    # schiarisce da li', perche' Add-SlantHover parte dal valore di base, che e'
-    # quello che questa funzione riscrive.
+    # An open dropdown is a state, and it has to be seen once the pointer has
+    # gone elsewhere: while it stays down the button's background sits on the
+    # lighter colour, and goes back to its own when it closes again (on a second
+    # click, on a choice, or on a click outside, which are all Closed on the
+    # popup). The pointer goes on lightening it the way it lightens every other
+    # button: it lightens from there, because Add-SlantHover starts at the base
+    # value, and the base value is what this function rewrites.
     $fondoBase = ([System.Windows.Media.SolidColorBrush]$bc.ConvertFromString($pal.Panel3)).Color
     $fondoAcceso = Get-SlantHoverColor $fondoBase 0.14
     $accendi = {
@@ -2087,25 +2090,25 @@ function New-SlantPicker {
     $pop = New-Object System.Windows.Controls.Primitives.Popup
     $pop.PlacementTarget = $btn
     $pop.Placement = 'Bottom'
-    # StaysOpen a True, ed e' quello che rende il clic prevedibile. Con False
-    # e' il popup a prendersi il mouse: il tasto premuto sul bottone arriva a
-    # LUI, che si chiude sul MouseDown, e il rilascio che segue trova la
-    # tendina gia' chiusa e la riapre. Da fuori si vedeva una tendina che al
-    # secondo clic non si chiudeva mai, e il rimedio di prima era indovinare
-    # da dove venisse la chiusura guardando se il tasto fosse premuto sopra il
-    # bottone: funzionava quasi sempre, e "quasi" non basta per un bottone.
-    # Adesso non c'e' niente da indovinare. La tendina ha uno stato suo
-    # ($stato.Giu), il bottone lo commuta sul tasto premuto, e a chiuderla per
-    # un clic altrove ci pensa un handler sulla finestra che sa distinguere
-    # tre casi: dentro il bottone (decide il bottone), dentro la tendina (una
-    # scelta), fuori da tutti e due (si chiude).
+    # StaysOpen is True, and that is what makes the click predictable. With
+    # False it is the popup that takes the mouse: the press on the button goes to
+    # IT, it closes on the MouseDown, and the release that follows finds the
+    # dropdown already closed and opens it again. From outside this looked like a
+    # dropdown that never closed on the second click, and the cure before this
+    # one was to guess where the close had come from by looking at whether the
+    # button was held down over the button: it worked almost every time, and
+    # "almost" is not enough for a button. Now there is nothing to guess. The
+    # dropdown has a state of its own ($stato.Giu), the button toggles it on the
+    # press, and closing it for a click elsewhere is the job of a handler on the
+    # window that can tell three cases apart: inside the button (the button
+    # decides), inside the dropdown (a choice), outside both (it closes).
     $pop.StaysOpen = $true
     $pop.AllowsTransparency = $true
-    # niente PopupAnimation di sistema: la sua dissolvenza parte dal nulla e
-    # il contenuto nel frattempo si impagina, il che e' esattamente il
-    # tremolio da togliere. L'animazione la fa la cornice, su Opened, quando
-    # il contenuto ha gia' la sua misura: sale di sei pixel e si apre da
-    # 96%, che e' il movimento che fa un menu quando scende.
+    # no system PopupAnimation: its fade starts from nothing and the content
+    # lays itself out while it runs, which is exactly the flicker to be rid of.
+    # The frame does the animation, on Opened, when the content already has its
+    # size: it rises six pixels and opens from 96 per cent, which is the movement
+    # a menu makes when it comes down.
     $pop.PopupAnimation = 'None'
     $pop.VerticalOffset = 4
     $cornice = New-Object System.Windows.Controls.Border
@@ -2113,7 +2116,7 @@ function New-SlantPicker {
     $cornice.BorderThickness = New-Object System.Windows.Thickness(0)
     $cornice.CornerRadius = New-Object System.Windows.CornerRadius(6)
     $cornice.Padding = New-Object System.Windows.Thickness(4)
-    $cornice.Margin = New-Object System.Windows.Thickness(10)   # spazio all'ombra
+    $cornice.Margin = New-Object System.Windows.Thickness(10)   # room for the shadow
     $cornice.RenderTransformOrigin = New-Object System.Windows.Point(0.5, 0)
     $cornice.SnapsToDevicePixels = $true
     $cornice.UseLayoutRounding = $true
@@ -2121,7 +2124,7 @@ function New-SlantPicker {
     $ombra.BlurRadius = 18; $ombra.ShadowDepth = 0; $ombra.Opacity = 0.55
     $ombra.Color = [System.Windows.Media.Colors]::Black
     $cornice.Effect = $ombra
-    # la lista scorre invece di allungarsi oltre il bordo della finestra
+    # the list scrolls instead of growing past the edge of the window
     $scorri = New-Object System.Windows.Controls.ScrollViewer
     $scorri.VerticalScrollBarVisibility = 'Auto'
     $scorri.HorizontalScrollBarVisibility = 'Disabled'
@@ -2133,27 +2136,27 @@ function New-SlantPicker {
     $pop.Child = $cornice
     [void]$radice.Children.Add($pop)
 
-    # Lo stato in un oggetto condiviso: dentro una closure $script: e' lo scope
-    # del modulo della closure, non quello di questo file, e una scrittura li'
-    # dentro non arriva da nessuna parte. Giu e' lo stato logico della tendina,
-    # e non coincide con Popup.IsOpen mentre l'uscita si sta animando.
+    # The state in a shared object: inside a closure $script: is the module
+    # scope of the closure and not the one of this file, and a write in there
+    # goes nowhere. Giu is the logical state of the dropdown, and it does not
+    # agree with Popup.IsOpen while the way out is animating.
     $stato = [PSCustomObject]@{ Code = "$Current"; Voci = @($Items); Riempita = $false
                                 Giu = $false; Chiudendo = $false; Agganciato = $false
                                 Chiudi = $null }
 
-    # l'entrata e l'uscita. Il gruppo di trasformazioni si costruisce una volta
-    # e si riusa, cosi' non si accumulano trasformazioni a ogni apertura
+    # the way in and the way out. The transform group is built once and reused,
+    # so transforms do not pile up on every opening
     $scalaPop = New-Object System.Windows.Media.ScaleTransform(1.0, 1.0)
     $slittaPop = New-Object System.Windows.Media.TranslateTransform(0.0, 0.0)
     $gruppoPop = New-Object System.Windows.Media.TransformGroup
     [void]$gruppoPop.Children.Add($scalaPop)
     [void]$gruppoPop.Children.Add($slittaPop)
     $cornice.RenderTransform = $gruppoPop
-    # L'entrata: la dissolvenza arriva per prima e corta (110 ms), il movimento
-    # dura quasi il doppio (210) e finisce su una quintica, che parte svelta e
-    # si posa senza fermarsi di colpo. Sono due tempi diversi apposta: con una
-    # durata sola il pannello sembra scivolare dentro gia' opaco, e la fine del
-    # movimento si vede come uno stacco.
+    # The way in: the fade comes first and is short (110 ms), the movement lasts
+    # almost twice as long (210) and ends on a quintic, which starts quickly and
+    # settles without stopping dead. The two lengths differ on purpose: with one
+    # length the panel looks like it slides in already opaque, and the end of the
+    # movement is seen as a break.
     $entra = {
         try {
             $morbida = New-Object System.Windows.Media.Animation.QuinticEase
@@ -2177,13 +2180,13 @@ function New-SlantPicker {
     }.GetNewClosure()
     $pop.add_Opened({ & $entra }.GetNewClosure())
 
-    # L'uscita. Una tendina che sparisce di colpo si legge come un errore, e
-    # per animarla bisogna tenere il popup aperto mentre se ne va: la chiusura
-    # vera arriva da un timer di 130 ms, non dal Completed dell'animazione,
-    # perche' un Completed che per qualunque ragione non arriva lascerebbe la
-    # tendina aperta per sempre. Il timer batte una volta e si ferma, e il suo
-    # corpo sta in un try/catch, che e' la regola di questa casa: un'eccezione
-    # dentro un tick ferma quel timer per sempre.
+    # The way out. A dropdown that vanishes at once reads as an error, and to
+    # animate it the popup has to be held open while it goes: the real close
+    # comes from a timer of 130 ms and not from the animation's Completed,
+    # because a Completed that for whatever reason does not arrive would leave
+    # the dropdown open for ever. The timer beats once and stops, and its body is
+    # in a try/catch, which is the rule of this house: an exception inside a tick
+    # stops that timer for ever.
     $chiusura = New-Object System.Windows.Threading.DispatcherTimer
     $chiusura.Interval = [TimeSpan]::FromMilliseconds(130)
     $chiusura.add_Tick({
@@ -2234,32 +2237,32 @@ function New-SlantPicker {
         if ($voce.Tip) { $btn.ToolTip = "$($voce.Tip)" }
     }.GetNewClosure()
 
-    # Le righe si costruiscono alla PRIMA apertura, non all'avvio. Disegnare
-    # cinque bandiere costa: gli SVG stanno su Google Drive e la prima lettura
-    # li tira giu', e lo stemma spagnolo da solo sono 542 path. All'apertura
-    # della finestra sarebbero otto decimi di secondo di gelo, contro la regola
-    # che sul thread grafico non ci sta niente sopra il decimo di secondo.
+    # The rows are built on the FIRST opening and not at startup. Drawing five
+    # flags costs: the SVGs sit on a synced drive and the first read pulls them
+    # down, and the Spanish coat of arms on its own is 542 paths. At the opening
+    # of the window that would be eight tenths of a second of ice, against the
+    # rule that nothing over a tenth of a second belongs on the drawing thread.
     $riempi = {
         if ($stato.Riempita) { return }
         $stato.Riempita = $true
-        # Queste tre servono alla closure della singola riga, che nasce dentro
-        # questa: li' dentro si vedono solo le variabili LOCALI di questo
-        # blocco, non quelle della funzione. Senza copiarle, $pop, $mostra e
-        # $OnChange arrivavano nulle, il clic su una voce non faceva niente e
-        # il catch qui sotto ingoiava l'errore: la tendina restava aperta e il
-        # valore fermo. E' lo stesso inciampo gia' documentato in CLAUDE.md.
+        # These are for the closure of the single row, which is born inside
+        # this one: in there only the LOCAL variables of this block are visible,
+        # not the ones of the function. Without copying them, $pop, $mostra and
+        # $OnChange arrived null, the click on an entry did nothing and the catch
+        # below swallowed the error: the dropdown stayed open and the value
+        # stayed where it was. It is the same trip the handlers further down
+        # take, and it is written out again there.
         $ilPop = $pop
         $ilMostra = $mostra
         $ilCambia = $OnChange
         $ilAccendi = $accendi
         $loStato = $stato
-        # Ogni riga e' una griglia, non una pila, e le quattro colonne
-        # condividono la misura con quelle delle altre righe
-        # (SharedSizeGroup, dentro lo scope che e' la lista): logo, sigla,
-        # nome e nota partono tutti dalla stessa x. Impilandoli, ogni riga si
-        # disponeva per conto suo e le note finivano ognuna a un'altezza di
-        # colonna diversa, che e' quello che si vedeva nella tendina dei
-        # motori: "remoto" e "da configurare" sparsi.
+        # Every row is a grid and not a stack, and the four columns share their
+        # measure with the ones of the other rows (SharedSizeGroup, inside the
+        # scope that is the list): logo, tag, name and note all start at the same
+        # x. Stacked, every row laid itself out on its own and each note ended up
+        # at a different distance from the left, which is what the dropdown
+        # looked like: the notes scattered down the right hand side.
         [System.Windows.Controls.Grid]::SetIsSharedSizeScope($lista, $true)
         $gruppi = @('pkIcon', 'pkTag', 'pkLabel', 'pkNote')
         foreach ($l in @($stato.Voci)) {
@@ -2302,8 +2305,8 @@ function New-SlantPicker {
             [System.Windows.Controls.Grid]::SetColumn($tn, 2)
             [void]$sp.Children.Add($tc)
             [void]$sp.Children.Add($tn)
-            # la nota a destra: per un motore e' dove finisce il manoscritto,
-            # oppure che gli manca la configurazione
+            # the note on the right: where the work ends up, or that the entry
+            # still needs setting up
             if ($l.Note) {
                 $tz = New-Object System.Windows.Controls.TextBlock
                 $tz.Text = "$($l.Note)"
@@ -2317,12 +2320,12 @@ function New-SlantPicker {
                 [void]$sp.Children.Add($tz)
             }
             $vr.Child = $sp
-            # il codice della voce sulla riga: l'etichetta non lo dice (un
-            # motore si chiama "Claude" e si chiama 'claude-cli'), e senza
-            # questo la prova automatica non puo' scegliere una riga precisa
+            # the entry's code on the row: the label does not say it (an entry
+            # can read "English" and be called 'en'), and without this an
+            # automated check cannot pick out one row in particular
             $vr.Tag = $codice
-            # la riga di adesso porta il fondo acceso: in una lista di quaranta
-            # voci, sapere dove si e' vale piu' di qualunque altra cosa
+            # the current row carries the lit background: in a list of forty
+            # entries, knowing where you are is worth more than anything else
             if ($codice -eq $loStato.Code) { $vr.Background = $bc.ConvertFromString($pal.Panel3) }
             if ($l.Tip) { $vr.ToolTip = "$($l.Tip)" }
             Add-SlantHover $vr
@@ -2335,22 +2338,22 @@ function New-SlantPicker {
                     & $ilMostra $codice
                     if ($ilCambia) { & $ilCambia $codice }
                 } catch {
-                    # un errore qui vuol dire che il clic non ha fatto niente:
-                    # nel registro, non nel nulla
+                    # an error here means the click did nothing: into the log,
+                    # not into nowhere
                     $log = Get-Command Write-SlantNote -ErrorAction SilentlyContinue
-                    if ($log) { & $log "picker: la voce $codice non ha risposto: $($_.Exception.Message)" }
+                    if ($log) { & $log "picker: entry $codice did not answer: $($_.Exception.Message)" }
                 }
             }.GetNewClosure())
             [void]$lista.Children.Add($vr)
         }
     }.GetNewClosure()
 
-    # Il popup e' una finestra di sistema: lasciato a se' esce dal desk, verso
-    # destra e verso il basso, perche' il bottone che lo apre sta in alto a
-    # destra. Prima di aprirlo si misura quanto vuole essere, si guarda dove
-    # sta il bottone dentro la finestra, e lo si sposta del tanto che serve
-    # perche' stia dentro. Niente delegati di piazzamento: un callback
-    # costruito da uno scriptblock non gira mentre il runspace e' occupato.
+    # The popup is a window of the system: left to itself it goes out of the
+    # application's window, to the right and downwards, because the button that
+    # opens it sits at the top right. Before it opens, how big it wants to be is
+    # measured, where the button sits inside the window is read, and it is moved
+    # by as much as it takes to stay inside. No placement delegates: a callback
+    # built from a scriptblock does not run while the runspace is busy.
     $sistema = {
         $fin = [System.Windows.Window]::GetWindow($btn)
         if (-not $fin) { return }
@@ -2361,35 +2364,48 @@ function New-SlantPicker {
         $dove = $btn.TransformToAncestor($fin).Transform((New-Object System.Windows.Point(0, 0)))
         $largo = $fin.ActualWidth
         $alto = $fin.ActualHeight
-        # Una lista piu' alta dello spazio che ha scorre, e una lista che scorre
-        # si porta dietro la sua barra: quella larghezza va contata PRIMA di
-        # decidere dove mettere la tendina, se no sfora a destra di quei pixel.
-        # Con cinque lingue non capitava, con quaranta si'.
+        # A list taller than the room it has scrolls, and a list that scrolls
+        # brings its bar with it: that width has to be counted BEFORE deciding
+        # where the dropdown goes, or it runs over to the right by those pixels.
+        # With five entries it did not happen, with forty it does.
         $stanza = [Math]::Max($alto - ($dove.Y + $btn.ActualHeight) - $margine, $dove.Y - $margine)
         if ($MaxHeight -gt 0 -and $stanza -gt $MaxHeight) { $stanza = $MaxHeight }
         if ($vuole.Height -gt $stanza) {
             $vuole = New-Object System.Windows.Size(
                 ($vuole.Width + [System.Windows.SystemParameters]::VerticalScrollBarWidth), $vuole.Height)
         }
-        # in orizzontale: la tendina parte sotto il bottone, e se il suo bordo
-        # destro uscirebbe la si tira indietro fino a farcela stare
+        # across: the dropdown starts under the button, and if its right edge
+        # would go outside it is pulled back until it fits
         $dx = 0.0
         $destra = $dove.X + $vuole.Width
         if ($destra -gt ($largo - $margine)) { $dx = -($destra - ($largo - $margine)) }
         if (($dove.X + $dx) -lt $margine) { $dx = $margine - $dove.X }
-        # in verticale: sotto il bottone se ci sta, altrimenti sopra; e se non
-        # ci sta ne' sopra ne' sotto, si accorcia e scorre
+        # down: under the button if it fits, above it otherwise; and if it fits
+        # neither above nor below, it is shortened and scrolls
+        $stacco = 4.0
+        $bordo = $cornice.Margin.Top + $cornice.Margin.Bottom
         $sotto = $alto - ($dove.Y + $btn.ActualHeight) - $margine
         $sopra = $dove.Y - $margine
-        $dy = 4.0
-        $tetto = $sotto
-        if ($vuole.Height -gt $sotto -and $sopra -gt $sotto) {
-            $tetto = $sopra
-            $dy = -($btn.ActualHeight + 4 + [Math]::Min($vuole.Height, $sopra))
-        }
+        $inSu = ($vuole.Height -gt $sotto -and $sopra -gt $sotto)
+        $tetto = $(if ($inSu) { $sopra } else { $sotto })
         if ($tetto -lt 80) { $tetto = 80 }
-        if ($MaxHeight -gt 0 -and $tetto -gt $MaxHeight) { $tetto = $MaxHeight }
-        $cornice.MaxHeight = $tetto
+        # MaxHeight is the frame's own height, and the room measured here is the
+        # popup's: the frame, the margin that carries its shadow, and the gap it
+        # sits away from the button by. Setting the one straight from the other
+        # put the last rows of a long list under the edge of the window, by
+        # exactly those two. With five entries the list was shorter than the
+        # room and it never showed; with forty it does.
+        $altezza = [Math]::Max(60, $tetto - $bordo - $stacco)
+        if ($MaxHeight -gt 0 -and $altezza -gt $MaxHeight) { $altezza = $MaxHeight }
+        $cornice.MaxHeight = $altezza
+        # and going up, the popup is hung from its own bottom edge, so where it
+        # starts follows from the height it ends up with and not from the height
+        # it asked for
+        $dy = $stacco
+        if ($inSu) {
+            $dy = -($btn.ActualHeight + $stacco +
+                    [Math]::Min($vuole.Height, ($altezza + $bordo)))
+        }
         $pop.HorizontalOffset = $dx
         $pop.VerticalOffset = $dy
     }.GetNewClosure()
@@ -2414,14 +2430,15 @@ function New-SlantPicker {
 
     $stato.Chiudi = $chiudi
 
-    # Il clic fuori. Il popup non si prende piu' il mouse, quindi a riconoscerlo
-    # e' la finestra: un handler in discesa, che passa prima di chiunque altro,
-    # e tre casi. Sul bottone non fa niente, perche' il bottone sa gia' cosa
-    # deve fare e farebbe il doppio lavoro (chiusa da qui, riaperta da lui, cioe'
-    # esattamente il difetto di prima). Dentro la tendina non fa niente, perche'
-    # e' una scelta. Fuori da tutti e due, chiude. Gli handler si agganciano
-    # alla prima apertura, non alla costruzione: prima la finestra non c'e'
-    # ancora, e a una tendina mai aperta non serve niente.
+    # The click outside. The popup no longer takes the mouse, so it is the
+    # window that recognises it: a handler on the way down, which goes before
+    # anyone else, and three cases. On the button it does nothing, because the
+    # button already knows what it has to do and this would be the work twice
+    # over (closed from here, opened again by it, which is exactly the fault from
+    # before). Inside the dropdown it does nothing, because that is a choice.
+    # Outside both, it closes. The handlers are hooked up on the first opening
+    # and not at construction: before that the window is not there yet, and a
+    # dropdown nobody ever opened needs none of it.
     $aggancia = {
         if ($stato.Agganciato) { return }
         $fin = [System.Windows.Window]::GetWindow($btn)
@@ -2431,11 +2448,11 @@ function New-SlantPicker {
         $laCornice = $cornice
         $loStato = $stato
         $ilChiudi = $chiudi
-        # Ogni handler si chiude con GetNewClosure, e non e' un dettaglio: uno
-        # scriptblock passato come delegato senza chiusura viene eseguito nello
-        # scope dello script, dove queste variabili non esistono. Non solleva
-        # niente, legge $null, e il clic fuori non chiude la tendina: e'
-        # esattamente quello che faceva.
+        # Every handler ends with GetNewClosure, and that is not a detail: a
+        # scriptblock passed as a delegate without a closure is run in the
+        # script's scope, where these variables do not exist. It raises nothing,
+        # reads $null, and the click outside does not close the dropdown: which
+        # is exactly what it used to do.
         $fuoriClic = {
             param($src, $e)
             try {
@@ -2447,8 +2464,8 @@ function New-SlantPicker {
         }.GetNewClosure()
         $fin.AddHandler([System.Windows.UIElement]::PreviewMouseDownEvent,
                         [System.Windows.Input.MouseButtonEventHandler]$fuoriClic, $true)
-        # Esc la chiude come chiude ogni altra cosa in questa finestra, e il
-        # tasto si ferma qui: se no chiuderebbe anche la vista sotto
+        # Escape closes it the way it closes everything else in this window, and
+        # the key stops here: otherwise it would close the view underneath too
         $viaCol = {
             param($src, $e)
             try {
@@ -2457,8 +2474,8 @@ function New-SlantPicker {
         }.GetNewClosure()
         $fin.AddHandler([System.Windows.UIElement]::PreviewKeyDownEvent,
                         [System.Windows.Input.KeyEventHandler]$viaCol, $true)
-        # una tendina e' ancorata al suo bottone: se la finestra si sposta, si
-        # ridimensiona o passa in secondo piano, resterebbe per aria
+        # a dropdown is anchored to its button: if the window moves, resizes or
+        # goes to the back, it would be left hanging in the air
         $viaSubito = { try { if ($loStato.Giu) { & $ilChiudi $true } } catch { } }.GetNewClosure()
         $fin.add_Deactivated($viaSubito)
         $fin.add_LocationChanged($viaSubito)
@@ -2468,25 +2485,25 @@ function New-SlantPicker {
     $apri = {
         $stato.Chiudendo = $false
         $chiusura.Stop()
-        # Lo stato si alza per primo, prima di costruire qualunque cosa: se una
-        # riga non si disegna, la tendina resta aperta e sbagliata invece di
-        # restare chiusa e apparentemente morta al clic. Un errore qui finiva
-        # nel catch del bottone e la tendina non si apriva piu', senza dire
-        # niente a nessuno.
+        # The state goes up first, before anything is built: if a row will not
+        # draw, the dropdown stays open and wrong instead of staying shut and
+        # looking dead to the click. An error here used to end up in the button's
+        # catch and the dropdown never opened again, without saying anything to
+        # anybody.
         $stato.Giu = $true
-        # OnOpen PRIMA di riempire: chi lo usa (il selettore dei motori) rifa'
-        # le voci con SetItems, che svuota la lista e la marca da rifare.
-        # Riempiendo prima, quello svuotamento arrivava dopo e la tendina si
-        # apriva vuota, ogni volta.
+        # OnOpen BEFORE filling: whoever uses it remakes the entries with
+        # SetItems, which empties the list and marks it to be built again.
+        # Filling first, that emptying arrived afterwards and the dropdown opened
+        # empty, every time.
         if ($OnOpen) { try { & $OnOpen } catch { } }
         try { & $riempi } catch {
             $log = Get-Command Write-SlantNote -ErrorAction SilentlyContinue
-            if ($log) { & $log "picker: la lista non si costruisce: $($_.Exception.Message)" }
+            if ($log) { & $log "picker: the list will not build: $($_.Exception.Message)" }
         }
         try { & $sistema } catch { }
         & $aggancia
-        # il fondo acceso segue la scelta di adesso, che puo' essere cambiata
-        # dopo che la lista era gia' stata costruita
+        # the lit background follows the current choice, which can have been
+        # changed after the list was already built
         try {
             foreach ($r in @($lista.Children)) {
                 $suo = ("$($r.Tag)" -eq "$($stato.Code)")
@@ -2494,20 +2511,20 @@ function New-SlantPicker {
                                   else { [System.Windows.Media.Brushes]::Transparent })
             }
         } catch { }
-        if ($pop.IsOpen) { & $entra }   # si stava chiudendo: rientra da dov'era
+        if ($pop.IsOpen) { & $entra }   # it was closing: back in from where it was
         else { $pop.IsOpen = $true }
         & $accendi $true
-        # e si porta in vista, che in una lista che scorre e' la differenza fra
-        # trovarsi e cercarsi
+        # and it brings itself into view, which in a list that scrolls is the
+        # difference between finding yourself and looking for yourself
         try {
             $sua = @($lista.Children | Where-Object { "$($_.Tag)" -eq "$($stato.Code)" })[0]
             if ($sua) { [void]$sua.BringIntoView() }
         } catch { }
     }.GetNewClosure()
 
-    # Sul tasto premuto, non sul rilascio: un rilascio arriva anche a chi si e'
-    # trascinato sopra col tasto gia' giu', e un bottone che si apre cosi' si
-    # apre quando nessuno gliel'ha chiesto.
+    # On the press and not on the release: a release also reaches whatever was
+    # dragged over with the button already down, and a button that opens that way
+    # opens when nobody asked it to.
     $btn.add_PreviewMouseLeftButtonDown({
         param($src, $e)
         try {
@@ -2516,8 +2533,8 @@ function New-SlantPicker {
         } catch { }
     }.GetNewClosure())
 
-    # chiunque chiuda il popup, anche scavalcando quanto sta sopra, lascia il
-    # bottone spento e lo stato pulito
+    # whoever closes the popup, even going around everything above, leaves the
+    # button unlit and the state clean
     $pop.add_Closed({
         $stato.Giu = $false
         $stato.Chiudendo = $false
@@ -2528,9 +2545,9 @@ function New-SlantPicker {
 
     $picker = [PSCustomObject]@{ Element = $radice; Popup = $pop }
     $picker | Add-Member -MemberType ScriptMethod -Name Code -Value { return "$($stato.Code)" }.GetNewClosure()
-    # Lo stato logico: vero da quando si apre a quando la si chiude. Popup.IsOpen
-    # resta vero per i 130 ms in cui l'uscita si anima, quindi chi vuole sapere
-    # se la tendina e' giu' chiede questo.
+    # The logical state: true from the moment it opens to the moment it is
+    # closed. Popup.IsOpen stays true for the 130 ms the way out is animating, so
+    # whoever wants to know whether the dropdown is down asks this.
     $picker | Add-Member -MemberType ScriptMethod -Name IsDown -Value { return [bool]$stato.Giu }.GetNewClosure()
     $picker | Add-Member -MemberType ScriptMethod -Name Close -Value {
         param([bool]$subito = $true)
@@ -2543,9 +2560,9 @@ function New-SlantPicker {
         param([string]$code)
         & $mostra $code
     }.GetNewClosure()
-    # le voci cambiano quando cambia quello che descrivono: un motore che
-    # prima non era configurato e adesso lo e' deve smettere di dire
-    # "needs setup" senza che si riapra la finestra
+    # the entries change when what they describe changes: one that was not set
+    # up before and is now has to stop saying "needs setup" without the window
+    # being opened again
     $picker | Add-Member -MemberType ScriptMethod -Name SetItems -Value {
         param([array]$voci, [string]$code = "")
         $stato.Voci = @($voci)
@@ -2553,13 +2570,13 @@ function New-SlantPicker {
         $lista.Children.Clear()
         & $mostra $(if ($code) { $code } else { $stato.Code })
     }.GetNewClosure()
-    # per scaldare la lista quando la finestra ha gia' disegnato: chi apre il
-    # desk lo fa dopo il primo render, come per la scansione delle cartelle
+    # to warm the list once the window has drawn: whoever opens the window does
+    # it after the first render, the way a scan of the folders is done
     $picker | Add-Member -MemberType ScriptMethod -Name Warm -Value { & $riempi }.GetNewClosure()
     return $picker
 }
 
-# La lingua e' un selettore con le icone in cui l'icona e' una bandiera.
+# A language chooser is this picker with a flag for an icon.
 
 # ── the splash, for the seconds before an application is ready ─────────────
 # An application that reads a folder before it can show anything has a few
@@ -2673,17 +2690,67 @@ function Initialize-SlantSplash {
     return $true
 }
 
+# Where the host goes in a window this library did not dress. A window holds
+# one child, so the screen has to share it with whatever is already inside: a
+# Panel takes another child and the screen goes on top of the rest, and
+# anything else is wrapped in a Grid that can. An empty window gets the Grid
+# too, and a window that already holds a Panel is left exactly as it was.
+function Get-SlantSplashHost($Window) {
+    $inside = $Window.Content
+    if ($inside -is [System.Windows.Controls.Panel]) { return $inside }
+    $grid = New-Object System.Windows.Controls.Grid
+    if ($null -ne $inside) {
+        $Window.Content = $null
+        if ($inside -is [System.Windows.UIElement]) { [void]$grid.Children.Add($inside) }
+        else {
+            $slot = New-Object System.Windows.Controls.ContentControl
+            $slot.Content = $inside
+            [void]$grid.Children.Add($slot)
+        }
+    }
+    $Window.Content = $grid
+    return $grid
+}
+
+# A size that has not been given yet reads as NaN, and NaN is not a size.
+function Get-SlantUsableSize([double]$v) {
+    if ([double]::IsNaN($v) -or [double]::IsInfinity($v)) { return 0.0 }
+    return $v
+}
+
 function Show-SlantSplash {
     <#  .SYNOPSIS  Cover an application's body while it gets ready.
 
+        It comes in two forms, and they draw the same screen.
+
+        With -Chrome it covers the body of a window this library dressed: the
+        page underneath blurred under the scrim, the band left sharp so the
+        window can still be moved and closed while it loads.
+
+        With -Window it covers a bare System.Windows.Window and nothing else:
+        no band, no blur, the screen on its own. That form is for the seconds
+        before an application exists, when whatever starts it wants this on
+        screen the moment the icon is clicked. Pair it with -Busy and the ring
+        turns; the application then puts its own up in the same mode a moment
+        later, and between the two there is no jump, because they are the same
+        screen drawn by the same code.
+
         .PARAMETER Chrome   What Install-SlantWindow returned.
+        .PARAMETER Window   A bare window to cover instead of a chrome. Its
+                            content is left where it is and the screen is laid
+                            over it.
+        .PARAMETER Palette  Which palette to draw in, with -Window. The default
+                            palette if nothing is named. A chrome carries its
+                            own and does not take this.
         .PARAMETER Logo     A path to an .svg, to an image, or an ImageSource.
-                            The band's own logo if nothing is passed. A vector
-                            is read as paths and drawn at the ring's size; a
-                            raster with an .svg of the same name beside it is
-                            read from the .svg.
+                            The band's own logo if nothing is passed and there
+                            is a band. A vector is read as paths and drawn at
+                            the ring's size; a raster with an .svg of the same
+                            name beside it is read from the .svg.
         .PARAMETER Text     The first line under the ring.
-        .PARAMETER Blur     How far the page behind goes out of focus.
+        .PARAMETER Blur     How far the page behind goes out of focus. It
+                            belongs to the -Chrome form: a bare window has
+                            nothing behind the screen to blur.
         .PARAMETER Size     The outer size of the ring.
         .PARAMETER Busy     A wait with nothing to measure: no figure, and the
                             ring turns instead of filling. The bar underneath
@@ -2691,33 +2758,56 @@ function Show-SlantSplash {
                             has to say. The first announced step turns it back
                             into a measure.
 
+        .EXAMPLE
+            $splash = Show-SlantSplash -Chrome $chrome -Logo .\brand.svg -Text 'starting'
+            $splash.SetProgress(0.4, 'reading the folders')
+            $splash.Hide()
+
+        .EXAMPLE
+            # before there is an application to dress
+            $splash = Show-SlantSplash -Window $w -Logo .\brand.png -Busy -Text 'starting'
+            $splash.Hide(190)
+
         .OUTPUTS  An object with SetProgress(fraction, text), SetText(text),
-                  Draw(fraction), Hide([ms]), Snapshot(scale) and Visible.  #>
+                  SetBusy(on), IsBusy(), Draw(fraction), Hide([ms]),
+                  Snapshot(scale) and Visible.  #>
+    [CmdletBinding(DefaultParameterSetName = 'Chrome')]
     param(
-        [Parameter(Mandatory = $true)]$Chrome,
+        [Parameter(ParameterSetName = 'Chrome', Mandatory = $true, Position = 0)]$Chrome,
+        [Parameter(ParameterSetName = 'Window', Mandatory = $true)][System.Windows.Window]$Window,
+        [Parameter(ParameterSetName = 'Window')][string]$Palette = "",
         $Logo = $null,
         [string]$Text = "",
-        [double]$Blur = 14,
+        [Parameter(ParameterSetName = 'Chrome')][double]$Blur = 14,
         [double]$Size = 132,
         [switch]$Busy
     )
     Initialize-SlantWpf
     if (-not (Initialize-SlantSplash)) { throw "SlantUI: the splash's drawing thread would not build" }
-    $wpf = (Get-SlantPalette $Chrome.Palette).Wpf
-    $shell = $Chrome.Body
 
-    # the application's own content is the second row of the shell; the band
-    # stays sharp and its buttons stay live, so the window can still be moved
-    # or closed while it loads
+    $nuda = ($PSCmdlet.ParameterSetName -eq 'Window')
     $sotto = $null
-    foreach ($child in $shell.Children) {
-        if ([System.Windows.Controls.Grid]::GetRow($child) -eq 1) { $sotto = $child; break }
+    $sfoca = $null
+    if ($nuda) {
+        $wpf = (Get-SlantPalette $Palette).Wpf
+        $shell = Get-SlantSplashHost $Window
+        $Blur = 0
+    } else {
+        $wpf = (Get-SlantPalette $Chrome.Palette).Wpf
+        $shell = $Chrome.Body
+
+        # the application's own content is the second row of the shell; the band
+        # stays sharp and its buttons stay live, so the window can still be moved
+        # or closed while it loads
+        foreach ($child in $shell.Children) {
+            if ([System.Windows.Controls.Grid]::GetRow($child) -eq 1) { $sotto = $child; break }
+        }
+        $sfoca = New-Object System.Windows.Media.Effects.BlurEffect
+        $sfoca.Radius = 0
+        $sfoca.KernelType = 'Gaussian'
+        $sfoca.RenderingBias = 'Performance'
+        if ($null -ne $sotto) { $sotto.Effect = $sfoca }
     }
-    $sfoca = New-Object System.Windows.Media.Effects.BlurEffect
-    $sfoca.Radius = 0
-    $sfoca.KernelType = 'Gaussian'
-    $sfoca.RenderingBias = 'Performance'
-    if ($null -ne $sotto) { $sotto.Effect = $sfoca }
 
     # The brand. It is read here, once, and handed over frozen: a frozen
     # Freezable is the one kind of drawing that crosses threads, and from a
@@ -2732,7 +2822,8 @@ function Show-SlantSplash {
     } elseif ("$Logo") {
         $quale = "$Logo"
         $arte = Get-SlantArtSource -Path "$Logo"
-    } elseif ($null -ne $Chrome.Logo -and $Chrome.Logo.Background -is [System.Windows.Media.ImageBrush]) {
+    } elseif (-not $nuda -and $null -ne $Chrome.Logo -and
+              $Chrome.Logo.Background -is [System.Windows.Media.ImageBrush]) {
         # nothing was passed: the band is already wearing the application's
         # mark, and when that is vector art it is exactly what this wants
         try {
@@ -2753,14 +2844,43 @@ function Show-SlantSplash {
     if ($Busy) { try { $core.SetBusy($true) } catch { } }
 
     $ospite = New-Object SlantVisualHost($core.Host)
-    [System.Windows.Controls.Grid]::SetRow($ospite, 1)
+    if ($nuda) {
+        # over everything that is already in there, and across all of it: a
+        # Grid puts a child with no row and no column in the first cell, which
+        # in a laid out window is a corner of it and not the window
+        if ($shell -is [System.Windows.Controls.Grid]) {
+            [System.Windows.Controls.Grid]::SetRow($ospite, 0)
+            [System.Windows.Controls.Grid]::SetColumn($ospite, 0)
+            [System.Windows.Controls.Grid]::SetRowSpan($ospite,
+                [Math]::Max(1, $shell.RowDefinitions.Count))
+            [System.Windows.Controls.Grid]::SetColumnSpan($ospite,
+                [Math]::Max(1, $shell.ColumnDefinitions.Count))
+        }
+        [System.Windows.Controls.Panel]::SetZIndex($ospite, 2147483000)
+    } else {
+        [System.Windows.Controls.Grid]::SetRow($ospite, 1)
+    }
     [void]$shell.Children.Add($ospite)
     $shell.UpdateLayout()
 
+    # The first frame has to be in the right place already, or the ring is seen
+    # jumping to the middle. A window that has not been shown yet has no
+    # measured size at all, and the bare form is called exactly then, so what
+    # the window was asked to be stands in until the first layout corrects it.
     $largo = $ospite.ActualWidth
     $alto = $ospite.ActualHeight
     if ($largo -le 1) { $largo = $shell.ActualWidth }
-    if ($alto -le 1) { $alto = [Math]::Max(1, $shell.ActualHeight - 40) }
+    if ($nuda) {
+        if ($alto -le 1) { $alto = $shell.ActualHeight }
+        if ($largo -le 1) { $largo = Get-SlantUsableSize $Window.Width }
+        if ($alto -le 1) { $alto = Get-SlantUsableSize $Window.Height }
+        if ($largo -le 1) { $largo = Get-SlantUsableSize $Window.ActualWidth }
+        if ($alto -le 1) { $alto = Get-SlantUsableSize $Window.ActualHeight }
+        $largo = [Math]::Max(1, $largo)
+        $alto = [Math]::Max(1, $alto)
+    } else {
+        if ($alto -le 1) { $alto = [Math]::Max(1, $shell.ActualHeight - 40) }
+    }
     $core.Start($largo, $alto, $Text)
 
     # the host has no say in its own size, so it is told when the window
@@ -2777,7 +2897,7 @@ function Show-SlantSplash {
     # into either, because a page that has not loaded yet is an empty page.
     # Going out is another matter, and that one is animated: by then the work
     # is done and the thread is free.
-    $sfoca.Radius = $Blur
+    if ($null -ne $sfoca) { $sfoca.Radius = $Blur }
 
     $splash = [PSCustomObject]@{
         Element = $ospite
@@ -2806,11 +2926,17 @@ function Show-SlantSplash {
         $this.SetProgress($quanto, "")
     }
 
-    # si passa fra le due modalita' anche dopo: un'attesa che a un certo punto
-    # sa quanto manca smette di girare e comincia a misurare
+    # the two modes can be swapped later too: a wait that at some point knows
+    # how much is left stops turning and starts measuring
     $splash | Add-Member -MemberType ScriptMethod -Name SetBusy -Value {
         param([bool]$acceso)
         try { $this.Core.SetBusy($acceso) } catch { }
+    }
+
+    # and which of the two it is in now. An announced step ends the wait by
+    # itself, so a caller that asked for one is not always still in it.
+    $splash | Add-Member -MemberType ScriptMethod -Name IsBusy -Value {
+        try { return [bool]$this.Core.Waiting } catch { return $false }
     }
 
     $splash | Add-Member -MemberType ScriptMethod -Name SetText -Value {
@@ -2843,15 +2969,23 @@ function Show-SlantSplash {
                 if ($durata -gt 0) {
                     $ease = New-Object System.Windows.Media.Animation.CubicEase
                     $ease.EasingMode = 'EaseOut'
-                    $torna = New-Object System.Windows.Media.Animation.DoubleAnimation(
-                        $me.BlurMax, 0, [TimeSpan]::FromMilliseconds($durata))
-                    $torna.EasingFunction = $ease
-                    $me.Blur.BeginAnimation([System.Windows.Media.Effects.BlurEffect]::RadiusProperty, $torna)
-                    # E la pagina arriva: entra da mezzo punto percentuale piu'
-                    # grande e si posa sulla sua misura, nello stesso tempo e
-                    # sulla stessa curva con cui il velo se ne va. Non e' uno
-                    # zoom, sono sei pixel su mille: si sente come un fuoco che
-                    # si fa, che e' esattamente quello che sta succedendo.
+                    # A bare window has no veil and no page under the screen, so
+                    # both of these are absent there and only the screen's own
+                    # fade is left. They are guarded one at a time, because a
+                    # throw here would carry off the FadeOut below with it and
+                    # the screen would never leave at all.
+                    if ($null -ne $me.Blur) {
+                        $torna = New-Object System.Windows.Media.Animation.DoubleAnimation(
+                            $me.BlurMax, 0, [TimeSpan]::FromMilliseconds($durata))
+                        $torna.EasingFunction = $ease
+                        $me.Blur.BeginAnimation(
+                            [System.Windows.Media.Effects.BlurEffect]::RadiusProperty, $torna)
+                    }
+                    # And the page arrives: it comes in from half a per cent
+                    # larger and settles on its own size, in the same time and on
+                    # the same curve the veil leaves on. It is not a zoom, it is
+                    # six pixels in a thousand: it feels like a focus being
+                    # found, which is exactly what is happening.
                     if ($null -ne $me.Under) {
                         $prima = $me.Under.RenderTransform
                         $origine = $me.Under.RenderTransformOrigin
@@ -2865,9 +2999,9 @@ function Show-SlantSplash {
                             $giu.EasingFunction = $ease
                             $posa.BeginAnimation($pr, $giu)
                         }
-                        # la trasformazione si toglie appena finita: lasciarla
-                        # li' vorrebbe dire lasciare l'applicazione dentro una
-                        # trasformazione che non ha chiesto
+                        # the transform comes off as soon as it is done:
+                        # leaving it there would mean leaving the application
+                        # inside a transform it never asked for
                         $finita = New-Object System.Windows.Threading.DispatcherTimer
                         $finita.Interval = [TimeSpan]::FromMilliseconds($durata + 60)
                         $finita.add_Tick({

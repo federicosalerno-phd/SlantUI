@@ -9,11 +9,13 @@ thing, so the shots of those are shots of the window you are looking at.
 .venv\Scripts\python docs\capture.py            write docs/shots/
 .venv\Scripts\python docs\capture.py --show     open it and leave it open
 .venv\Scripts\python docs\capture.py --tour     the example's window as well
+.venv\Scripts\python docs\splash.py             the WPF loading screen
 .venv\Scripts\python docs\publish.py            copy what the pages show into docs/img/
 ```
 
 The first three need SlantUI installed in the environment, as the example
-does: `pip install -e ".[shell,dev]"`. `publish.py` needs nothing.
+does: `pip install -e ".[shell,dev]"`. `splash.py` needs Windows PowerShell
+and nothing else. `publish.py` needs nothing.
 
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="img/gold-dark/window.png">
@@ -109,5 +111,28 @@ when a page points into `docs/shots`, when a published picture is not what
 the last capture wrote, and when an `img` tag gives a width that is not the
 one the shot was taken at. The two checks that need `docs/shots` skip
 where it is not there, which is every clone but this one.
+
+## The loading screen is shot somewhere else
+
+`splash.py` writes `docs/shots/<palette>/splash.png` and has nothing to do
+with the gallery. The screen it photographs is the WPF half of the library and
+it draws on a thread of its own, through a `HostVisual`, which a
+`RenderTargetBitmap` of a window does not contain at all: a picture of that
+window taken the ordinary way comes back with a hole where the screen should
+be. So the tool takes two. The window renders itself, band and blurred page
+and all; the drawing thread hands over what it has on screen through
+`Snapshot`; the two are laid together at the same scale and cut to the corner
+radius Windows cuts a window to, the way `capture.py` cuts its own.
+
+What is under the veil is the gallery's own `window.png` with its band cropped
+off, put back into a real window as its page. Under fourteen pixels of blur
+nobody is reading it. What it is there for is that the light and the shapes
+behind the scrim belong to a real page instead of a flat fill.
+
+It needs `capture.py` to have run first, because it shoots over what that
+wrote, and it writes into the same folders, so `publish.py` carries it into
+`docs/img` like any other picture a page shows. It is not in the manifest:
+`capture.py` writes that, and a full run of `capture.py` is still what the
+manifest counts.
 
 Everything else in this folder is source.

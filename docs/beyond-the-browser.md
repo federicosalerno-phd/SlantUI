@@ -114,17 +114,24 @@ invariant culture. On a machine set to Italian the obvious call writes
 
 ## WPF
 
-Two files ship inside the package. Copy them next to the application, or let
-the build step do it:
+Three files ship inside the package. Copy them next to the application, or
+let the build step do it:
 
 ```python
 from slantui.wpf import install
-install(r"C:\MyApp\vendor")        # SlantUI.psm1 and SlantUI.Tokens.psd1
+install(r"C:\MyApp\vendor")        # the module, the data, the drawing thread
 ```
 
 `SlantUI.Tokens.psd1` is generated and holds every palette, every metric and
 the band's four numbers. `SlantUI.psm1` is the module that reads it, and it
 is the one file in the repository written by hand in PowerShell.
+`SlantUI.Splash.cs` is the loading screen's drawing thread, compiled on first
+use into the user's local data; it is not an optional extra, and what it is
+for is further down.
+
+The copy goes one way. The library is where these files are written and an
+application receives them from `install`, so a change made in a copy is a
+change that will be overwritten. Anything worth keeping belongs here.
 
 ```powershell
 Import-Module .\SlantUI.psm1
@@ -245,6 +252,167 @@ doing what it says.
 | `Test-SlantWindowZoomed` | false, always, and a test should say so |
 | `Get-SlantCreditText` | the line the licence puts in the bar |
 
+
+### The loading screen
+
+An application that reads a folder before it can show anything has a few
+seconds with nothing to show. Hiding the window until then is worse than
+showing it, because the window is the proof that the click worked. So the
+window opens at once and wears this over its body.
+
+```powershell
+$splash = Show-SlantSplash -Chrome $chrome -Logo .\brand.svg -Text 'starting'
+$splash.SetProgress(0.4, 'reading the folders')
+$splash.Hide()
+```
+
+The page it is about to show, blurred and darkened, the brand in the middle of
+a ring, a line of text, and a thin bar under that. The band stays sharp and
+its buttons stay live, so the window can still be moved or closed while it
+loads.
+
+The screen says two things and says them in two places, because they are two
+different things. The ring is the measure: one arc from twelve o'clock, which
+moves when the work moves and at no other time, and the figure under it is
+written by that arc's own animation, frame by frame, so the two can never
+disagree. The bar is the pulse: two lozenges crossing it, with no scale and no
+beginning, saying only that something is still going on. They used to share
+one circle, a measuring arc with a short arc turning over it, and a circle
+carrying two readings at once reads as neither.
+
+The arc has a speed and not a destination. One step per composed frame moves
+it towards the goal, and what is eased is the speed and not the position, so
+it never reaches zero while there is work left and a step is not a leap
+followed by a stop. Between one announced step and the next it drifts on,
+slower and slower, towards a third of what is left, because a load with
+nothing to report for four seconds should not look like a load that has
+stopped. It never walks backwards, so a step announcing less than the drift
+has already covered is taken as a line of text and no more.
+
+None of it is drawn on the application's thread. WPF beats its animations on
+the Dispatcher and not on the composition thread, so a window that loads on
+its own thread stops every animation it has. The splash therefore draws on a
+thread of its own, through a `HostVisual`, and `SlantUI.Splash.cs` is where
+that is explained and done. It is compiled on first use into the user's local
+data, under a name stamped with the source, because a DLL another window has
+already loaded cannot be written over.
+
+**A wait with nothing to measure.** `-Busy` drops the figure and turns the
+ring instead of filling it. The bar stays, because in a wait like that it is
+the only thing there is to say and without it the screen was bare. The first
+announced step turns the ring back into a measure by itself.
+
+**A window this library did not dress.** `-Window` covers a bare
+`System.Windows.Window` and nothing else: no band, no blur, the screen on its
+own, laid over whatever that window already held. It is the form for the
+seconds before there is an application to dress, when whatever starts one
+wants this on screen the moment an icon is clicked.
+
+```powershell
+$splash = Show-SlantSplash -Window $window -Logo .\brand.png -Busy -Text 'starting'
+$splash.Hide(190)
+```
+
+Put together, the two forms hand over without a seam: the first screen turns,
+the second comes up turning, and the first announced step turns the ring into
+a measure. They are the same screen drawn by the same code.
+
+| On the object it returns | What it does |
+|---|---|
+| `SetProgress(fraction, text)` | announce a step, and a line to go with it |
+| `Draw(fraction)` | move the ring with no new line |
+| `SetText(text)` | change the line without moving the ring |
+| `SetBusy(on)` `IsBusy()` | swap the two modes, and ask which one it is in |
+| `Snapshot(scale)` | what the drawing thread has on screen, as a bitmap |
+| `Hide([ms])` | the handover: the veil fades, the blur goes, the page arrives |
+
+`Snapshot` exists because a `RenderTargetBitmap` of the window does not
+contain the drawing of a `HostVisual`, which lives somewhere else entirely. A
+picture of this screen is that bitmap and this one laid together, which is all
+`docs/splash.py` does.
+
+### Vector art, read here
+
+A logo shipped as a PNG is drawn at one size and scaled to every other. On the
+screen above, where the brand sits at 68 points inside the ring, a 1385 pixel
+master is squeezed down by the graphics card and the edges go soft.
+
+```powershell
+$art = New-SlantVectorImage -Path .\brand.svg
+$any = Get-SlantArtSource -Path .\brand.png     # the .svg beside it, if there is one
+```
+
+Shapes, groups, transforms and inherited paint. No `<use>`, no gradients
+defined in `<defs>`, no clip paths, no CSS: those are the parts of the format a
+design system does not need, and leaving them out is what keeps this a hundred
+lines instead of a library. A `d` attribute is already the syntax
+`Geometry.Parse` takes, so there is no path parser in it at all.
+
+What comes back is a frozen `DrawingImage`, and frozen matters twice over. A
+frozen Freezable is the one kind of drawing that crosses threads, so the
+splash's own thread can be handed one; and a drawing is drawn at the size it
+is given, so a screenshot at four times the scale is redrawn instead of being
+blown up.
+
+`Get-SlantArtSource` is the door an application passes a file to. If it is an
+SVG, or if an SVG of the same name sits beside it, the drawing is read from
+there, and a raster is decoded only when there is no vector to read. An
+application gains the sharp version by dropping a `.svg` next to its `.png`
+and changing nothing else.
+
+### The two widgets
+
+Two things an application should not have to draw for itself, and that two
+applications would have drawn differently within a month.
+
+`Add-SlantHover` is the one hover every clickable thing in this design shares.
+The background lightens a little under the pointer, a hundred and twenty
+milliseconds going in and a hundred and eighty coming out, on the colour of
+the background and on nothing else: no border appearing, no change of size. It
+works on a `Border` built by hand and on a templated button, where the first
+`Border` of the template is the one animated. The animation sits on top of the
+property instead of replacing it, so coming out it stops and the background
+goes back to whatever setters and triggers say at that moment.
+
+```powershell
+Add-SlantHover $someBorder
+Add-SlantHover $someButton -Amount 0.14
+```
+
+`New-SlantPicker` is the dropdown.
+
+```powershell
+$picker = New-SlantPicker -Items $items -Current 'en' -TagWidth 26 `
+    -OnChange { param($code) Set-Language $code }
+$bar.Children.Add($picker.Element)
+```
+
+One click opens it, the next closes it, a click anywhere else closes it, and
+Escape closes it and stops there instead of closing the view underneath as
+well. The popup does not take the mouse, and that is what makes the second
+click work: while it did, the press on the button went to the popup, the popup
+closed on it, and the release that followed found the dropdown shut and opened
+it again.
+
+The rows are built on the first opening and not at startup, because drawing
+forty of them costs and the moment a window opens is the moment that has to be
+free. With forty of them the list stops at a height and scrolls, and the
+scrollbar that comes with scrolling is counted before the popup is placed: a
+popup is a window of the system, and left alone it goes outside the one that
+opened it.
+
+An entry is an object with `Code` and `Label` on it, and `Tag`, `Note`, `Dot`,
+`Tip` and `Visual` when there is something for them to say. `Visual` is a
+scriptblock that returns an element, which is how a language chooser puts a
+flag on every row.
+
+| On the object it returns | What it does |
+|---|---|
+| `Element` | the thing to put in a layout |
+| `Code()` | what is chosen now |
+| `Set(code)` `SetItems(items, [code])` | change the choice, or the choices |
+| `Toggle()` `Close([now])` `IsDown()` | open and shut it from code |
+| `Warm()` | build the rows early, once the window has drawn |
 
 The alternative to the module is the ResourceDictionary, for an application
 whose look lives in XAML:

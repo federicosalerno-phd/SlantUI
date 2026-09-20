@@ -640,11 +640,11 @@ public sealed class SlantSplashCore
                 // that turns out to announce less than it reached
                 if (fraction > _goal) _goal = fraction;
                 if (fraction > 0.9995) _goal = 1.0;
-                // Chi dichiara un passo ha qualcosa da misurare, quindi
-                // l'attesa senza misura finisce qui da sola. Serve alla
-                // staffetta con il lanciatore: quella schermata gira, questa
-                // parte girando, e comincia a riempirsi al primo passo, senza
-                // che fra le due si veda un salto.
+                // Whoever announces a step has something to measure, so the
+                // wait with nothing to measure ends here by itself. It is what
+                // makes a handover work: the screen a launcher put up turns,
+                // this one starts turning, and it begins to fill on the first
+                // step, with no jump to be seen between the two.
                 if (_busy && fraction > 0.0) { SetBusyNow(false); }
                 if (!_busy) Run();
             }
@@ -795,10 +795,6 @@ public sealed class SlantSplashCore
         catch { }
     }
 
-    // A wait with nothing to measure: no figure, no shuttle, and the ring turns
-    // instead of filling. It is what an application shows while it does one
-    // thing whose length nobody knows, and it is drawn by the same thread, so
-    // it keeps turning while that thing happens.
     // True once the arc has drawn the whole circle. The application waits for
     // this instead of guessing a delay: the wait at the end should be as short
     // as it can be, and how long the arc needs is something only the arc knows.
@@ -810,6 +806,20 @@ public sealed class SlantSplashCore
     // the good path rot away unnoticed.
     public bool Composed { get { return _framed; } }
 
+    // Which of the two modes the screen is in. It is readable and not only
+    // settable for the same reason Composed is: a waiting mode that was asked
+    // for before the thread existed and then quietly dropped looked, from
+    // outside, exactly like one that took.
+    public bool Waiting { get { return _busy; } }
+
+    // A wait with nothing to measure: no figure, and the ring turns instead of
+    // filling. It is what an application shows while it does one thing whose
+    // length nobody knows, and it is drawn by the same thread, so it keeps
+    // turning while that thing happens.
+    // A wait with nothing to measure: no figure, and the ring turns instead of
+    // filling. It is what an application shows while it does one thing whose
+    // length nobody knows, and it is drawn by the same thread, so it keeps
+    // turning while that thing happens.
     public void SetBusy(bool on)
     {
         if (_dispatcher == null) { _busy = on; return; }
@@ -823,9 +833,9 @@ public sealed class SlantSplashCore
             {
                 _busy = on;
                 _ring.Indeterminate = on;
-                // Sparisce la percentuale, che in un'attesa senza misura
-                // sarebbe una bugia. La barra resta: dice che si sta
-                // lavorando, e in attesa quella e' l'unica cosa da dire.
+                // The figure goes, because in a wait with nothing to measure
+                // it would be a lie. The bar stays: it says work is going on,
+                // and in a wait that is the only thing there is to say.
                 _percentText.Visibility = on ? Visibility.Collapsed : Visibility.Visible;
                 if (on)
                 {

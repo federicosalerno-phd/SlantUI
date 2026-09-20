@@ -337,6 +337,15 @@ def shoot_tour(out: Path, slugs: list[str]) -> list[str]:
     wait(BOOT_MS)
     wait_for_page(win, "go")
 
+    # The stage is most of the window and the drawing on it is one band, so at
+    # the zoom the application opens at the picture is a small shape floating
+    # in a large empty area: a shot of a window with nothing in it. The stage
+    # has a zoom of its own and this takes it to the end of its range, where
+    # the subject fills the frame. It is the application's own control, not
+    # something done to the picture afterwards.
+    run_js(win, "setZoom(2.2)")
+    wait(POSE_MS)
+
     folder = out / "tour"
     if len(slugs) == len(PALETTES):
         clear_pngs(folder)

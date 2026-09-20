@@ -133,7 +133,7 @@ nobody looks at again, so the test suite fails when one is.
 <td align="center" valign="middle">
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/federicosalerno-phd/SlantUI/main/docs/img/gold-dark/toolbar-buttons.png">
-<img src="https://raw.githubusercontent.com/federicosalerno-phd/SlantUI/main/docs/img/gold-light/toolbar-buttons.png" width="296" alt="Three small square buttons, one of them on, and a line of hint text">
+<img src="https://raw.githubusercontent.com/federicosalerno-phd/SlantUI/main/docs/img/gold-light/toolbar-buttons.png" width="211" alt="Three small square buttons, one of them on, and a line of hint text">
 </picture>
 </td>
 </tr>
@@ -379,8 +379,25 @@ told so the colour under the page moves too:
 <html data-palette="slate-light">
 ```
 
-That is the whole of it. The two windows below are the one at the top of this
-page, in another palette, with the same markup and the same stylesheets:
+That is the whole of it. The windows below are the one at the top of this
+page, in the other six palettes, with the same markup and the same
+stylesheets. Nothing was edited between them and the one above:
+
+<img src="https://raw.githubusercontent.com/federicosalerno-phd/SlantUI/main/docs/img/tour/teal-dark-2.png" width="1240" alt="The example window on Teal Dark, a dark palette with a teal accent">
+
+*Teal Dark.*
+
+<img src="https://raw.githubusercontent.com/federicosalerno-phd/SlantUI/main/docs/img/tour/blue-dark-2.png" width="1240" alt="The example window on Blue Dark, a dark palette with a blue accent">
+
+*Blue Dark.*
+
+<img src="https://raw.githubusercontent.com/federicosalerno-phd/SlantUI/main/docs/img/tour/purple-dark-2.png" width="1240" alt="The example window on Purple Dark, a dark palette with a violet accent">
+
+*Purple Dark.*
+
+<img src="https://raw.githubusercontent.com/federicosalerno-phd/SlantUI/main/docs/img/tour/green-dark-2.png" width="1240" alt="The example window on Green Dark, a dark palette with a green accent">
+
+*Green Dark.*
 
 <img src="https://raw.githubusercontent.com/federicosalerno-phd/SlantUI/main/docs/img/tour/slate-light-2.png" width="1240" alt="The example window on Slate Light, a light palette with a blue accent">
 
@@ -571,6 +588,7 @@ landed on a role or a component that was already here.
 
 ```bash
 .venv\Scripts\python docs\capture.py
+.venv\Scripts\python docs\splash.py
 .venv\Scripts\python docs\publish.py
 ```
 
@@ -578,6 +596,20 @@ landed on a role or a component that was already here.
 <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/federicosalerno-phd/SlantUI/main/docs/img/gold-dark/window.png">
 <img src="https://raw.githubusercontent.com/federicosalerno-phd/SlantUI/main/docs/img/gold-light/window.png" width="1240" alt="The gallery window: a catalogue of the widget set in the work area, the palette list in the side panel">
 </picture>
+
+And the same window a second earlier, which is the first thing anyone sees of
+an application wearing this:
+
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/federicosalerno-phd/SlantUI/main/docs/img/gold-dark/splash.png">
+<img src="https://raw.githubusercontent.com/federicosalerno-phd/SlantUI/main/docs/img/gold-light/splash.png" width="1240" alt="The loading screen: the oblique band still sharp across the top, the page behind it blurred under a dark veil, the brand in the middle of a ring filled to 62 per cent, a line of text and a thin bar under it">
+</picture>
+
+*The loading screen, and the one picture no browser can take. It is drawn on a
+thread of its own through a `HostVisual`, which a `RenderTargetBitmap` of a
+window does not contain at all, so `docs/splash.py` takes the two pictures
+that do exist and lays one on the other. What it is and why it is built that
+way is under [Outside a browser](#outside-a-browser).*
 
 `docs/gallery.html` is a window holding a catalogue of the widget set, one
 cell per component, and `docs/capture.py` opens it and saves a picture of
@@ -641,6 +673,23 @@ its own thread stops every animation it has; the splash therefore draws
 through a `HostVisual` on a thread of its own, which is what
 `SlantUI.Splash.cs` is, compiled on first use into the user's local data.
 
+A wait nobody can measure is the same screen in another mode. `-Busy` drops
+the figure, because a figure with nothing behind it is a lie, and turns the
+ring instead of filling it. The bar stays, because that is the one thing such
+a wait has to say. The first announced step turns the ring back into a measure
+by itself.
+
+`-Window` is the second form, for the seconds before there is an application
+to dress: it covers a bare `System.Windows.Window` and nothing else, no band
+and no blur, over whatever that window already held. Put together with
+`-Busy`, the two hand over without a seam, because they are the same screen
+drawn by the same code.
+
+```powershell
+$splash = Show-SlantSplash -Window $window -Logo .\brand.png -Busy -Text 'starting'
+$splash.Hide(190)
+```
+
 The brand is read as vector art when there is any: pass an `.svg`, or a
 raster with an `.svg` of the same name beside it, and it is drawn at the size
 it is given instead of being a picture scaled down to it. The reader
@@ -648,6 +697,23 @@ it is given instead of being a picture scaled down to it. The reader
 transforms and inherited paint, no `<use>`, no gradients in `<defs>`, no clip
 paths, no CSS. A `d` attribute is already the syntax `Geometry.Parse` takes,
 so there is no path parser in it at all.
+
+Two widgets come with it, because two applications would have drawn them
+differently within a month. `Add-SlantHover` is the one hover every clickable
+thing in this design shares, on the colour of the background and on nothing
+else. `New-SlantPicker` is the dropdown:
+
+```powershell
+$picker = New-SlantPicker -Items $items -Current 'en' -OnChange { param($code) Set-Language $code }
+$bar.Children.Add($picker.Element)
+```
+
+One click opens it, the next closes it, a click anywhere else closes it, and
+Escape closes it and stops there. Its rows are built on the first opening and
+not at startup, because the moment a window opens is the moment that has to be
+free, and with forty entries it stops at a height and scrolls. The scrollbar
+that comes with scrolling is counted before the popup is placed: a popup is a
+window of the system, and left alone it goes outside the one that opened it.
 
 ```bash
 python -m slantui.tokens json                 the whole design as data
