@@ -2685,6 +2685,11 @@ function Show-SlantSplash {
         .PARAMETER Text     The first line under the ring.
         .PARAMETER Blur     How far the page behind goes out of focus.
         .PARAMETER Size     The outer size of the ring.
+        .PARAMETER Busy     A wait with nothing to measure: no figure, and the
+                            ring turns instead of filling. The bar underneath
+                            stays, because that is the one thing such a wait
+                            has to say. The first announced step turns it back
+                            into a measure.
 
         .OUTPUTS  An object with SetProgress(fraction, text), SetText(text),
                   Draw(fraction), Hide([ms]), Snapshot(scale) and Visible.  #>
@@ -2693,7 +2698,8 @@ function Show-SlantSplash {
         $Logo = $null,
         [string]$Text = "",
         [double]$Blur = 14,
-        [double]$Size = 132
+        [double]$Size = 132,
+        [switch]$Busy
     )
     Initialize-SlantWpf
     if (-not (Initialize-SlantSplash)) { throw "SlantUI: the splash's drawing thread would not build" }
@@ -2744,6 +2750,7 @@ function Show-SlantSplash {
         $Size, $quale, "Segoe UI")
 
     if ($null -ne $arte) { try { $core.SetLogoSource($arte) } catch { } }
+    if ($Busy) { try { $core.SetBusy($true) } catch { } }
 
     $ospite = New-Object SlantVisualHost($core.Host)
     [System.Windows.Controls.Grid]::SetRow($ospite, 1)
@@ -2797,6 +2804,13 @@ function Show-SlantSplash {
     $splash | Add-Member -MemberType ScriptMethod -Name Draw -Value {
         param([double]$quanto)
         $this.SetProgress($quanto, "")
+    }
+
+    # si passa fra le due modalita' anche dopo: un'attesa che a un certo punto
+    # sa quanto manca smette di girare e comincia a misurare
+    $splash | Add-Member -MemberType ScriptMethod -Name SetBusy -Value {
+        param([bool]$acceso)
+        try { $this.Core.SetBusy($acceso) } catch { }
     }
 
     $splash | Add-Member -MemberType ScriptMethod -Name SetText -Value {

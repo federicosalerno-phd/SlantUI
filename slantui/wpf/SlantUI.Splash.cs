@@ -591,6 +591,12 @@ public sealed class SlantSplashCore
         phase.RepeatBehavior = RepeatBehavior.Forever;
         _pulse.BeginAnimation(SlantPulse.PhaseProperty, phase);
 
+        // A caller can ask for the waiting mode before the thread exists,
+        // which is the normal way round: SetBusy is called and then Start.
+        // Applying it here is what makes that work; without it the flag was
+        // set and the screen came up measuring anyway, showing 1% of nothing.
+        if (_busy) { SetBusyNow(true); return; }
+
         // and the arc starts drifting at once, before anyone has announced a
         // step: the first seconds of a load are the ones with nothing to say
         Run();
@@ -817,8 +823,10 @@ public sealed class SlantSplashCore
             {
                 _busy = on;
                 _ring.Indeterminate = on;
+                // Sparisce la percentuale, che in un'attesa senza misura
+                // sarebbe una bugia. La barra resta: dice che si sta
+                // lavorando, e in attesa quella e' l'unica cosa da dire.
                 _percentText.Visibility = on ? Visibility.Collapsed : Visibility.Visible;
-                _pulse.Visibility = on ? Visibility.Collapsed : Visibility.Visible;
                 if (on)
                 {
                     Halt();
