@@ -618,6 +618,37 @@ application had inside, and gives it the buttons, the resize edges and a
 maximise that never lets Windows zoom the window. It answers the same Win32
 messages the Qt side does, for the same reasons.
 
+An application that has to read a folder before it can show anything wears
+the splash over its body while it does:
+
+```powershell
+$splash = Show-SlantSplash -Chrome $chrome -Logo .\brand.svg -Text 'starting'
+$splash.SetProgress(0.4, 'reading the folders')
+$splash.Hide()
+```
+
+The page it is about to show, blurred and darkened, with the brand in the
+middle of a ring. The ring measures and nothing else: one arc, which moves
+when the work moves. A thin bar under the line carries the other half of what
+a load has to say, that it is still going, and it has no scale precisely so
+that it cannot be read as a quantity. Between one announced step and the next
+the arc drifts on, slower and slower, because a load with nothing to report
+for four seconds should not look like a load that has stopped.
+
+None of that is drawn on the application's thread. WPF beats its animations
+on the Dispatcher, not on the composition thread, so a window that loads on
+its own thread stops every animation it has; the splash therefore draws
+through a `HostVisual` on a thread of its own, which is what
+`SlantUI.Splash.cs` is, compiled on first use into the user's local data.
+
+The brand is read as vector art when there is any: pass an `.svg`, or a
+raster with an `.svg` of the same name beside it, and it is drawn at the size
+it is given instead of being a picture scaled down to it. The reader
+(`New-SlantVectorImage`) is deliberately small, and says so: shapes, groups,
+transforms and inherited paint, no `<use>`, no gradients in `<defs>`, no clip
+paths, no CSS. A `d` attribute is already the syntax `Geometry.Parse` takes,
+so there is no path parser in it at all.
+
 ```bash
 python -m slantui.tokens json                 the whole design as data
 python -m slantui.tokens xaml gold-dark       a WPF ResourceDictionary

@@ -827,6 +827,14 @@ function New-SlantTitleBar {
     $bar = New-Object System.Windows.Controls.Grid
     $bar.Height = $tall
     $bar.Background = $brush['surface-1']
+    # The rule in this design is that the pointer says what can be clicked: a
+    # hand over anything that answers a click, and nothing over anything that
+    # does not. The band answers a click, but to be dragged and to be
+    # double-clicked, which is not the same thing, so it says so: an arrow,
+    # set on purpose, where saying nothing would leave it to chance. The
+    # window buttons on it carry
+    # the hand, and so does anything else in this library that is pressed.
+    $bar.Cursor = 'Arrow'
 
     # The band. Its shape is set from the real width of the brand, which is
     # only known after the first layout pass, so Install-SlantWindow asks for
@@ -939,6 +947,326 @@ function New-SlantTitleBar {
     }
 }
 
+$script:SlantVectorCache = @{}
+
+# ── plain SVG, read as drawings ─────────────────────────────────────────────
+# Enough of SVG to draw a flag, an icon or a logo, and no more: shapes, groups,
+# transforms, inherited paint. No <use>, no gradients, no clip paths, no CSS.
+# What it does cover it covers properly, because the alternative is a picture:
+# a drawing is redrawn at whatever size is asked for, and a picture is not.
+#
+# The syntax of the d attribute is the syntax Geometry.Parse takes, which is
+# why no path parser is needed here. The rest of the shapes are written out as
+# geometries of their own, and a group becomes a DrawingGroup, which is where
+# transform and opacity belong.
+
+function ConvertTo-SlantSvgNumber([string]$v, [double]$fallback = 0.0) {
+    if (-not "$v") { return $fallback }
+    $m = [regex]::Match("$v", '^\s*(-?[\d.]+(?:[eE][-+]?\d+)?)')
+    if (-not $m.Success) { return $fallback }
+    try { return [double]::Parse($m.Groups[1].Value, [System.Globalization.CultureInfo]::InvariantCulture) }
+    catch { return $fallback }
+}
+
+function ConvertTo-SlantSvgTransform([string]$spec) {
+    <#  .SYNOPSIS  An SVG transform list as one WPF matrix.
+
+        translate, scale, rotate, skewX, skewY and matrix, applied left to
+        right as SVG applies them. Anything else is skipped instead of being
+        guessed at.  #>
+    Initialize-SlantWpf
+    $m = New-Object System.Windows.Media.Matrix
+    if (-not "$spec") { return $null }
+    foreach ($pezzo in [regex]::Matches("$spec", '([a-zA-Z]+)\s*\(([^)]*)\)')) {
+        $nome = $pezzo.Groups[1].Value.ToLower()
+        $n = @(([regex]::Matches($pezzo.Groups[2].Value, '-?[\d.]+(?:[eE][-+]?\d+)?')) |
+               ForEach-Object { ConvertTo-SlantSvgNumber $_.Value })
+        $t = New-Object System.Windows.Media.Matrix
+        switch ($nome) {
+            'translate' { $t.Translate($n[0], $(if ($n.Count -gt 1) { $n[1] } else { 0.0 })) }
+            'scale'     { $t.Scale($n[0], $(if ($n.Count -gt 1) { $n[1] } else { $n[0] })) }
+            'rotate'    {
+                if ($n.Count -ge 3) { $t.RotateAt($n[0], $n[1], $n[2]) } else { $t.Rotate($n[0]) }
+            }
+            'skewx'     { $t.Skew($n[0], 0.0) }
+            'skewy'     { $t.Skew(0.0, $n[0]) }
+            'matrix'    {
+                if ($n.Count -ge 6) {
+                    $t = New-Object System.Windows.Media.Matrix($n[0], $n[1], $n[2], $n[3], $n[4], $n[5])
+                }
+            }
+            default { continue }
+        }
+        $m = [System.Windows.Media.Matrix]::Multiply($t, $m)
+    }
+    if ($m.IsIdentity) { return $null }
+    return (New-Object System.Windows.Media.MatrixTransform($m))
+}
+
+function Get-SlantSvgBrush([string]$spec, [double]$opacity, $bc) {
+    <#  .SYNOPSIS  A brush from a paint value. "#a>#b" is a diagonal gradient,
+        which is how a two-colour mark is tinted without a second file.  #>
+    if (-not "$spec" -or "$spec" -eq 'none') { return $null }
+    try {
+        $b = $null
+        if ("$spec" -match '>') {
+            $parti = @("$spec" -split '>' | Where-Object { "$_".Trim() })
+            $g = New-Object System.Windows.Media.LinearGradientBrush
+            $g.StartPoint = New-Object System.Windows.Point(0, 0)
+            $g.EndPoint = New-Object System.Windows.Point(1, 1)
+            for ($i = 0; $i -lt $parti.Count; $i++) {
+                $off = $(if ($parti.Count -le 1) { 0.0 } else { $i / ($parti.Count - 1.0) })
+                $col = ([System.Windows.Media.SolidColorBrush]$bc.ConvertFromString($parti[$i].Trim())).Color
+                [void]$g.GradientStops.Add((New-Object System.Windows.Media.GradientStop($col, $off)))
+            }
+            $b = $g
+        } else {
+            $b = $bc.ConvertFromString("$spec")
+        }
+        if ($null -ne $b -and $opacity -lt 0.999) { $b.Opacity = [Math]::Max(0.0, $opacity) }
+        if ($null -ne $b -and $b.CanFreeze) { $b.Freeze() }
+        return $b
+    } catch { return $null }
+}
+
+function Get-SlantSvgGeometry($nodo) {
+    <#  .SYNOPSIS  The geometry of one SVG shape, or nothing for a tag this
+        reader does not draw.  #>
+    $nome = "$($nodo.LocalName)".ToLower()
+    $a = {
+        param([string]$k)
+        $v = $nodo.GetAttribute($k)
+        return "$v"
+    }
+    switch ($nome) {
+        'path' {
+            $d = & $a 'd'
+            if (-not $d) { return $null }
+            # F0 is evenodd and F1 is nonzero: WPF says it at the head of the
+            # data, which saves touching the geometry afterwards
+            $rule = & $a 'fill-rule'
+            $pref = $(if ($rule -eq 'evenodd') { 'F0 ' } else { 'F1 ' })
+            try { return [System.Windows.Media.Geometry]::Parse($pref + $d) } catch { return $null }
+        }
+        'rect' {
+            $w = ConvertTo-SlantSvgNumber (& $a 'width')
+            $h = ConvertTo-SlantSvgNumber (& $a 'height')
+            if ($w -le 0 -or $h -le 0) { return $null }
+            $r = New-Object System.Windows.Rect((ConvertTo-SlantSvgNumber (& $a 'x')),
+                                                (ConvertTo-SlantSvgNumber (& $a 'y')), $w, $h)
+            $rx = ConvertTo-SlantSvgNumber (& $a 'rx')
+            $ry = ConvertTo-SlantSvgNumber (& $a 'ry') $rx
+            return (New-Object System.Windows.Media.RectangleGeometry($r, $rx, $ry))
+        }
+        'circle' {
+            $rr = ConvertTo-SlantSvgNumber (& $a 'r')
+            if ($rr -le 0) { return $null }
+            $c = New-Object System.Windows.Point((ConvertTo-SlantSvgNumber (& $a 'cx')),
+                                                 (ConvertTo-SlantSvgNumber (& $a 'cy')))
+            return (New-Object System.Windows.Media.EllipseGeometry($c, $rr, $rr))
+        }
+        'ellipse' {
+            $rx = ConvertTo-SlantSvgNumber (& $a 'rx')
+            $ry = ConvertTo-SlantSvgNumber (& $a 'ry')
+            if ($rx -le 0 -or $ry -le 0) { return $null }
+            $c = New-Object System.Windows.Point((ConvertTo-SlantSvgNumber (& $a 'cx')),
+                                                 (ConvertTo-SlantSvgNumber (& $a 'cy')))
+            return (New-Object System.Windows.Media.EllipseGeometry($c, $rx, $ry))
+        }
+        'line' {
+            $p0 = New-Object System.Windows.Point((ConvertTo-SlantSvgNumber (& $a 'x1')),
+                                                  (ConvertTo-SlantSvgNumber (& $a 'y1')))
+            $p1 = New-Object System.Windows.Point((ConvertTo-SlantSvgNumber (& $a 'x2')),
+                                                  (ConvertTo-SlantSvgNumber (& $a 'y2')))
+            return (New-Object System.Windows.Media.LineGeometry($p0, $p1))
+        }
+        { $_ -eq 'polygon' -or $_ -eq 'polyline' } {
+            $n = @(([regex]::Matches((& $a 'points'), '-?[\d.]+(?:[eE][-+]?\d+)?')) |
+                   ForEach-Object { ConvertTo-SlantSvgNumber $_.Value })
+            if ($n.Count -lt 4) { return $null }
+            $d = "M $($n[0]),$($n[1])"
+            for ($i = 2; $i + 1 -lt $n.Count; $i += 2) { $d += " L $($n[$i]),$($n[$i + 1])" }
+            if ($nome -eq 'polygon') { $d += " Z" }
+            $rule = & $a 'fill-rule'
+            $pref = $(if ($rule -eq 'evenodd') { 'F0 ' } else { 'F1 ' })
+            try { return [System.Windows.Media.Geometry]::Parse($pref + $d) } catch { return $null }
+        }
+    }
+    return $null
+}
+
+function Add-SlantSvgNode($nodo, $ospite, $eredita, [string]$Tint, $bc) {
+    <#  .SYNOPSIS  Walk one element and hang what it draws on the host group.
+
+        Paint is inherited the way SVG inherits it: an attribute on a group
+        holds for the shapes inside unless one of them says otherwise. Groups
+        become DrawingGroups, which is where a transform and a group opacity
+        can live without being applied to each shape by hand.  #>
+    foreach ($figlio in $nodo.ChildNodes) {
+        if ($figlio.NodeType -ne [System.Xml.XmlNodeType]::Element) { continue }
+        $nome = "$($figlio.LocalName)".ToLower()
+        if ($nome -in @('defs', 'clippath', 'mask', 'style', 'title', 'desc', 'metadata',
+                        'lineargradient', 'radialgradient', 'filter', 'symbol', 'use',
+                        'text', 'tspan', 'switch', 'animate', 'script')) { continue }
+
+        $mio = @{}
+        foreach ($k in $eredita.Keys) { $mio[$k] = $eredita[$k] }
+        foreach ($k in @('fill', 'fill-rule', 'fill-opacity', 'stroke', 'stroke-width',
+                         'stroke-opacity', 'opacity')) {
+            $v = "$($figlio.GetAttribute($k))"
+            if ($v) { $mio[$k] = $v }
+        }
+        $trasf = ConvertTo-SlantSvgTransform "$($figlio.GetAttribute('transform'))"
+
+        if ($nome -eq 'g' -or $nome -eq 'svg' -or $nome -eq 'a') {
+            $dentro = New-Object System.Windows.Media.DrawingGroup
+            if ($trasf) { $dentro.Transform = $trasf }
+            $op = ConvertTo-SlantSvgNumber "$($figlio.GetAttribute('opacity'))" 1.0
+            if ($op -lt 0.999) {
+                $dentro.Opacity = $op
+                $mio.Remove('opacity')      # gia' applicata al gruppo
+            }
+            Add-SlantSvgNode $figlio $dentro $mio $Tint $bc
+            if ($dentro.Children.Count -gt 0) { [void]$ospite.Children.Add($dentro) }
+            continue
+        }
+
+        $geo = Get-SlantSvgGeometry $figlio
+        if ($null -eq $geo) { continue }
+        # Geometry.Parse hands back a frozen geometry for the simple cases, and
+        # a frozen one refuses every change without a word about which: the
+        # error reads as the path data being read-only
+        if ($geo.IsFrozen) { $geo = $geo.Clone() }
+        # fill-rule can be inherited from a group, and Geometry.Parse only saw
+        # the shape's own attribute
+        if (-not "$($figlio.GetAttribute('fill-rule'))" -and "$($mio['fill-rule'])" -eq 'evenodd' -and
+            $geo -is [System.Windows.Media.PathGeometry]) {
+            $geo.FillRule = 'EvenOdd'
+        }
+        if ($trasf) { $geo.Transform = $trasf }
+
+        $fill = "$($mio['fill'])"
+        # a monochrome icon declares no colour at all: the tint is used when one
+        # was given, and the SVG default of black when it was not
+        if (-not $fill -or $fill -eq 'currentColor') { $fill = $(if ($Tint) { $Tint } else { 'black' }) }
+        $op = (ConvertTo-SlantSvgNumber "$($mio['opacity'])" 1.0) *
+              (ConvertTo-SlantSvgNumber "$($mio['fill-opacity'])" 1.0)
+
+        $dis = New-Object System.Windows.Media.GeometryDrawing
+        $dis.Geometry = $geo
+        $dis.Brush = Get-SlantSvgBrush $fill $op $bc
+        $stroke = "$($mio['stroke'])"
+        if ($stroke -and $stroke -ne 'none') {
+            $sop = (ConvertTo-SlantSvgNumber "$($mio['opacity'])" 1.0) *
+                   (ConvertTo-SlantSvgNumber "$($mio['stroke-opacity'])" 1.0)
+            $pen = Get-SlantSvgBrush $stroke $sop $bc
+            if ($pen) {
+                $sw = ConvertTo-SlantSvgNumber "$($mio['stroke-width'])" 1.0
+                $dis.Pen = New-Object System.Windows.Media.Pen($pen, $sw)
+            }
+        }
+        if ($null -ne $dis.Brush -or $null -ne $dis.Pen) { [void]$ospite.Children.Add($dis) }
+    }
+}
+
+function New-SlantVectorImage {
+    <#  .SYNOPSIS  Read a plain SVG into a frozen drawing.
+
+        Shapes, groups, transforms and inherited paint; no <use>, no gradients
+        defined in <defs>, no clip paths, no CSS. Those are the parts of the
+        format a design system does not need, and leaving them out is what
+        keeps this a hundred lines instead of a library.
+
+        Why it matters. A logo shipped as a PNG is drawn at one size and scaled
+        to every other: on the splash, where the brand sits at 68 points inside
+        the ring, a 1385 pixel master is squeezed down by the graphics card and
+        the edges go soft. Read as drawings it is drawn at the size asked for,
+        which also means a screenshot at three times the scale is redrawn
+        instead of blown up.
+
+        What comes back is frozen, so it can be handed to another thread: the
+        splash draws on one of its own, and a frozen Freezable is the one kind
+        of drawing that crosses.
+
+        .PARAMETER Path   The .svg file.
+        .PARAMETER Tint   A colour for a monochrome icon that declares none.
+                          "#4285F4>#9B72CB" gives a diagonal gradient.
+        .OUTPUTS  A DrawingImage, or nothing when the file cannot be read.  #>
+    param([Parameter(Mandatory = $true)][string]$Path, [string]$Tint = "")
+    Initialize-SlantWpf
+    if (-not (Test-Path -LiteralPath $Path)) { return $null }
+    $stamp = ""
+    try {
+        $f = Get-Item -LiteralPath $Path
+        $stamp = "$($f.Length)|$($f.LastWriteTimeUtc.Ticks)"
+    } catch { }
+    $key = "$Path|$Tint|$stamp"
+    if ($script:SlantVectorCache.ContainsKey($key)) { return $script:SlantVectorCache[$key] }
+
+    $doc = New-Object System.Xml.XmlDocument
+    $doc.XmlResolver = $null          # no network, no local entity lookups
+    try { $doc.Load($Path) } catch { return $null }
+    $radice = $doc.DocumentElement
+    if ($null -eq $radice) { return $null }
+
+    # the viewBox is the space the shapes are drawn in: it gives the aspect and
+    # the clip, so nothing spills outside the rectangle it declares
+    $vb = @(([regex]::Matches("$($radice.GetAttribute('viewBox'))", '-?[\d.]+(?:[eE][-+]?\d+)?')) |
+            ForEach-Object { ConvertTo-SlantSvgNumber $_.Value })
+    if ($vb.Count -lt 4) {
+        $vb = @(0.0, 0.0, (ConvertTo-SlantSvgNumber "$($radice.GetAttribute('width'))"),
+                (ConvertTo-SlantSvgNumber "$($radice.GetAttribute('height'))"))
+    }
+    if ($vb[2] -le 0 -or $vb[3] -le 0) { return $null }
+
+    $bc = New-Object System.Windows.Media.BrushConverter
+    $gruppo = New-Object System.Windows.Media.DrawingGroup
+    $eredita = @{}
+    foreach ($k in @('fill', 'fill-rule', 'fill-opacity', 'stroke', 'stroke-width',
+                     'stroke-opacity', 'opacity')) {
+        $v = "$($radice.GetAttribute($k))"
+        if ($v) { $eredita[$k] = $v }
+    }
+    Add-SlantSvgNode $radice $gruppo $eredita $Tint $bc
+    if ($gruppo.Children.Count -eq 0) { return $null }
+
+    $box = New-Object System.Windows.Rect($vb[0], $vb[1], $vb[2], $vb[3])
+    $gruppo.ClipGeometry = New-Object System.Windows.Media.RectangleGeometry($box)
+    $gruppo.Freeze()
+    $img = New-Object System.Windows.Media.DrawingImage($gruppo)
+    $img.Freeze()
+    $script:SlantVectorCache[$key] = $img
+    return $img
+}
+
+function Get-SlantArtSource {
+    <#  .SYNOPSIS  An image source for a path, vector whenever there is one.
+
+        A caller passes the file it has. If that is an SVG, or if an SVG of the
+        same name sits beside it, the drawing is read from there; a raster is
+        decoded only when there is no vector to read. An application gains the
+        sharp version by dropping a .svg next to its .png and changing nothing
+        else.  #>
+    param([string]$Path, [string]$Tint = "")
+    Initialize-SlantWpf
+    if (-not "$Path") { return $null }
+    $svg = ""
+    if ([System.IO.Path]::GetExtension("$Path") -eq '.svg') { $svg = "$Path" }
+    else {
+        $twin = [System.IO.Path]::ChangeExtension("$Path", '.svg')
+        if ($twin -and (Test-Path -LiteralPath $twin)) { $svg = $twin }
+    }
+    if ($svg) {
+        $img = New-SlantVectorImage -Path $svg -Tint $Tint
+        if ($img) { return $img }
+    }
+    if (-not (Test-Path -LiteralPath "$Path")) { return $null }
+    try {
+        return [System.Windows.Media.Imaging.BitmapFrame]::Create(
+            (New-Object Uri ((Resolve-Path -LiteralPath "$Path").ProviderPath)), 'None', 'OnLoad')
+    } catch { return $null }
+}
+
 function Set-SlantLogo {
     <#  .SYNOPSIS  Fill the brand square with an image, a brush, or leave the
         accent behind when the file is not there.  #>
@@ -948,14 +1276,15 @@ function Set-SlantLogo {
         if ($Logo -is [System.Windows.Media.Brush]) { $Element.Background = $Logo; return }
         $source = $null
         if ($Logo -is [System.Windows.Media.ImageSource]) { $source = $Logo }
-        elseif (Test-Path -LiteralPath "$Logo") {
-            $source = [System.Windows.Media.Imaging.BitmapFrame]::Create(
-                (New-Object Uri ((Resolve-Path -LiteralPath "$Logo").ProviderPath)), 'None', 'OnLoad')
-        }
+        else { $source = Get-SlantArtSource -Path "$Logo" }
         if ($null -eq $source) { return }
         $fill = New-Object System.Windows.Media.ImageBrush
         $fill.ImageSource = $source
-        $fill.Stretch = 'UniformToFill'
+        # A photograph fills the square and is cropped to it; a drawing is a
+        # mark with nothing around it, and cropping one takes a slice off the
+        # mark itself. The brand here is taller than it is wide, so
+        # UniformToFill would eat the top and the bottom of it.
+        $fill.Stretch = $(if ($source -is [System.Windows.Media.DrawingImage]) { 'Uniform' } else { 'UniformToFill' })
         $Element.Background = $fill
     } catch { }
 }
@@ -1485,6 +1814,1081 @@ function Install-SlantWindow {
     return $chrome
 }
 
+# ── the widgets that belong to the design, not to one application ──────────
+# An application that wears this look should not have to draw its own dropdown
+# and its own hover: those are the design, the same way the band and the
+# palette are, and two applications that drew them separately would drift
+# apart within a month. They live here, they are exported, and an application
+# calls them.
+#
+# The colours come from the roles, not from names an application invented, so
+# a palette change reaches them without anyone touching a widget.
+
+function Get-SlantWidgetColours {
+    <#  .SYNOPSIS  The handful of roles the widgets in this file draw with. #>
+    $c = (Get-SlantPalette).Values
+    $w = (Get-SlantPalette).Wpf
+    return @{
+        Panel3    = $c['surface-3']
+        Line      = $c['control-active']
+        Hover     = $c['control-hover']
+        TextSoft  = $c['text-2']
+        TextDim   = $c['text-3']
+        TextFaint = $c['text-4']
+        Accent    = $c['accent']
+        Overlay   = $w['overlay']      # ha un alpha: la forma Wpf, non quella CSS
+    }
+}
+
+# Il registro e' dell'applicazione, non della libreria: se ne ha uno lo
+# dichiara, e da quel momento anche i widget ci scrivono dentro.
+$script:SlantLogger = $null
+
+function Set-SlantLogger {
+    <#  .SYNOPSIS  Give the library somewhere to write when a widget has
+        something to report. Without one, it keeps quiet.  #>
+    param([scriptblock]$Write)
+    $script:SlantLogger = $Write
+}
+
+function Write-SlantNote([string]$riga) {
+    $l = $script:SlantLogger
+    if ($l) { try { & $l "slantui: $riga" } catch { } }
+}
+
+# --- hover uniforme -------------------------------------------------------------
+# Al passaggio del cursore il fondo schiarisce di poco: ColorAnimation di 120 ms
+# in entrata e 180 in uscita, QuadraticEase, sul solo colore del fondo. Nessun
+# bordo che compare, nessun cambio di misura. Vale per tutto: i Border costruiti
+# a mano e i bottoni templati, di cui si anima il primo Border del template.
+# L'animazione sta SOPRA la proprieta', non la sostituisce: in uscita si ferma
+# (FillBehavior Stop) e il fondo torna a quello che dicono setter e trigger in
+# quel momento (il giallo di una scheda scelta mentre ci si passava sopra, il
+# grigio di un bottone spento). Prima ogni template aveva il suo Trigger
+# IsMouseOver a scatto, e i Border a mano non avevano niente.
+function Get-SlantHoverColor([System.Windows.Media.Color]$c, [double]$quanto) {
+    # su un fondo trasparente si posa un velo chiaro
+    if ($c.A -eq 0) { return [System.Windows.Media.Color]::FromArgb(0x1C, 0xFF, 0xFF, 0xFF) }
+    $r = [byte][math]::Min(255, $c.R + (255 - $c.R) * $quanto)
+    $g = [byte][math]::Min(255, $c.G + (255 - $c.G) * $quanto)
+    $b = [byte][math]::Min(255, $c.B + (255 - $c.B) * $quanto)
+    return [System.Windows.Media.Color]::FromArgb($c.A, $r, $g, $b)
+}
+
+# Il Border da animare: l'elemento stesso, o il primo Border nel template di
+# un bottone (che va applicato, se non lo e' ancora).
+function Find-SlantHoverTarget($el) {
+    if ($el -is [System.Windows.Controls.Border]) { return $el }
+    if ($el -is [System.Windows.Controls.Control]) { try { [void]$el.ApplyTemplate() } catch { } }
+    $coda = New-Object System.Collections.Generic.Queue[object]
+    $coda.Enqueue($el)
+    $n = 0
+    while ($coda.Count -gt 0 -and $n -lt 80) {
+        $x = $coda.Dequeue()
+        $n++
+        if (-not [object]::ReferenceEquals($x, $el) -and $x -is [System.Windows.Controls.Border]) { return $x }
+        $k = 0
+        try { $k = [System.Windows.Media.VisualTreeHelper]::GetChildrenCount($x) } catch { $k = 0 }
+        for ($i = 0; $i -lt $k; $i++) { $coda.Enqueue([System.Windows.Media.VisualTreeHelper]::GetChild($x, $i)) }
+    }
+    return $null
+}
+
+function New-SlantHoverStoryboard($target, [System.Windows.Media.Color]$to, [int]$ms, [string]$fill, $from = $null) {
+    $a = New-Object System.Windows.Media.Animation.ColorAnimation
+    if ($null -ne $from) { $a.From = [System.Windows.Media.Color]$from }
+    $a.To = $to
+    $a.Duration = [TimeSpan]::FromMilliseconds($ms)
+    $a.EasingFunction = New-Object System.Windows.Media.Animation.QuadraticEase
+    $a.FillBehavior = $fill
+    [System.Windows.Media.Animation.Storyboard]::SetTarget($a, $target)
+    [System.Windows.Media.Animation.Storyboard]::SetTargetProperty($a, (New-Object System.Windows.PropertyPath("(0).(1)",
+        @([System.Windows.Controls.Border]::BackgroundProperty, [System.Windows.Media.SolidColorBrush]::ColorProperty))))
+    $sb = New-Object System.Windows.Media.Animation.Storyboard
+    [void]$sb.Children.Add($a)
+    return $sb
+}
+
+# Cambia il fondo di un Border con una transizione di colore (140 ms) invece
+# che a scatto: la base diventa subito il colore nuovo, e l'animazione va dal
+# vecchio al nuovo e poi si ferma, cosi' l'hover legge sempre la base giusta.
+# Il colore di BASE di un pennello: non quello che si vede, che durante un
+# hover o una transizione e' animato. Un pennello non congelato viene animato
+# in proprio (il Border tiene lo stesso oggetto), quindi .Color darebbe il
+# valore animato e un confronto "stesso colore?" fallirebbe sempre in hover.
+function Get-SlantBaseBrushColor($brush) {
+    try { return [System.Windows.Media.Color]$brush.GetAnimationBaseValue([System.Windows.Media.SolidColorBrush]::ColorProperty) }
+    catch { return $brush.Color }
+}
+
+function Set-SlantBorderColor($border, [string]$hex, [bool]$animato = $true) {
+    $bc = New-Object System.Windows.Media.BrushConverter
+    $nuovo = $bc.ConvertFromString($hex)
+    $vecchio = $null
+    try {
+        $bb = $border.GetAnimationBaseValue([System.Windows.Controls.Border]::BackgroundProperty)
+        if ($bb -is [System.Windows.Media.SolidColorBrush]) { $vecchio = Get-SlantBaseBrushColor $bb }
+    } catch { }
+    # stesso colore: non si tocca niente. Riassegnare un pennello uguale
+    # staccherebbe l'animazione di hover in corso (che vive sul pennello), e il
+    # bottone sotto il cursore tornerebbe spento a ogni Update-Steps
+    if ($null -ne $vecchio -and $vecchio -eq $nuovo.Color) { return }
+    $border.Background = $nuovo
+    if ($animato -and $null -ne $vecchio) {
+        try { (New-SlantHoverStoryboard $border $nuovo.Color 140 'Stop' $vecchio).Begin($border, $true) } catch { }
+    }
+}
+
+function Add-SlantHover {
+    param($Element, $Target = $null, [double]$Amount = 0.10)
+    if (-not $Element) { return }
+    # quello che si illumina al passaggio e' quello che si clicca, quindi qui
+    # sta anche la manina: un bottone che non la mostra sembra un'etichetta
+    try { if (-not $Element.Cursor) { $Element.Cursor = 'Hand' } } catch { }
+    $stato = [PSCustomObject]@{ Target = $Target; Quanto = $Amount }
+    $Element.add_MouseEnter({
+        param($src, $e)
+        try {
+            $t = $stato.Target
+            if (-not $t) { $t = Find-SlantHoverTarget $src; if (-not $t) { $global:SlantHoverLast = "enter: nessun Border sotto $($src.GetType().Name)"; return }; $stato.Target = $t }
+            $bb = $t.GetAnimationBaseValue([System.Windows.Controls.Border]::BackgroundProperty)
+            if ($bb -isnot [System.Windows.Media.SolidColorBrush]) { $global:SlantHoverLast = "enter: fondo non SolidColorBrush su $($src.GetType().Name)"; return }
+            $a = Get-SlantHoverColor (Get-SlantBaseBrushColor $bb) $stato.Quanto
+            $sb = New-SlantHoverStoryboard $t $a 120 'HoldEnd'
+            $sb.Begin($t, $true)
+            # traccia per lo smoke test e per il registro: l'ultimo hover partito
+            $global:SlantHoverLast = "enter: $($src.GetType().Name) $($bb.Color) -> $a"
+        } catch { $global:SlantHoverLast = "enter: errore $($_.Exception.Message)" }
+    }.GetNewClosure())
+    $Element.add_MouseLeave({
+        param($src, $e)
+        try {
+            $t = $stato.Target
+            if (-not $t) { return }
+            $bb = $t.GetAnimationBaseValue([System.Windows.Controls.Border]::BackgroundProperty)
+            if ($bb -isnot [System.Windows.Media.SolidColorBrush]) { return }
+            $sb = New-SlantHoverStoryboard $t (Get-SlantBaseBrushColor $bb) 180 'Stop'
+            $sb.Begin($t, $true)
+        } catch { }
+    }.GetNewClosure())
+}
+
+
+# Un elemento sta dentro un altro? Si risale l'albero visuale dalla sorgente
+# vera del clic (che e' sempre la foglia: un TextBlock, un Path) fino a
+# trovarlo. Serve alla tendina per sapere se un tasto premuto e' caduto sul suo
+# bottone, dentro di lei, o fuori da tutti e due; e va risalito l'albero
+# visuale, non quello logico, perche' il contenuto di un Popup vive in un albero
+# suo che parte dal PopupRoot.
+function Test-SlantVisualAncestor($nodo, $radice) {
+    if ($null -eq $nodo -or $null -eq $radice) { return $false }
+    try {
+        $x = $nodo
+        if ($x -is [System.Windows.FrameworkContentElement]) { $x = $x.Parent }
+        $n = 0
+        while ($null -ne $x -and $n -lt 200) {
+            if ([object]::ReferenceEquals($x, $radice)) { return $true }
+            $n++
+            $su = $null
+            if ($x -is [System.Windows.Media.Visual] -or $x -is [System.Windows.Media.Media3D.Visual3D]) {
+                $su = [System.Windows.Media.VisualTreeHelper]::GetParent($x)
+            }
+            if ($null -eq $su -and $x -is [System.Windows.FrameworkElement]) { $su = $x.Parent }
+            $x = $su
+        }
+    } catch { }
+    return $false
+}
+
+function New-SlantPicker {
+    param(
+        [array]$Items,
+        [string]$Current = "",
+        [double]$TagWidth = 0,
+        [scriptblock]$OnChange = $null,
+        [scriptblock]$OnOpen = $null,
+        # Quanto puo' essere alta la tendina, al massimo. Con sei motori non
+        # serve; con quaranta lingue si': una lista alta quanto la finestra e'
+        # un muro, e le ultime righe stanno comunque sotto il bordo. Piu' corta
+        # e con lo scorrimento si legge meglio, e la riga di adesso si porta in
+        # vista da sola all'apertura.
+        [double]$MaxHeight = 0
+    )
+    $pal = Get-SlantWidgetColours
+    $bc = New-Object System.Windows.Media.BrushConverter
+    $font = New-Object System.Windows.Media.FontFamily("Segoe UI")
+
+    $radice = New-Object System.Windows.Controls.Grid
+    $radice.HorizontalAlignment = 'Left'
+
+    $btn = New-Object System.Windows.Controls.Border
+    $btn.Background = $bc.ConvertFromString($pal.Panel3)
+    $btn.CornerRadius = New-Object System.Windows.CornerRadius(5)
+    $btn.Height = 26
+    $btn.Padding = New-Object System.Windows.Thickness(9, 0, 9, 0)
+    $btn.Cursor = 'Hand'
+    $riga = New-Object System.Windows.Controls.StackPanel
+    $riga.Orientation = 'Horizontal'
+    $riga.VerticalAlignment = 'Center'
+    $ospiteIcona = New-Object System.Windows.Controls.ContentControl
+    $ospiteIcona.VerticalAlignment = 'Center'
+    $sigla = New-Object System.Windows.Controls.TextBlock
+    $sigla.FontSize = 11.5
+    $sigla.FontFamily = $font
+    $sigla.Foreground = $bc.ConvertFromString($pal.TextSoft)
+    $sigla.VerticalAlignment = 'Center'
+    $sigla.Margin = New-Object System.Windows.Thickness(7, 0, 0, 0)
+    if ($TagWidth -gt 0) { $sigla.Width = $TagWidth }
+    # il pallino di stato, quando una voce ne ha uno: per i motori dice se il
+    # manoscritto resta su questa macchina o se esce, ed e' la cosa piu'
+    # importante che questa tendina abbia da dire
+    $punto = New-Object System.Windows.Shapes.Ellipse
+    $punto.Width = 6; $punto.Height = 6
+    $punto.VerticalAlignment = 'Center'
+    $punto.Margin = New-Object System.Windows.Thickness(7, 0, 0, 0)
+    $punto.Visibility = 'Collapsed'
+    $freccia = New-Object System.Windows.Shapes.Path
+    $freccia.Data = [System.Windows.Media.Geometry]::Parse("M 0,0 L 7,0 L 3.5,4.5 Z")
+    $freccia.Fill = $bc.ConvertFromString($pal.TextDim)
+    $freccia.VerticalAlignment = 'Center'
+    $freccia.Margin = New-Object System.Windows.Thickness(9, 1, 0, 0)
+    [void]$riga.Children.Add($ospiteIcona)
+    [void]$riga.Children.Add($sigla)
+    [void]$riga.Children.Add($punto)
+    [void]$riga.Children.Add($freccia)
+    $btn.Child = $riga
+    [void]$radice.Children.Add($btn)
+    Add-SlantHover $btn
+
+    # Una tendina aperta e' uno stato, e si deve vedere anche quando il mouse
+    # e' andato altrove: finche' resta giu', il fondo del bottone sta sul
+    # chiaro, e torna al suo quando si richiude (per un secondo clic, per una
+    # scelta, o per un clic fuori, che sono tutti Closed del popup). Il
+    # passaggio del mouse continua a schiarire come su ogni altro bottone: si
+    # schiarisce da li', perche' Add-SlantHover parte dal valore di base, che e'
+    # quello che questa funzione riscrive.
+    $fondoBase = ([System.Windows.Media.SolidColorBrush]$bc.ConvertFromString($pal.Panel3)).Color
+    $fondoAcceso = Get-SlantHoverColor $fondoBase 0.14
+    $accendi = {
+        param([bool]$giu)
+        try {
+            $vecchio = $null
+            $bb = $btn.GetAnimationBaseValue([System.Windows.Controls.Border]::BackgroundProperty)
+            if ($bb -is [System.Windows.Media.SolidColorBrush]) { $vecchio = Get-SlantBaseBrushColor $bb }
+            $target = $(if ($giu) { $fondoAcceso } else { $fondoBase })
+            $btn.Background = New-Object System.Windows.Media.SolidColorBrush($target)
+            if ($null -ne $vecchio -and $vecchio -ne $target) {
+                $ms = $(if ($giu) { 120 } else { 180 })
+                (New-SlantHoverStoryboard $btn $target $ms 'Stop' $vecchio).Begin($btn, $true)
+            }
+        } catch { }
+    }.GetNewClosure()
+
+    $pop = New-Object System.Windows.Controls.Primitives.Popup
+    $pop.PlacementTarget = $btn
+    $pop.Placement = 'Bottom'
+    # StaysOpen a True, ed e' quello che rende il clic prevedibile. Con False
+    # e' il popup a prendersi il mouse: il tasto premuto sul bottone arriva a
+    # LUI, che si chiude sul MouseDown, e il rilascio che segue trova la
+    # tendina gia' chiusa e la riapre. Da fuori si vedeva una tendina che al
+    # secondo clic non si chiudeva mai, e il rimedio di prima era indovinare
+    # da dove venisse la chiusura guardando se il tasto fosse premuto sopra il
+    # bottone: funzionava quasi sempre, e "quasi" non basta per un bottone.
+    # Adesso non c'e' niente da indovinare. La tendina ha uno stato suo
+    # ($stato.Giu), il bottone lo commuta sul tasto premuto, e a chiuderla per
+    # un clic altrove ci pensa un handler sulla finestra che sa distinguere
+    # tre casi: dentro il bottone (decide il bottone), dentro la tendina (una
+    # scelta), fuori da tutti e due (si chiude).
+    $pop.StaysOpen = $true
+    $pop.AllowsTransparency = $true
+    # niente PopupAnimation di sistema: la sua dissolvenza parte dal nulla e
+    # il contenuto nel frattempo si impagina, il che e' esattamente il
+    # tremolio da togliere. L'animazione la fa la cornice, su Opened, quando
+    # il contenuto ha gia' la sua misura: sale di sei pixel e si apre da
+    # 96%, che e' il movimento che fa un menu quando scende.
+    $pop.PopupAnimation = 'None'
+    $pop.VerticalOffset = 4
+    $cornice = New-Object System.Windows.Controls.Border
+    $cornice.Background = $bc.ConvertFromString($pal.Overlay)
+    $cornice.BorderThickness = New-Object System.Windows.Thickness(0)
+    $cornice.CornerRadius = New-Object System.Windows.CornerRadius(6)
+    $cornice.Padding = New-Object System.Windows.Thickness(4)
+    $cornice.Margin = New-Object System.Windows.Thickness(10)   # spazio all'ombra
+    $cornice.RenderTransformOrigin = New-Object System.Windows.Point(0.5, 0)
+    $cornice.SnapsToDevicePixels = $true
+    $cornice.UseLayoutRounding = $true
+    $ombra = New-Object System.Windows.Media.Effects.DropShadowEffect
+    $ombra.BlurRadius = 18; $ombra.ShadowDepth = 0; $ombra.Opacity = 0.55
+    $ombra.Color = [System.Windows.Media.Colors]::Black
+    $cornice.Effect = $ombra
+    # la lista scorre invece di allungarsi oltre il bordo della finestra
+    $scorri = New-Object System.Windows.Controls.ScrollViewer
+    $scorri.VerticalScrollBarVisibility = 'Auto'
+    $scorri.HorizontalScrollBarVisibility = 'Disabled'
+    $scorri.CanContentScroll = $false
+    $scorri.Padding = New-Object System.Windows.Thickness(0)
+    $lista = New-Object System.Windows.Controls.StackPanel
+    $scorri.Content = $lista
+    $cornice.Child = $scorri
+    $pop.Child = $cornice
+    [void]$radice.Children.Add($pop)
+
+    # Lo stato in un oggetto condiviso: dentro una closure $script: e' lo scope
+    # del modulo della closure, non quello di questo file, e una scrittura li'
+    # dentro non arriva da nessuna parte. Giu e' lo stato logico della tendina,
+    # e non coincide con Popup.IsOpen mentre l'uscita si sta animando.
+    $stato = [PSCustomObject]@{ Code = "$Current"; Voci = @($Items); Riempita = $false
+                                Giu = $false; Chiudendo = $false; Agganciato = $false
+                                Chiudi = $null }
+
+    # l'entrata e l'uscita. Il gruppo di trasformazioni si costruisce una volta
+    # e si riusa, cosi' non si accumulano trasformazioni a ogni apertura
+    $scalaPop = New-Object System.Windows.Media.ScaleTransform(1.0, 1.0)
+    $slittaPop = New-Object System.Windows.Media.TranslateTransform(0.0, 0.0)
+    $gruppoPop = New-Object System.Windows.Media.TransformGroup
+    [void]$gruppoPop.Children.Add($scalaPop)
+    [void]$gruppoPop.Children.Add($slittaPop)
+    $cornice.RenderTransform = $gruppoPop
+    # L'entrata: la dissolvenza arriva per prima e corta (110 ms), il movimento
+    # dura quasi il doppio (210) e finisce su una quintica, che parte svelta e
+    # si posa senza fermarsi di colpo. Sono due tempi diversi apposta: con una
+    # durata sola il pannello sembra scivolare dentro gia' opaco, e la fine del
+    # movimento si vede come uno stacco.
+    $entra = {
+        try {
+            $morbida = New-Object System.Windows.Media.Animation.QuinticEase
+            $morbida.EasingMode = 'EaseOut'
+            $piana = New-Object System.Windows.Media.Animation.QuadraticEase
+            $piana.EasingMode = 'EaseOut'
+            $cornice.BeginAnimation([System.Windows.UIElement]::OpacityProperty, $null)
+            $op = New-Object System.Windows.Media.Animation.DoubleAnimation(0.0, 1.0, [TimeSpan]::FromMilliseconds(110))
+            $op.EasingFunction = $piana
+            $cornice.BeginAnimation([System.Windows.UIElement]::OpacityProperty, $op)
+            $su = New-Object System.Windows.Media.Animation.DoubleAnimation(-7.0, 0.0, [TimeSpan]::FromMilliseconds(210))
+            $su.EasingFunction = $morbida
+            $slittaPop.BeginAnimation([System.Windows.Media.TranslateTransform]::YProperty, $su)
+            foreach ($pr in @([System.Windows.Media.ScaleTransform]::ScaleXProperty,
+                              [System.Windows.Media.ScaleTransform]::ScaleYProperty)) {
+                $sc = New-Object System.Windows.Media.Animation.DoubleAnimation(0.965, 1.0, [TimeSpan]::FromMilliseconds(210))
+                $sc.EasingFunction = $morbida
+                $scalaPop.BeginAnimation($pr, $sc)
+            }
+        } catch { }
+    }.GetNewClosure()
+    $pop.add_Opened({ & $entra }.GetNewClosure())
+
+    # L'uscita. Una tendina che sparisce di colpo si legge come un errore, e
+    # per animarla bisogna tenere il popup aperto mentre se ne va: la chiusura
+    # vera arriva da un timer di 130 ms, non dal Completed dell'animazione,
+    # perche' un Completed che per qualunque ragione non arriva lascerebbe la
+    # tendina aperta per sempre. Il timer batte una volta e si ferma, e il suo
+    # corpo sta in un try/catch, che e' la regola di questa casa: un'eccezione
+    # dentro un tick ferma quel timer per sempre.
+    $chiusura = New-Object System.Windows.Threading.DispatcherTimer
+    $chiusura.Interval = [TimeSpan]::FromMilliseconds(130)
+    $chiusura.add_Tick({
+        try {
+            $chiusura.Stop()
+            if ($stato.Chiudendo) {
+                $stato.Chiudendo = $false
+                $pop.IsOpen = $false
+                $cornice.BeginAnimation([System.Windows.UIElement]::OpacityProperty, $null)
+                $cornice.Opacity = 1.0
+            }
+        } catch { }
+    }.GetNewClosure())
+
+    $esce = {
+        try {
+            $dentro = New-Object System.Windows.Media.Animation.QuadraticEase
+            $dentro.EasingMode = 'EaseIn'
+            $op = New-Object System.Windows.Media.Animation.DoubleAnimation(0.0, [TimeSpan]::FromMilliseconds(120))
+            $op.EasingFunction = $dentro
+            $cornice.BeginAnimation([System.Windows.UIElement]::OpacityProperty, $op)
+            $giu = New-Object System.Windows.Media.Animation.DoubleAnimation(-5.0, [TimeSpan]::FromMilliseconds(120))
+            $giu.EasingFunction = $dentro
+            $slittaPop.BeginAnimation([System.Windows.Media.TranslateTransform]::YProperty, $giu)
+            foreach ($pr in @([System.Windows.Media.ScaleTransform]::ScaleXProperty,
+                              [System.Windows.Media.ScaleTransform]::ScaleYProperty)) {
+                $sc = New-Object System.Windows.Media.Animation.DoubleAnimation(0.985, [TimeSpan]::FromMilliseconds(120))
+                $sc.EasingFunction = $dentro
+                $scalaPop.BeginAnimation($pr, $sc)
+            }
+        } catch { }
+        $chiusura.Stop()
+        $chiusura.Start()
+    }.GetNewClosure()
+
+    $mostra = {
+        param([string]$code)
+        $voce = @($stato.Voci | Where-Object { $_.Code -eq $code }) | Select-Object -First 1
+        if (-not $voce -and @($stato.Voci).Count -gt 0) { $voce = @($stato.Voci)[0] }
+        if (-not $voce) { return }
+        $stato.Code = "$($voce.Code)"
+        $ospiteIcona.Content = $(if ($voce.Visual) { & $voce.Visual } else { $null })
+        $sigla.Text = $(if ($voce.Tag) { "$($voce.Tag)" } else { $stato.Code.ToUpper() })
+        if ($voce.Dot) {
+            $punto.Fill = $bc.ConvertFromString("$($voce.Dot)")
+            $punto.Visibility = 'Visible'
+        } else { $punto.Visibility = 'Collapsed' }
+        if ($voce.Tip) { $btn.ToolTip = "$($voce.Tip)" }
+    }.GetNewClosure()
+
+    # Le righe si costruiscono alla PRIMA apertura, non all'avvio. Disegnare
+    # cinque bandiere costa: gli SVG stanno su Google Drive e la prima lettura
+    # li tira giu', e lo stemma spagnolo da solo sono 542 path. All'apertura
+    # della finestra sarebbero otto decimi di secondo di gelo, contro la regola
+    # che sul thread grafico non ci sta niente sopra il decimo di secondo.
+    $riempi = {
+        if ($stato.Riempita) { return }
+        $stato.Riempita = $true
+        # Queste tre servono alla closure della singola riga, che nasce dentro
+        # questa: li' dentro si vedono solo le variabili LOCALI di questo
+        # blocco, non quelle della funzione. Senza copiarle, $pop, $mostra e
+        # $OnChange arrivavano nulle, il clic su una voce non faceva niente e
+        # il catch qui sotto ingoiava l'errore: la tendina restava aperta e il
+        # valore fermo. E' lo stesso inciampo gia' documentato in CLAUDE.md.
+        $ilPop = $pop
+        $ilMostra = $mostra
+        $ilCambia = $OnChange
+        $ilAccendi = $accendi
+        $loStato = $stato
+        # Ogni riga e' una griglia, non una pila, e le quattro colonne
+        # condividono la misura con quelle delle altre righe
+        # (SharedSizeGroup, dentro lo scope che e' la lista): logo, sigla,
+        # nome e nota partono tutti dalla stessa x. Impilandoli, ogni riga si
+        # disponeva per conto suo e le note finivano ognuna a un'altezza di
+        # colonna diversa, che e' quello che si vedeva nella tendina dei
+        # motori: "remoto" e "da configurare" sparsi.
+        [System.Windows.Controls.Grid]::SetIsSharedSizeScope($lista, $true)
+        $gruppi = @('pkIcon', 'pkTag', 'pkLabel', 'pkNote')
+        foreach ($l in @($stato.Voci)) {
+            $codice = "$($l.Code)"
+            $vr = New-Object System.Windows.Controls.Border
+            $vr.Background = [System.Windows.Media.Brushes]::Transparent
+            $vr.CornerRadius = New-Object System.Windows.CornerRadius(4)
+            $vr.Padding = New-Object System.Windows.Thickness(8, 5, 12, 5)
+            $vr.Cursor = 'Hand'
+            $sp = New-Object System.Windows.Controls.Grid
+            foreach ($g in $gruppi) {
+                $cd = New-Object System.Windows.Controls.ColumnDefinition
+                $cd.Width = New-Object System.Windows.GridLength(0, 'Auto')
+                $cd.SharedSizeGroup = $g
+                [void]$sp.ColumnDefinitions.Add($cd)
+            }
+            if ($l.Visual) {
+                $vis = & $l.Visual
+                if ($vis) {
+                    [System.Windows.Controls.Grid]::SetColumn($vis, 0)
+                    [void]$sp.Children.Add($vis)
+                }
+            }
+            $tc = New-Object System.Windows.Controls.TextBlock
+            $tc.Text = $(if ($l.Tag) { "$($l.Tag)" } else { $codice.ToUpper() })
+            $tc.FontSize = 11.5
+            $tc.FontFamily = $font
+            $tc.MinWidth = $(if ($TagWidth -gt 0) { $TagWidth } else { 26 })
+            $tc.Foreground = $bc.ConvertFromString($pal.TextSoft)
+            $tc.VerticalAlignment = 'Center'
+            $tc.Margin = New-Object System.Windows.Thickness(8, 0, 0, 0)
+            [System.Windows.Controls.Grid]::SetColumn($tc, 1)
+            $tn = New-Object System.Windows.Controls.TextBlock
+            $tn.Text = "$($l.Label)"
+            $tn.FontSize = 11.5
+            $tn.FontFamily = $font
+            $tn.Foreground = $bc.ConvertFromString($pal.TextDim)
+            $tn.VerticalAlignment = 'Center'
+            $tn.Margin = New-Object System.Windows.Thickness(8, 0, 0, 0)
+            [System.Windows.Controls.Grid]::SetColumn($tn, 2)
+            [void]$sp.Children.Add($tc)
+            [void]$sp.Children.Add($tn)
+            # la nota a destra: per un motore e' dove finisce il manoscritto,
+            # oppure che gli manca la configurazione
+            if ($l.Note) {
+                $tz = New-Object System.Windows.Controls.TextBlock
+                $tz.Text = "$($l.Note)"
+                $tz.FontSize = 10.5
+                $tz.FontFamily = $font
+                $tz.Foreground = $bc.ConvertFromString($(if ($l.Dot) { "$($l.Dot)" } else { $pal.TextFaint }))
+                $tz.VerticalAlignment = 'Center'
+                $tz.HorizontalAlignment = 'Right'
+                $tz.Margin = New-Object System.Windows.Thickness(18, 0, 0, 0)
+                [System.Windows.Controls.Grid]::SetColumn($tz, 3)
+                [void]$sp.Children.Add($tz)
+            }
+            $vr.Child = $sp
+            # il codice della voce sulla riga: l'etichetta non lo dice (un
+            # motore si chiama "Claude" e si chiama 'claude-cli'), e senza
+            # questo la prova automatica non puo' scegliere una riga precisa
+            $vr.Tag = $codice
+            # la riga di adesso porta il fondo acceso: in una lista di quaranta
+            # voci, sapere dove si e' vale piu' di qualunque altra cosa
+            if ($codice -eq $loStato.Code) { $vr.Background = $bc.ConvertFromString($pal.Panel3) }
+            if ($l.Tip) { $vr.ToolTip = "$($l.Tip)" }
+            Add-SlantHover $vr
+            $vr.add_MouseLeftButtonUp({
+                param($src, $e)
+                try {
+                    if ($loStato.Chiudi) { & $loStato.Chiudi $false }
+                    else { $ilPop.IsOpen = $false }
+                    & $ilAccendi $false
+                    & $ilMostra $codice
+                    if ($ilCambia) { & $ilCambia $codice }
+                } catch {
+                    # un errore qui vuol dire che il clic non ha fatto niente:
+                    # nel registro, non nel nulla
+                    $log = Get-Command Write-SlantNote -ErrorAction SilentlyContinue
+                    if ($log) { & $log "picker: la voce $codice non ha risposto: $($_.Exception.Message)" }
+                }
+            }.GetNewClosure())
+            [void]$lista.Children.Add($vr)
+        }
+    }.GetNewClosure()
+
+    # Il popup e' una finestra di sistema: lasciato a se' esce dal desk, verso
+    # destra e verso il basso, perche' il bottone che lo apre sta in alto a
+    # destra. Prima di aprirlo si misura quanto vuole essere, si guarda dove
+    # sta il bottone dentro la finestra, e lo si sposta del tanto che serve
+    # perche' stia dentro. Niente delegati di piazzamento: un callback
+    # costruito da uno scriptblock non gira mentre il runspace e' occupato.
+    $sistema = {
+        $fin = [System.Windows.Window]::GetWindow($btn)
+        if (-not $fin) { return }
+        $margine = 10.0
+        $cornice.MaxHeight = [double]::PositiveInfinity
+        $cornice.Measure((New-Object System.Windows.Size([double]::PositiveInfinity, [double]::PositiveInfinity)))
+        $vuole = $cornice.DesiredSize
+        $dove = $btn.TransformToAncestor($fin).Transform((New-Object System.Windows.Point(0, 0)))
+        $largo = $fin.ActualWidth
+        $alto = $fin.ActualHeight
+        # Una lista piu' alta dello spazio che ha scorre, e una lista che scorre
+        # si porta dietro la sua barra: quella larghezza va contata PRIMA di
+        # decidere dove mettere la tendina, se no sfora a destra di quei pixel.
+        # Con cinque lingue non capitava, con quaranta si'.
+        $stanza = [Math]::Max($alto - ($dove.Y + $btn.ActualHeight) - $margine, $dove.Y - $margine)
+        if ($MaxHeight -gt 0 -and $stanza -gt $MaxHeight) { $stanza = $MaxHeight }
+        if ($vuole.Height -gt $stanza) {
+            $vuole = New-Object System.Windows.Size(
+                ($vuole.Width + [System.Windows.SystemParameters]::VerticalScrollBarWidth), $vuole.Height)
+        }
+        # in orizzontale: la tendina parte sotto il bottone, e se il suo bordo
+        # destro uscirebbe la si tira indietro fino a farcela stare
+        $dx = 0.0
+        $destra = $dove.X + $vuole.Width
+        if ($destra -gt ($largo - $margine)) { $dx = -($destra - ($largo - $margine)) }
+        if (($dove.X + $dx) -lt $margine) { $dx = $margine - $dove.X }
+        # in verticale: sotto il bottone se ci sta, altrimenti sopra; e se non
+        # ci sta ne' sopra ne' sotto, si accorcia e scorre
+        $sotto = $alto - ($dove.Y + $btn.ActualHeight) - $margine
+        $sopra = $dove.Y - $margine
+        $dy = 4.0
+        $tetto = $sotto
+        if ($vuole.Height -gt $sotto -and $sopra -gt $sotto) {
+            $tetto = $sopra
+            $dy = -($btn.ActualHeight + 4 + [Math]::Min($vuole.Height, $sopra))
+        }
+        if ($tetto -lt 80) { $tetto = 80 }
+        if ($MaxHeight -gt 0 -and $tetto -gt $MaxHeight) { $tetto = $MaxHeight }
+        $cornice.MaxHeight = $tetto
+        $pop.HorizontalOffset = $dx
+        $pop.VerticalOffset = $dy
+    }.GetNewClosure()
+
+    $chiudi = {
+        param([bool]$subito = $false)
+        $stato.Giu = $false
+        & $accendi $false
+        if (-not $pop.IsOpen) { return }
+        if ($subito) {
+            $stato.Chiudendo = $false
+            $chiusura.Stop()
+            $pop.IsOpen = $false
+            $cornice.BeginAnimation([System.Windows.UIElement]::OpacityProperty, $null)
+            $cornice.Opacity = 1.0
+            return
+        }
+        if ($stato.Chiudendo) { return }
+        $stato.Chiudendo = $true
+        & $esce
+    }.GetNewClosure()
+
+    $stato.Chiudi = $chiudi
+
+    # Il clic fuori. Il popup non si prende piu' il mouse, quindi a riconoscerlo
+    # e' la finestra: un handler in discesa, che passa prima di chiunque altro,
+    # e tre casi. Sul bottone non fa niente, perche' il bottone sa gia' cosa
+    # deve fare e farebbe il doppio lavoro (chiusa da qui, riaperta da lui, cioe'
+    # esattamente il difetto di prima). Dentro la tendina non fa niente, perche'
+    # e' una scelta. Fuori da tutti e due, chiude. Gli handler si agganciano
+    # alla prima apertura, non alla costruzione: prima la finestra non c'e'
+    # ancora, e a una tendina mai aperta non serve niente.
+    $aggancia = {
+        if ($stato.Agganciato) { return }
+        $fin = [System.Windows.Window]::GetWindow($btn)
+        if ($null -eq $fin) { return }
+        $stato.Agganciato = $true
+        $ilBtn = $btn
+        $laCornice = $cornice
+        $loStato = $stato
+        $ilChiudi = $chiudi
+        # Ogni handler si chiude con GetNewClosure, e non e' un dettaglio: uno
+        # scriptblock passato come delegato senza chiusura viene eseguito nello
+        # scope dello script, dove queste variabili non esistono. Non solleva
+        # niente, legge $null, e il clic fuori non chiude la tendina: e'
+        # esattamente quello che faceva.
+        $fuoriClic = {
+            param($src, $e)
+            try {
+                if (-not $loStato.Giu) { return }
+                if (Test-SlantVisualAncestor $e.OriginalSource $ilBtn) { return }
+                if (Test-SlantVisualAncestor $e.OriginalSource $laCornice) { return }
+                & $ilChiudi $false
+            } catch { }
+        }.GetNewClosure()
+        $fin.AddHandler([System.Windows.UIElement]::PreviewMouseDownEvent,
+                        [System.Windows.Input.MouseButtonEventHandler]$fuoriClic, $true)
+        # Esc la chiude come chiude ogni altra cosa in questa finestra, e il
+        # tasto si ferma qui: se no chiuderebbe anche la vista sotto
+        $viaCol = {
+            param($src, $e)
+            try {
+                if ($loStato.Giu -and $e.Key -eq 'Escape') { & $ilChiudi $false; $e.Handled = $true }
+            } catch { }
+        }.GetNewClosure()
+        $fin.AddHandler([System.Windows.UIElement]::PreviewKeyDownEvent,
+                        [System.Windows.Input.KeyEventHandler]$viaCol, $true)
+        # una tendina e' ancorata al suo bottone: se la finestra si sposta, si
+        # ridimensiona o passa in secondo piano, resterebbe per aria
+        $viaSubito = { try { if ($loStato.Giu) { & $ilChiudi $true } } catch { } }.GetNewClosure()
+        $fin.add_Deactivated($viaSubito)
+        $fin.add_LocationChanged($viaSubito)
+        $fin.add_SizeChanged($viaSubito)
+    }.GetNewClosure()
+
+    $apri = {
+        $stato.Chiudendo = $false
+        $chiusura.Stop()
+        # Lo stato si alza per primo, prima di costruire qualunque cosa: se una
+        # riga non si disegna, la tendina resta aperta e sbagliata invece di
+        # restare chiusa e apparentemente morta al clic. Un errore qui finiva
+        # nel catch del bottone e la tendina non si apriva piu', senza dire
+        # niente a nessuno.
+        $stato.Giu = $true
+        # OnOpen PRIMA di riempire: chi lo usa (il selettore dei motori) rifa'
+        # le voci con SetItems, che svuota la lista e la marca da rifare.
+        # Riempiendo prima, quello svuotamento arrivava dopo e la tendina si
+        # apriva vuota, ogni volta.
+        if ($OnOpen) { try { & $OnOpen } catch { } }
+        try { & $riempi } catch {
+            $log = Get-Command Write-SlantNote -ErrorAction SilentlyContinue
+            if ($log) { & $log "picker: la lista non si costruisce: $($_.Exception.Message)" }
+        }
+        try { & $sistema } catch { }
+        & $aggancia
+        # il fondo acceso segue la scelta di adesso, che puo' essere cambiata
+        # dopo che la lista era gia' stata costruita
+        try {
+            foreach ($r in @($lista.Children)) {
+                $suo = ("$($r.Tag)" -eq "$($stato.Code)")
+                $r.Background = $(if ($suo) { $bc.ConvertFromString($pal.Panel3) }
+                                  else { [System.Windows.Media.Brushes]::Transparent })
+            }
+        } catch { }
+        if ($pop.IsOpen) { & $entra }   # si stava chiudendo: rientra da dov'era
+        else { $pop.IsOpen = $true }
+        & $accendi $true
+        # e si porta in vista, che in una lista che scorre e' la differenza fra
+        # trovarsi e cercarsi
+        try {
+            $sua = @($lista.Children | Where-Object { "$($_.Tag)" -eq "$($stato.Code)" })[0]
+            if ($sua) { [void]$sua.BringIntoView() }
+        } catch { }
+    }.GetNewClosure()
+
+    # Sul tasto premuto, non sul rilascio: un rilascio arriva anche a chi si e'
+    # trascinato sopra col tasto gia' giu', e un bottone che si apre cosi' si
+    # apre quando nessuno gliel'ha chiesto.
+    $btn.add_PreviewMouseLeftButtonDown({
+        param($src, $e)
+        try {
+            if ($stato.Giu) { & $chiudi $false } else { & $apri }
+            $e.Handled = $true
+        } catch { }
+    }.GetNewClosure())
+
+    # chiunque chiuda il popup, anche scavalcando quanto sta sopra, lascia il
+    # bottone spento e lo stato pulito
+    $pop.add_Closed({
+        $stato.Giu = $false
+        $stato.Chiudendo = $false
+        & $accendi $false
+    }.GetNewClosure())
+
+    & $mostra $Current
+
+    $picker = [PSCustomObject]@{ Element = $radice; Popup = $pop }
+    $picker | Add-Member -MemberType ScriptMethod -Name Code -Value { return "$($stato.Code)" }.GetNewClosure()
+    # Lo stato logico: vero da quando si apre a quando la si chiude. Popup.IsOpen
+    # resta vero per i 130 ms in cui l'uscita si anima, quindi chi vuole sapere
+    # se la tendina e' giu' chiede questo.
+    $picker | Add-Member -MemberType ScriptMethod -Name IsDown -Value { return [bool]$stato.Giu }.GetNewClosure()
+    $picker | Add-Member -MemberType ScriptMethod -Name Close -Value {
+        param([bool]$subito = $true)
+        & $chiudi $subito
+    }.GetNewClosure()
+    $picker | Add-Member -MemberType ScriptMethod -Name Toggle -Value {
+        if ($stato.Giu) { & $chiudi $false } else { & $apri }
+    }.GetNewClosure()
+    $picker | Add-Member -MemberType ScriptMethod -Name Set -Value {
+        param([string]$code)
+        & $mostra $code
+    }.GetNewClosure()
+    # le voci cambiano quando cambia quello che descrivono: un motore che
+    # prima non era configurato e adesso lo e' deve smettere di dire
+    # "needs setup" senza che si riapra la finestra
+    $picker | Add-Member -MemberType ScriptMethod -Name SetItems -Value {
+        param([array]$voci, [string]$code = "")
+        $stato.Voci = @($voci)
+        $stato.Riempita = $false
+        $lista.Children.Clear()
+        & $mostra $(if ($code) { $code } else { $stato.Code })
+    }.GetNewClosure()
+    # per scaldare la lista quando la finestra ha gia' disegnato: chi apre il
+    # desk lo fa dopo il primo render, come per la scansione delle cartelle
+    $picker | Add-Member -MemberType ScriptMethod -Name Warm -Value { & $riempi }.GetNewClosure()
+    return $picker
+}
+
+# La lingua e' un selettore con le icone in cui l'icona e' una bandiera.
+
+# ── the splash, for the seconds before an application is ready ─────────────
+# An application that reads a folder before it can show anything has a few
+# seconds with nothing to show. Hiding the window until then is worse than
+# showing it: the window is the proof that the click worked. So the window
+# opens at once and wears this over its body: the page it is about to show,
+# blurred and darkened, with the brand in the middle of a ring that fills as
+# the work goes.
+#
+# None of it is drawn on the application's thread. WPF beats its animations
+# on the Dispatcher and not on the composition thread, so a load that holds
+# the thread stops every animation the window has; the splash therefore draws
+# on a thread of its own, through a HostVisual, and SlantUI.Splash.cs is
+# where that is explained and done.
+#
+# The screen says two things, and it says them in two places, because they
+# are two different things. The ring is the measure: one arc from twelve
+# o'clock, which moves when the work moves and at no other time. The thin bar
+# under the line is the pulse: two lozenges crossing it, with no scale and no
+# beginning, saying only that something is still going on. They used to share
+# one circle, a measuring arc with a short arc turning over it, and a circle
+# carrying two readings at once reads as neither.
+#
+#     $splash = Show-SlantSplash -Chrome $chrome -Logo $svg -Text 'starting'
+#     $splash.SetProgress(0.4, 'reading the folders')
+#     $splash.Hide()
+#
+# The logo is read as vector art when there is any: pass an .svg, or a raster
+# with an .svg of the same name beside it, and the brand is drawn at the size
+# the ring gives it instead of being a picture scaled down to it.
+
+function New-SlantArcGeometry {
+    <#  .SYNOPSIS  A stroked arc of a circle, from twelve o'clock, clockwise.
+        .PARAMETER Radius   The radius, in pixels.
+        .PARAMETER From     Where the arc starts, as a turn (0 is the top).
+        .PARAMETER Sweep    How much of the turn it covers, 0 to 1.
+        .PARAMETER Offset   Where the circle's box starts. Half the stroke
+                            width, usually: a stroke is drawn astride its
+                            geometry, so an arc drawn from zero loses half a
+                            stroke off the right and the bottom of the box
+                            that holds it.  #>
+    param([double]$Radius, [double]$From = 0.0, [double]$Sweep = 1.0, [double]$Offset = 0.0)
+    Initialize-SlantWpf
+    $sweep = [Math]::Max(0.0, [Math]::Min(0.9999, $Sweep))
+    $a0 = ($From - 0.25) * 2 * [Math]::PI
+    $a1 = ($From + $sweep - 0.25) * 2 * [Math]::PI
+    $cx = $Offset + $Radius
+    $p0 = New-Object System.Windows.Point(($cx + $Radius * [Math]::Cos($a0)),
+                                          ($cx + $Radius * [Math]::Sin($a0)))
+    $p1 = New-Object System.Windows.Point(($cx + $Radius * [Math]::Cos($a1)),
+                                          ($cx + $Radius * [Math]::Sin($a1)))
+    $fig = New-Object System.Windows.Media.PathFigure
+    $fig.StartPoint = $p0
+    $fig.IsClosed = $false
+    $arc = New-Object System.Windows.Media.ArcSegment
+    $arc.Point = $p1
+    $arc.Size = New-Object System.Windows.Size($Radius, $Radius)
+    $arc.SweepDirection = 'Clockwise'
+    $arc.IsLargeArc = ($sweep -gt 0.5)
+    [void]$fig.Segments.Add($arc)
+    $geo = New-Object System.Windows.Media.PathGeometry
+    [void]$geo.Figures.Add($fig)
+    return $geo
+}
+
+$script:SlantSplashReady = $false
+
+function Initialize-SlantSplash {
+    <#  .SYNOPSIS  Compile the splash's drawing thread, once per machine.
+
+        The DLL lives in the user's local data, not next to the module: a
+        module can sit on a synced drive, and a synced drive locks a DLL that
+        is loaded, so the next build fails with "access denied".  #>
+    if ($script:SlantSplashReady) { return $true }
+    try {
+        if ('SlantSplashCore' -as [type]) { $script:SlantSplashReady = $true; return $true }
+    } catch { }
+    $src = Join-Path $PSScriptRoot 'SlantUI.Splash.cs'
+    if (-not (Test-Path -LiteralPath $src)) { return $false }
+    $dir = Join-Path $env:LOCALAPPDATA 'SlantUI'
+    if (-not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+    # The name carries a stamp of the source, and that is not a flourish: a DLL
+    # another window of the same application already has loaded cannot be
+    # written over, so after an edit the build failed with "access denied" and
+    # the second window came up with no splash at all. A path nobody has opened
+    # yet is never in use, and the stamp changes only when the source does.
+    $f = Get-Item -LiteralPath $src
+    $stamp = "{0:x}{1:x}" -f $f.Length, ($f.LastWriteTimeUtc.Ticks -band 0xFFFFFFFF)
+    $dll = Join-Path $dir "SlantUI.Splash.$stamp.dll"
+    if (-not (Test-Path -LiteralPath $dll)) {
+        $refs = @('WindowsBase', 'PresentationCore', 'PresentationFramework', 'System.Xaml')
+        try { Add-Type -Path $src -OutputAssembly $dll -ReferencedAssemblies $refs -ErrorAction Stop }
+        catch { try { Add-Type -Path $src -OutputAssembly $dll -ErrorAction Stop } catch { } }
+    }
+    if (-not (Test-Path -LiteralPath $dll)) {
+        # last resort: a build of an older source. An application with an old
+        # splash is better off than one with none.
+        $prima = @(Get-ChildItem -LiteralPath $dir -Filter 'SlantUI.Splash*.dll' -ErrorAction SilentlyContinue |
+                   Sort-Object LastWriteTime -Descending)
+        if ($prima.Count -eq 0) { return $false }
+        $dll = $prima[0].FullName
+    }
+    try { [void][Reflection.Assembly]::LoadFrom($dll) } catch { return $false }
+    # the earlier builds go when they can: one another window still holds stays
+    # where it is, and nothing about that matters
+    foreach ($v in @(Get-ChildItem -LiteralPath $dir -Filter 'SlantUI.Splash*.dll' -ErrorAction SilentlyContinue |
+                     Where-Object { $_.FullName -ne $dll })) {
+        try { Remove-Item -LiteralPath $v.FullName -Force -ErrorAction Stop } catch { }
+    }
+    $script:SlantSplashReady = $true
+    return $true
+}
+
+function Show-SlantSplash {
+    <#  .SYNOPSIS  Cover an application's body while it gets ready.
+
+        .PARAMETER Chrome   What Install-SlantWindow returned.
+        .PARAMETER Logo     A path to an .svg, to an image, or an ImageSource.
+                            The band's own logo if nothing is passed. A vector
+                            is read as paths and drawn at the ring's size; a
+                            raster with an .svg of the same name beside it is
+                            read from the .svg.
+        .PARAMETER Text     The first line under the ring.
+        .PARAMETER Blur     How far the page behind goes out of focus.
+        .PARAMETER Size     The outer size of the ring.
+
+        .OUTPUTS  An object with SetProgress(fraction, text), SetText(text),
+                  Draw(fraction), Hide([ms]), Snapshot(scale) and Visible.  #>
+    param(
+        [Parameter(Mandatory = $true)]$Chrome,
+        $Logo = $null,
+        [string]$Text = "",
+        [double]$Blur = 14,
+        [double]$Size = 132
+    )
+    Initialize-SlantWpf
+    if (-not (Initialize-SlantSplash)) { throw "SlantUI: the splash's drawing thread would not build" }
+    $wpf = (Get-SlantPalette $Chrome.Palette).Wpf
+    $shell = $Chrome.Body
+
+    # the application's own content is the second row of the shell; the band
+    # stays sharp and its buttons stay live, so the window can still be moved
+    # or closed while it loads
+    $sotto = $null
+    foreach ($child in $shell.Children) {
+        if ([System.Windows.Controls.Grid]::GetRow($child) -eq 1) { $sotto = $child; break }
+    }
+    $sfoca = New-Object System.Windows.Media.Effects.BlurEffect
+    $sfoca.Radius = 0
+    $sfoca.KernelType = 'Gaussian'
+    $sfoca.RenderingBias = 'Performance'
+    if ($null -ne $sotto) { $sotto.Effect = $sfoca }
+
+    # The brand. It is read here, once, and handed over frozen: a frozen
+    # Freezable is the one kind of drawing that crosses threads, and from a
+    # vector it means the mark is drawn at the size the ring gives it instead
+    # of being a 1385 pixel picture squeezed down to 68 points. What cannot be
+    # frozen travels as a path and the drawing thread decodes its own copy,
+    # because an ImageSource belongs to the thread that built it.
+    $arte = $null
+    $quale = ""
+    if ($Logo -is [System.Windows.Media.ImageSource]) {
+        $arte = $Logo
+    } elseif ("$Logo") {
+        $quale = "$Logo"
+        $arte = Get-SlantArtSource -Path "$Logo"
+    } elseif ($null -ne $Chrome.Logo -and $Chrome.Logo.Background -is [System.Windows.Media.ImageBrush]) {
+        # nothing was passed: the band is already wearing the application's
+        # mark, and when that is vector art it is exactly what this wants
+        try {
+            $sorgente = $Chrome.Logo.Background.ImageSource
+            if ($sorgente -is [System.Windows.Media.DrawingImage]) { $arte = $sorgente }
+            elseif ($sorgente -and $sorgente.UriSource) { $quale = $sorgente.UriSource.LocalPath }
+        } catch { }
+    }
+    if ($null -ne $arte -and -not $arte.IsFrozen) {
+        try { $arte = $arte.Clone(); $arte.Freeze() } catch { $arte = $null }
+    }
+
+    $core = New-Object SlantSplashCore(
+        "$($wpf['accent'])", "$($wpf['control-active'])", "$($wpf['scrim'])", "$($wpf['text-3'])",
+        $Size, $quale, "Segoe UI")
+
+    if ($null -ne $arte) { try { $core.SetLogoSource($arte) } catch { } }
+
+    $ospite = New-Object SlantVisualHost($core.Host)
+    [System.Windows.Controls.Grid]::SetRow($ospite, 1)
+    [void]$shell.Children.Add($ospite)
+    $shell.UpdateLayout()
+
+    $largo = $ospite.ActualWidth
+    $alto = $ospite.ActualHeight
+    if ($largo -le 1) { $largo = $shell.ActualWidth }
+    if ($alto -le 1) { $alto = [Math]::Max(1, $shell.ActualHeight - 40) }
+    $core.Start($largo, $alto, $Text)
+
+    # the host has no say in its own size, so it is told when the window
+    # changes: the veil covers the body whatever the window does
+    $ospite.add_SizeChanged({
+        param($src, $e)
+        try { $core.SetSize($e.NewSize.Width, $e.NewSize.Height) } catch { }
+    }.GetNewClosure())
+
+    # The blur is there from the first frame, and it is not animated in. It
+    # used to be, and the animation was never seen: it starts in the very
+    # moment the application takes the thread to load, and an effect lives on
+    # that thread, so it froze a third of the way in. There is nothing to ease
+    # into either, because a page that has not loaded yet is an empty page.
+    # Going out is another matter, and that one is animated: by then the work
+    # is done and the thread is free.
+    $sfoca.Radius = $Blur
+
+    $splash = [PSCustomObject]@{
+        Element = $ospite
+        Core    = $core
+        Percent = 0.0
+        Visible = $true
+        Blur    = $sfoca
+        BlurMax = $Blur
+        Under   = $sotto
+        Shell   = $shell
+        Text    = $Text
+    }
+
+    $splash | Add-Member -MemberType ScriptMethod -Name SetProgress -Value {
+        param([double]$frazione, [string]$testo = "")
+        if ([double]::IsNaN($frazione)) { return }
+        $this.Percent = [Math]::Max(0.0, [Math]::Min(1.0, $frazione))
+        if ($testo) { $this.Text = "$testo" }
+        if (-not $this.Visible) { return }
+        try { $this.Core.SetProgress($this.Percent, $(if ($testo) { "$testo" } else { $null })) } catch { }
+    }
+
+    # for the callers that only move the ring, without a new line
+    $splash | Add-Member -MemberType ScriptMethod -Name Draw -Value {
+        param([double]$quanto)
+        $this.SetProgress($quanto, "")
+    }
+
+    $splash | Add-Member -MemberType ScriptMethod -Name SetText -Value {
+        param([string]$testo)
+        $this.Text = "$testo"
+        try { $this.Core.SetText("$testo") } catch { }
+    }
+
+    # what the drawing thread has on screen right now, for a screenshot: the
+    # rest of the window renders itself, a HostVisual does not, because its
+    # content lives somewhere else
+    $splash | Add-Member -MemberType ScriptMethod -Name Snapshot -Value {
+        param([double]$scala = 1.0)
+        try { return $this.Core.Snapshot($scala) } catch { return $null }
+    }
+
+    # The handover. The veil fades on the drawing thread, so it is smooth
+    # whatever the application is doing; the blur comes back here, and it
+    # starts once the dispatcher has nothing left queued, because a fade that
+    # begins under a busy thread is a fade nobody sees.
+    $splash | Add-Member -MemberType ScriptMethod -Name Hide -Value {
+        param([int]$ms = 420)
+        if (-not $this.Visible) { return }
+        $this.Visible = $false
+        $me = $this
+        $durata = $ms
+        $parti = {
+            try {
+                if ($null -ne $me.Under) { $me.Under.UpdateLayout() }
+                if ($durata -gt 0) {
+                    $ease = New-Object System.Windows.Media.Animation.CubicEase
+                    $ease.EasingMode = 'EaseOut'
+                    $torna = New-Object System.Windows.Media.Animation.DoubleAnimation(
+                        $me.BlurMax, 0, [TimeSpan]::FromMilliseconds($durata))
+                    $torna.EasingFunction = $ease
+                    $me.Blur.BeginAnimation([System.Windows.Media.Effects.BlurEffect]::RadiusProperty, $torna)
+                    # E la pagina arriva: entra da mezzo punto percentuale piu'
+                    # grande e si posa sulla sua misura, nello stesso tempo e
+                    # sulla stessa curva con cui il velo se ne va. Non e' uno
+                    # zoom, sono sei pixel su mille: si sente come un fuoco che
+                    # si fa, che e' esattamente quello che sta succedendo.
+                    if ($null -ne $me.Under) {
+                        $prima = $me.Under.RenderTransform
+                        $origine = $me.Under.RenderTransformOrigin
+                        $posa = New-Object System.Windows.Media.ScaleTransform(1.006, 1.006)
+                        $me.Under.RenderTransformOrigin = New-Object System.Windows.Point(0.5, 0.5)
+                        $me.Under.RenderTransform = $posa
+                        foreach ($pr in @([System.Windows.Media.ScaleTransform]::ScaleXProperty,
+                                          [System.Windows.Media.ScaleTransform]::ScaleYProperty)) {
+                            $giu = New-Object System.Windows.Media.Animation.DoubleAnimation(
+                                1.006, 1.0, [TimeSpan]::FromMilliseconds($durata))
+                            $giu.EasingFunction = $ease
+                            $posa.BeginAnimation($pr, $giu)
+                        }
+                        # la trasformazione si toglie appena finita: lasciarla
+                        # li' vorrebbe dire lasciare l'applicazione dentro una
+                        # trasformazione che non ha chiesto
+                        $finita = New-Object System.Windows.Threading.DispatcherTimer
+                        $finita.Interval = [TimeSpan]::FromMilliseconds($durata + 60)
+                        $finita.add_Tick({
+                            param($src, $e)
+                            try {
+                                $src.Stop()
+                                $me.Under.RenderTransform = $prima
+                                $me.Under.RenderTransformOrigin = $origine
+                            } catch { }
+                        }.GetNewClosure())
+                        $finita.Start()
+                    }
+                }
+                $me.Core.FadeOut([Math]::Max(1, $durata), [Action] {
+                    try {
+                        [void]$me.Shell.Children.Remove($me.Element)
+                        if ($null -ne $me.Under) { $me.Under.Effect = $null }
+                    } catch { }
+                })
+            } catch { }
+        }.GetNewClosure()
+        if ($ms -le 0) { & $parti; return }
+        # Background, which is smoothed out after layout and after drawing:
+        # the last step of a load usually leaves work queued, and those few
+        # frames are the ones this transition needs. Not ApplicationIdle,
+        # which a window with timers on it can keep waiting for.
+        try {
+            $this.Shell.Dispatcher.BeginInvoke(
+                [System.Windows.Threading.DispatcherPriority]::Background, [action]$parti) | Out-Null
+        } catch { & $parti }
+    }
+
+    return $splash
+}
+
 Export-ModuleMember -Function Get-SlantDataPath, Get-SlantTokens, Get-SlantPaletteNames,
     Get-SlantPalette, Get-SlantColor, Get-SlantMetric, ConvertTo-SlantColorRef,
     New-SlantBrush, Get-SlantBrushes,
@@ -1493,4 +2897,10 @@ Export-ModuleMember -Function Get-SlantDataPath, Get-SlantTokens, Get-SlantPalet
     Initialize-SlantChrome, Get-SlantCreditText, Set-SlantWindowFrame, Set-SlantWindowScheme,
     Set-SlantWindowTransitions, Test-SlantWindowZoomed, Get-SlantWindowStyle,
     Get-SlantWindowSizes, Get-SlantWindowHandle, Get-SlantWorkArea,
-    New-SlantWindowButton, New-SlantTitleBar, Set-SlantLogo, Install-SlantWindow
+    New-SlantWindowButton, New-SlantTitleBar, Set-SlantLogo, Install-SlantWindow,
+    New-SlantVectorImage, Get-SlantArtSource, ConvertTo-SlantSvgTransform,
+    Get-SlantWidgetColours, Set-SlantLogger, Write-SlantNote,
+    Get-SlantHoverColor, Find-SlantHoverTarget, New-SlantHoverStoryboard,
+    Get-SlantBaseBrushColor, Add-SlantHover, Set-SlantBorderColor, Test-SlantVisualAncestor,
+    New-SlantPicker,
+    New-SlantArcGeometry, Show-SlantSplash, Initialize-SlantSplash
