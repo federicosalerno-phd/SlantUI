@@ -30,24 +30,27 @@ def software_forced() -> bool:
     return os.environ.get(SOFTWARE_RENDER_VAR, "") in ("1", "true", "True")
 
 
-def chromium_flags(gpu: bool = True, qt6: bool = USE_QT6) -> str:
+def chromium_flags(gpu: bool = True, qt6: bool = USE_QT6, extra: str = "") -> str:
     """Flags for the embedded Chromium.
 
     Chromium's own defaults are kept on purpose. Its GPU blocklist stays in
     force, so a machine whose driver Chromium knows to be broken falls back to
     software compositing and still shows the application, and rasterisation
-    is left to Chromium.
+    is left to Chromium. ``extra`` is whatever the application wants on top,
+    and it comes last, so a flag passed in wins over one set here.
     """
     if not gpu:
-        return "--disable-gpu"
-    if not qt6:
+        out = "--disable-gpu"
+    elif not qt6:
         # The Qt5/Chromium-83 compositor starves its vsync source; drive frames
         # from a timer there. Qt6's compositor does not want this.
-        return "--disable-gpu-vsync --disable-frame-rate-limit"
-    return ""
+        out = "--disable-gpu-vsync --disable-frame-rate-limit"
+    else:
+        out = ""
+    return (out + " " + extra).strip() if extra else out
 
 
-def configure_environment(gpu: bool = True) -> None:
+def configure_environment(gpu: bool = True, extra: str = "") -> None:
     """Must run before ``QApplication`` is created.
 
     The window follows the display's scale (a 150 % display gets a 150 % UI
@@ -61,7 +64,7 @@ def configure_environment(gpu: bool = True) -> None:
     """
     if software_forced():
         gpu = False
-    os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = chromium_flags(gpu)
+    os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = chromium_flags(gpu, extra=extra)
     if not gpu:
         # Qt's side on the software (WARP) device; Chromium's side is software
         # through the flag above. For machines with a broken driver.
@@ -94,14 +97,18 @@ class Application(QApplication):
     identity, in the form ``Company.Product``; leave it empty and the
     process is filed under the interpreter. ``gpu=False`` draws through
     software, and so does ``SLANTUI_SOFTWARE_RENDER=1`` in the environment
-    whatever is passed. ``style`` is the widget style, which only the file
-    dialogs show; Fusion looks the same everywhere.
+    whatever is passed. ``chromium`` is one flag more for the embedded
+    browser, or several: a tool that saves pictures of a window asks for
+    ``--disable-lcd-text`` with it, so the glyphs in them carry no colour of
+    their own. ``style`` is the widget style, which only the file dialogs
+    show; Fusion looks the same everywhere.
     """
 
     def __init__(self, name: str, *, app_id: str = "", gpu: bool = True,
-                 argv: list[str] | None = None, style: str | None = "Fusion"):
+                 chromium: str = "", argv: list[str] | None = None,
+                 style: str | None = "Fusion"):
         set_app_user_model_id(app_id)
-        configure_environment(gpu)
+        configure_environment(gpu, extra=chromium)
         if USE_QT6:
             try:
                 QApplication.setHighDpiScaleFactorRoundingPolicy(

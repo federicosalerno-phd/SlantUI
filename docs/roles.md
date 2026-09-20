@@ -47,7 +47,10 @@ both schemes, which is what a sheet of paper does.
 | `surface-2` | Strips and toolbars inside the work area | `.toolbar`, `.stpill` |
 | `surface-3` | The most raised plane | `.card`, `.combopop`, `.input`, `.rp-hd`, `.rp-foot` |
 
-<img src="img/gold-dark/panel.png" width="244" alt="The side panel: a header and a footer a step lighter than the panel itself, controls in between, and no dividing line anywhere">
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="img/gold-dark/panel.png">
+<img src="img/gold-light/panel.png" width="244" alt="The side panel: a header and a footer a step lighter than the panel itself, controls in between, and no dividing line anywhere">
+</picture>
 
 *The side panel is `surface-1`, its header and footer are `surface-3`, and the
 controls in it are `control`. Four planes and no line between any of them.*
@@ -80,14 +83,20 @@ palette.
 | `text-3` | Captions, row labels, units, hints | `.rp-sub`, `.note`, `.stpill`, `.tab.done` |
 | `text-4` | The faintest allowed. Never a sentence | `.sec-lbl`, `.tbar-credit`, `.tab`, and every `:disabled` label |
 
-<img src="img/gold-dark/labels.png" width="296" alt="A small uppercase label in text-4 above a sentence in text-3">
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="img/gold-dark/labels.png">
+<img src="img/gold-light/labels.png" width="273" alt="A small uppercase label in text-4 above a sentence in text-3">
+</picture>
 
 *`text-4` is the one role held to the lower contrast floor, and this is the
 rule that comes with it: it labels a block, it never carries the sentence. A
 paragraph in `text-4` is the one way to fail the audit with a palette that
 passes.*
 
-<img src="img/gold-dark/buttons-off.png" width="296" alt="The same three buttons disabled: the fills flattened and the labels in the faintest text">
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="img/gold-dark/buttons-off.png">
+<img src="img/gold-light/buttons-off.png" width="218" alt="The same three buttons disabled: the fills flattened and the labels in the faintest text">
+</picture>
 
 *Disabled is `text-4` on a flattened fill, for every kind of button. There is
 no disabled role: a control that cannot be used is the faintest text on the
@@ -114,7 +123,10 @@ things. On a light palette the fill stays the bright hue and the text becomes a
 darker shade of it, or nothing written in the accent colour would be readable
 on white.
 
-<img src="img/gold-dark/tabs.png" width="606" alt="Three steps: one done with a tinted number, the one you are on with a tinted background and accent text, and one not reached in the faintest text">
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="img/gold-dark/tabs.png">
+<img src="img/gold-light/tabs.png" width="346" alt="Three steps: one done with a tinted number, the one you are on with a tinted background and accent text, and one not reached in the faintest text">
+</picture>
 
 ## Status
 
@@ -140,11 +152,17 @@ indicator is always a deep colour with a light label, on every palette, so that
 three. The lighter, more saturated version of each hue is the separate role,
 and that is what a six pixel dot or a red icon button uses.
 
-<img src="img/gold-dark/status-words.png" width="296" alt="A sentence with the words passed, close and short coloured green, amber and red">
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="img/gold-dark/status-words.png">
+<img src="img/gold-light/status-words.png" width="284" alt="A sentence with the words passed, close and short coloured green, amber and red">
+</picture>
 
 *`ok-text`, `warn-text` and `err-text`, in a sentence, with no fill under them.*
 
-<img src="img/gold-dark/callouts.png" width="296" alt="Three paragraphs, each on its own tint: one in the accent, one in amber, one in red">
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="img/gold-dark/callouts.png">
+<img src="img/gold-light/callouts.png" width="284" alt="A plain note and three on a tint: one in the accent, one in amber, one in red">
+</picture>
 
 *`accent-surface`, `warn-surface` and `err-surface`, as the three callouts. The
 three tints sit at one lightness. `warn-surface` is `err-surface` turned to
@@ -153,7 +171,10 @@ lands a good deal darker, because a deepened amber is darker than a deepened
 red at the same strength, and three tints at three lightnesses read as a
 mistake instead of as a family.*
 
-<img src="img/gold-dark/status-pill.png" width="606" alt="The status pill in five states: Ready, Done, Cancelled, Failed and Working, each with its own coloured dot">
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="img/gold-dark/status-pill.png">
+<img src="img/gold-light/status-pill.png" width="474" alt="The status pill in five states: Ready, Done, Cancelled, Failed and Working, each with its own coloured dot">
+</picture>
 
 ## Depth
 
@@ -169,7 +190,14 @@ The auditor holds two of them to a floor that is not about contrast. A scrim
 that does not dim is not a scrim (alpha at least 0.60), and a shadow that is
 opaque is a rectangle (alpha at most 0.95).
 
-<img src="img/gold-dark/progress.png" width="320" alt="A card with a percentage and a progress bar, over a scrim that dims the window behind it">
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="img/gold-dark/dropdown-open.png">
+<img src="img/gold-light/dropdown-open.png" width="362" alt="A dropdown with its popup open, the popup casting a soft shadow onto the page under it">
+</picture>
+
+*`shadow`, cast by the popup. The picture carries it as the window drew it,
+fading into the page this page is on, because a picture here has no background
+of its own either.*
 
 ## Core and extended
 

@@ -7,7 +7,10 @@ panel, and a widget set that uses no dividing lines anywhere.
 It took a long time to get right, and it is a library so that the next
 application does not start by copying files out of the last one.
 
-![A window built on SlantUI: the oblique band across the top, a rail of four steps, a drawing on the stage and a side panel of controls](docs/img/tour/gold-dark-2.png)
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="docs/img/tour/gold-dark-2.png">
+<img src="docs/img/tour/gold-light-2.png" width="1240" alt="A window built on SlantUI: the oblique band across the top, a rail of four steps, a drawing on the stage and a side panel of controls">
+</picture>
 
 *`examples/tour`, a window on SlantUI and nothing else. The shape on the stage
 is the title bar's own profile drawn large, by the same function that cuts the
@@ -34,9 +37,12 @@ which wear the same frameless window now, and not just its palette.
 ## The window
 
 Four parts, and each one below is the real thing, grabbed out of a running
-window and cropped where the page said to crop it.
+window and cut to the shape the page said to cut it to, corners and all.
 
-![The oblique band, with the logo and the name on the left, the credit line in the middle and the three window buttons on the right](docs/img/gold-dark/titlebar.png)
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="docs/img/gold-dark/titlebar.png">
+<img src="docs/img/gold-light/titlebar.png" width="1240" alt="The oblique band, with the logo and the name on the left, the credit line in the middle and the three window buttons on the right">
+</picture>
 
 **The band** is one shape across the whole width. It is 44 px deep under the
 name, runs obliquely down over 38 px, and stays 28 px to the right edge: it
@@ -47,7 +53,10 @@ in the middle of it. Under the band the HWND carries a real Windows frame, so
 the window animates, snaps and casts a shadow like any other, and no caption
 is ever drawn.
 
-![The step rail: four numbered steps on the left, an About button and a status pill on the right](docs/img/gold-dark/steps.png)
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="docs/img/gold-dark/steps.png">
+<img src="docs/img/gold-light/steps.png" width="1240" alt="The step rail: four numbered steps on the left, an About button and a status pill on the right">
+</picture>
 
 **The rail** under it carries the steps of the job on the left and the
 application's own buttons on the right. The step you are on is a pill in the
@@ -57,14 +66,20 @@ is left aligned, so the numbers and the words line up in a column, and the
 status pill at the far end is 150 px whatever it says, so nothing to its left
 moves when the status changes.
 
-![The strip of small controls over the stage, a line of hint text in the middle, the name of what is open on the right](docs/img/gold-dark/toolbar.png)
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="docs/img/gold-dark/toolbar.png">
+<img src="docs/img/gold-light/toolbar.png" width="996" alt="The strip of small controls over the stage, a line of hint text in the middle, the name of what is open on the right">
+</picture>
 
 **The toolbar** is a strip of small controls over the work area, a line of
 hint text in the middle, and the name of what is open on the right.
 `fitOneLine()` shortens a name that does not fit and keeps the extension, so
 the strip is one line at any width.
 
-<img src="docs/img/gold-dark/panel.png" width="244" alt="The side panel: a title and a subtitle, a list of palettes, a paragraph, and two rows of buttons at the bottom">
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="docs/img/gold-dark/panel.png">
+<img src="docs/img/gold-light/panel.png" width="244" alt="The side panel: a title and a subtitle, a list of palettes, a paragraph, and two rows of buttons at the bottom">
+</picture>
 
 **The panel** on the right is a header that names the step, a body that
 scrolls, and a footer that does not. The footer holds the step's own action
@@ -78,29 +93,213 @@ own ids and can hold two of anything.
 
 ## The widget set
 
-One of each, drawn by the library, in the default palette. The catalogue they
+One of each, drawn by the library, in the default palette, and in its light
+twin if you are reading this on a light theme: the pictures come in both and
+the browser takes the one that suits. Every one of them is cut to the widget
+and nothing else, so what is behind it here is this page. The catalogue they
 come from is `docs/gallery.html`, and a widget missing from it is a widget
 nobody looks at again, so the test suite fails when one is.
 
-| Buttons | Buttons filling the width | The window buttons |
-|:---:|:---:|:---:|
-| <img src="docs/img/gold-dark/buttons.png" width="296" alt="A gold primary button, a plain one, and a destructive one in red"> | <img src="docs/img/gold-dark/buttons-wide.png" width="296" alt="A wide primary button over a Back and a Next"> | <img src="docs/img/gold-dark/window-buttons.png" width="296" alt="Minimise, maximise and close"> |
-| **Toolbar buttons** | **A text field** | **A number field, with its own stepper** |
-| <img src="docs/img/gold-dark/toolbar-buttons.png" width="296" alt="Three small square buttons, one of them on"> | <img src="docs/img/gold-dark/input.png" width="296" alt="A text field with a unit beside it"> | <img src="docs/img/gold-dark/number.png" width="296" alt="A number field with an up and a down arrow inside it"> |
-| **A dropdown, open** | **Sliders** | **A list to choose from** |
-| <img src="docs/img/gold-dark/dropdown-open.png" width="296" alt="A dropdown with its popup open and one option selected"> | <img src="docs/img/gold-dark/sliders.png" width="296" alt="Three sliders with their names and values"> | <img src="docs/img/gold-dark/chooser.png" width="296" alt="Three rows with badges, the first one selected, the last one off"> |
-| **Chips** | **Metric rows** | **Key and value rows** |
-| <img src="docs/img/gold-dark/chips.png" width="296" alt="A plain chip, an accent chip and an error chip"> | <img src="docs/img/gold-dark/metrics.png" width="296" alt="Two groups of measurements, each under a coloured dot, one row marked"> | <img src="docs/img/gold-dark/rows.png" width="296" alt="Three filled rows, a name on the left and a value on the right"> |
-| **A card** | **Words in a status colour** | **A note on the stage** |
-| <img src="docs/img/gold-dark/card.png" width="296" alt="A card holding a sentence and a chip"> | <img src="docs/img/gold-dark/status-words.png" width="296" alt="A sentence with the words passed, close and short in green, amber and red"> | <img src="docs/img/gold-dark/stage-chrome.png" width="296" alt="A note in the corner of the stage and a zoom pill"> |
-
-| The steps, in their three states | The status pill, in five |
-|:---:|:---:|
-| <img src="docs/img/gold-dark/tabs.png" width="606" alt="A step that is done, the step you are on, and one not reached"> | <img src="docs/img/gold-dark/status-pill.png" width="606" alt="Ready, Done, Cancelled, Failed and Working, each with its own dot"> |
-| **The drop zone** | **A line at the bottom, and then gone** |
-| <img src="docs/img/gold-dark/drop-zone.png" width="460" alt="A large card asking for a file to be dropped on it"> | <img src="docs/img/gold-dark/toast.png" width="250" alt="A toast over the page"> |
-| **A job with a percentage** | **Work with no percentage** |
-| <img src="docs/img/gold-dark/progress.png" width="320" alt="A card over the scrim with 62 per cent and a progress bar"> | <img src="docs/img/gold-dark/spinner.png" width="317" alt="A card over the scrim with a turning ring"> |
+<table>
+<tr>
+<th align="center">Buttons</th>
+<th align="center">Buttons filling the width</th>
+</tr>
+<tr>
+<td align="center" valign="middle">
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="docs/img/gold-dark/buttons.png">
+<img src="docs/img/gold-light/buttons.png" width="235" alt="A gold primary button, a plain one, and a destructive one in red">
+</picture>
+</td>
+<td align="center" valign="middle">
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="docs/img/gold-dark/buttons-wide.png">
+<img src="docs/img/gold-light/buttons-wide.png" width="284" alt="A wide primary button over a Back and a Next">
+</picture>
+</td>
+</tr>
+<tr>
+<th align="center">The window buttons</th>
+<th align="center">Toolbar buttons</th>
+</tr>
+<tr>
+<td align="center" valign="middle">
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="docs/img/gold-dark/window-buttons.png">
+<img src="docs/img/gold-light/window-buttons.png" width="253" alt="Minimise, maximise and close, and a note saying the close button turns red under the pointer">
+</picture>
+</td>
+<td align="center" valign="middle">
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="docs/img/gold-dark/toolbar-buttons.png">
+<img src="docs/img/gold-light/toolbar-buttons.png" width="296" alt="Three small square buttons, one of them on, and a line of hint text">
+</picture>
+</td>
+</tr>
+<tr>
+<th align="center">A text field</th>
+<th align="center">A number field, with its own stepper</th>
+</tr>
+<tr>
+<td align="center" valign="middle">
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="docs/img/gold-dark/input.png">
+<img src="docs/img/gold-light/input.png" width="284" alt="A text field with a unit beside it">
+</picture>
+</td>
+<td align="center" valign="middle">
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="docs/img/gold-dark/number.png">
+<img src="docs/img/gold-light/number.png" width="284" alt="A number field with an up and a down arrow inside it">
+</picture>
+</td>
+</tr>
+<tr>
+<th align="center">A dropdown, open</th>
+<th align="center">Sliders</th>
+</tr>
+<tr>
+<td align="center" valign="middle">
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="docs/img/gold-dark/dropdown-open.png">
+<img src="docs/img/gold-light/dropdown-open.png" width="362" alt="A dropdown with its popup open and one option selected">
+</picture>
+</td>
+<td align="center" valign="middle">
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="docs/img/gold-dark/sliders.png">
+<img src="docs/img/gold-light/sliders.png" width="284" alt="Three sliders with their names and values">
+</picture>
+</td>
+</tr>
+<tr>
+<th align="center">A list to choose from</th>
+<th align="center">Chips</th>
+</tr>
+<tr>
+<td align="center" valign="middle">
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="docs/img/gold-dark/chooser.png">
+<img src="docs/img/gold-light/chooser.png" width="284" alt="Three rows with badges, the first one selected, the last one off">
+</picture>
+</td>
+<td align="center" valign="middle">
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="docs/img/gold-dark/chips.png">
+<img src="docs/img/gold-light/chips.png" width="263" alt="A plain chip, an accent chip and an error chip">
+</picture>
+</td>
+</tr>
+<tr>
+<th align="center">Metric rows</th>
+<th align="center">Key and value rows</th>
+</tr>
+<tr>
+<td align="center" valign="middle">
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="docs/img/gold-dark/metrics.png">
+<img src="docs/img/gold-light/metrics.png" width="284" alt="Two groups of measurements, each under a coloured dot, one row marked">
+</picture>
+</td>
+<td align="center" valign="middle">
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="docs/img/gold-dark/rows.png">
+<img src="docs/img/gold-light/rows.png" width="284" alt="Three filled rows, a name on the left and a value on the right">
+</picture>
+</td>
+</tr>
+<tr>
+<th align="center">A card</th>
+<th align="center">Words in a status colour</th>
+</tr>
+<tr>
+<td align="center" valign="middle">
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="docs/img/gold-dark/card.png">
+<img src="docs/img/gold-light/card.png" width="284" alt="A card holding a sentence and a chip">
+</picture>
+</td>
+<td align="center" valign="middle">
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="docs/img/gold-dark/status-words.png">
+<img src="docs/img/gold-light/status-words.png" width="284" alt="A sentence with the words passed, close and short in green, amber and red">
+</picture>
+</td>
+</tr>
+<tr>
+<th align="center">A note on the stage</th>
+<th align="center">The steps, in their three states</th>
+</tr>
+<tr>
+<td align="center" valign="middle">
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="docs/img/gold-dark/stage-chrome.png">
+<img src="docs/img/gold-light/stage-chrome.png" width="284" alt="A note in the corner of the stage and a zoom pill">
+</picture>
+</td>
+<td align="center" valign="middle">
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="docs/img/gold-dark/tabs.png">
+<img src="docs/img/gold-light/tabs.png" width="346" alt="A step that is done, the step you are on, and one not reached">
+</picture>
+</td>
+</tr>
+<tr>
+<th align="center">The status pill, in five</th>
+<th align="center">A line at the bottom, and then gone</th>
+</tr>
+<tr>
+<td align="center" valign="middle">
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="docs/img/gold-dark/status-pill.png">
+<img src="docs/img/gold-light/status-pill.png" width="474" alt="Ready, Done, Cancelled, Failed and Working, each with its own dot">
+</picture>
+</td>
+<td align="center" valign="middle">
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="docs/img/gold-dark/toast.png">
+<img src="docs/img/gold-light/toast.png" width="240" alt="A toast over the page">
+</picture>
+</td>
+</tr>
+<tr>
+<th align="center">The drop zone</th>
+<th align="center">A job with a percentage</th>
+</tr>
+<tr>
+<td align="center" valign="middle">
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="docs/img/gold-dark/drop-zone.png">
+<img src="docs/img/gold-light/drop-zone.png" width="448" alt="A large card asking for a file to be dropped on it">
+</picture>
+</td>
+<td align="center" valign="middle">
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="docs/img/gold-dark/progress.png">
+<img src="docs/img/gold-light/progress.png" width="308" alt="A card with 62 per cent on it and a progress bar under the number">
+</picture>
+</td>
+</tr>
+<tr>
+<th align="center">Work with no percentage</th>
+<th align="center">Callouts</th>
+</tr>
+<tr>
+<td align="center" valign="middle">
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="docs/img/gold-dark/spinner.png">
+<img src="docs/img/gold-light/spinner.png" width="306" alt="A card with a turning ring on it">
+</picture>
+</td>
+<td align="center" valign="middle">
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="docs/img/gold-dark/callouts.png">
+<img src="docs/img/gold-light/callouts.png" width="284" alt="A plain note and three on a tint: one in the accent, one in amber, one in red">
+</picture>
+</td>
+</tr>
+</table>
 
 ## Colour
 
@@ -122,11 +321,56 @@ Eight palettes fill them: Gold Dark (the default), Gold Light, four accent
 variants of the default, Slate Light and High Contrast. The same three
 buttons, with no rule written twice:
 
-| Gold Dark | Gold Light | Teal Dark | Blue Dark |
-|:---:|:---:|:---:|:---:|
-| <img src="docs/img/gold-dark/buttons.png" width="296" alt="The three buttons on Gold Dark"> | <img src="docs/img/gold-light/buttons.png" width="296" alt="The three buttons on Gold Light"> | <img src="docs/img/teal-dark/buttons.png" width="296" alt="The three buttons on Teal Dark"> | <img src="docs/img/blue-dark/buttons.png" width="296" alt="The three buttons on Blue Dark"> |
-| **Purple Dark** | **Green Dark** | **Slate Light** | **High Contrast** |
-| <img src="docs/img/purple-dark/buttons.png" width="296" alt="The three buttons on Purple Dark"> | <img src="docs/img/green-dark/buttons.png" width="296" alt="The three buttons on Green Dark"> | <img src="docs/img/slate-light/buttons.png" width="296" alt="The three buttons on Slate Light"> | <img src="docs/img/high-contrast/buttons.png" width="296" alt="The three buttons on High Contrast"> |
+<table>
+<tr>
+<th align="center">Gold Dark</th>
+<th align="center">Gold Light</th>
+</tr>
+<tr>
+<td align="center" valign="middle">
+<img src="docs/img/gold-dark/buttons.png" width="235" alt="The three buttons on Gold Dark">
+</td>
+<td align="center" valign="middle">
+<img src="docs/img/gold-light/buttons.png" width="235" alt="The three buttons on Gold Light">
+</td>
+</tr>
+<tr>
+<th align="center">Teal Dark</th>
+<th align="center">Blue Dark</th>
+</tr>
+<tr>
+<td align="center" valign="middle">
+<img src="docs/img/teal-dark/buttons.png" width="235" alt="The three buttons on Teal Dark">
+</td>
+<td align="center" valign="middle">
+<img src="docs/img/blue-dark/buttons.png" width="235" alt="The three buttons on Blue Dark">
+</td>
+</tr>
+<tr>
+<th align="center">Purple Dark</th>
+<th align="center">Green Dark</th>
+</tr>
+<tr>
+<td align="center" valign="middle">
+<img src="docs/img/purple-dark/buttons.png" width="235" alt="The three buttons on Purple Dark">
+</td>
+<td align="center" valign="middle">
+<img src="docs/img/green-dark/buttons.png" width="235" alt="The three buttons on Green Dark">
+</td>
+</tr>
+<tr>
+<th align="center">Slate Light</th>
+<th align="center">High Contrast</th>
+</tr>
+<tr>
+<td align="center" valign="middle">
+<img src="docs/img/slate-light/buttons.png" width="235" alt="The three buttons on Slate Light">
+</td>
+<td align="center" valign="middle">
+<img src="docs/img/high-contrast/buttons.png" width="235" alt="The three buttons on High Contrast">
+</td>
+</tr>
+</table>
 
 A page switches palette by setting one attribute, and the window behind it is
 told so the colour under the page moves too:
@@ -138,9 +382,13 @@ told so the colour under the page moves too:
 That is the whole of it. The two windows below are the one at the top of this
 page, in another palette, with the same markup and the same stylesheets:
 
-| Slate Light | High Contrast |
-|:---:|:---:|
-| <img src="docs/img/tour/slate-light-2.png" width="1240" alt="The example window on Slate Light, a light palette with a blue accent"> | <img src="docs/img/tour/high-contrast-2.png" width="1240" alt="The example window on High Contrast, black with a yellow accent"> |
+<img src="docs/img/tour/slate-light-2.png" width="1240" alt="The example window on Slate Light, a light palette with a blue accent">
+
+*Slate Light.*
+
+<img src="docs/img/tour/high-contrast-2.png" width="1240" alt="The example window on High Contrast, black with a yellow accent">
+
+*High Contrast.*
 
 ```bash
 python -m slantui.tokens list
@@ -183,7 +431,10 @@ The floors were fixed before any palette was written, so that a palette is
 never the argument for lowering one. Three of the colours this design shipped
 with did not clear them, and the colours moved.
 
-<img src="docs/img/gold-dark/labels.png" width="296" alt="A small label in text-4 over a sentence in text-3">
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="docs/img/gold-dark/labels.png">
+<img src="docs/img/gold-light/labels.png" width="273" alt="A small label in text-4 over a sentence in text-3">
+</picture>
 
 *`text-4` is the one role held to the lower floor, and this is the rule that
 comes with it: it labels a block, it never carries the sentence.*
@@ -293,7 +544,10 @@ a backend with four slots and two signals. It is the proof that the look left
 the application it came out of, and the answer to how a page finds the
 library's files when they live in site-packages.
 
-![The example on its last step: the panel holding metric rows, the versions the window is running on, and a paragraph with three words in status colours](docs/img/tour/gold-dark-4.png)
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="docs/img/tour/gold-dark-4.png">
+<img src="docs/img/tour/gold-light-4.png" width="1240" alt="The example on its last step: the panel holding metric rows, the versions the window is running on, and a paragraph with three words in status colours">
+</picture>
 
 The sliders start at the real metrics, read off `:root`, so moving one redraws
 the shape on the stage with the number the band itself uses. See
@@ -320,7 +574,10 @@ landed on a role or a component that was already here.
 .venv\Scripts\python docs\publish.py
 ```
 
-![The gallery window: a catalogue of the widget set in the work area, the palette list in the side panel](docs/img/gold-dark/window.png)
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="docs/img/gold-dark/window.png">
+<img src="docs/img/gold-light/window.png" width="1240" alt="The gallery window: a catalogue of the widget set in the work area, the palette list in the side panel">
+</picture>
 
 `docs/gallery.html` is a window holding a catalogue of the widget set, one
 cell per component, and `docs/capture.py` opens it and saves a picture of
@@ -330,7 +587,15 @@ window renders the page, `grabWindow()` hands the frame back as an image, and
 the page itself says which rectangle to keep, so a picture is of the real
 widget in the real window and cannot drift away from the library.
 
-A full run is 259 files and six megabytes, and `docs/shots/` is ignored by
+Before each one the page takes itself out from under the widget and the
+window is cleared to no colour at all, so the frame comes back with real
+transparency in it: the picture is the widget, the half covered pixels along
+its rounded corners, and nothing else. A picture of a whole window is cut to
+the radius Windows cuts the window to. They are drawn at four times the size
+they are shown at, with grey antialiasing, so that zooming into one finds
+more of it and no coloured fringe on any edge.
+
+A full run is 262 files and twelve megabytes, and `docs/shots/` is ignored by
 git. `docs/publish.py` is what puts the handful this page shows into
 `docs/img/`, which is tracked: it reads the markdown, copies every picture a
 page points at, and deletes the ones nobody points at any more. So a picture

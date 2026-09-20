@@ -15,19 +15,24 @@ thing, so the shots of those are shots of the window you are looking at.
 The first three need SlantUI installed in the environment, as the example
 does: `pip install -e ".[shell,dev]"`. `publish.py` needs nothing.
 
-![The gallery window: the catalogue in the work area, the eight palettes in the side panel](img/gold-dark/window.png)
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="img/gold-dark/window.png">
+<img src="img/gold-light/window.png" width="1240" alt="The gallery window: the catalogue in the work area, the eight palettes in the side panel">
+</picture>
 
 ## How a picture gets made
 
 No screenshot tool, and nothing cropped by hand. The window renders the page,
 `QQuickView.grabWindow()` hands the frame back as a `QImage`, and the page
 says which rectangle of it to keep. Every element with a `data-shot`
-attribute is one picture; `gallery.js` answers four calls:
+attribute is one picture; `gallery.js` answers six calls:
 
 ```
 shotNames()        every name, in the order they appear
 pose(name)         scroll it into view and put it in the state it is shot in
-shotRect(name)     where it ended up, in CSS pixels of the viewport
+isolate(name)      empty every ancestor and hide everything else
+shotRect(name)     what it covers, in CSS pixels of the viewport
+unisolate()        put the page back
 unpose()           take the state back off
 ```
 
@@ -35,7 +40,16 @@ So a shot is of the real widget, drawn by the real window, in the real
 palette. It cannot drift away from what the library does, which a picture
 made once and kept in a folder always does.
 
-Four of the thirty are states no markup can hold by itself: the dropdown's
+The isolation is what makes the picture the widget and not the page it was
+standing on. Every ancestor of the shot gives up its fill, everything that is
+not the shot is made invisible, and `capture.py` clears the colour behind the
+page, so the frame comes back with real transparency around the widget. The
+rectangle follows from the same idea: it is what the shot paints, a fill, a
+border, a shadow or a glyph, and not the block it was laid out in, so a row
+of three buttons is cropped to the three buttons. A picture of a whole window
+is cut to the radius Windows rounds a window to.
+
+Four of the thirty one are states no markup can hold by itself: the dropdown's
 popup only exists while it is open, and the toast and the two scrim cards
 belong to the window and not to a cell. Those have an entry in `POSES` and a
 button in their cell, so a person browsing the page can see them too.
@@ -43,24 +57,26 @@ button in their cell, so a person browsing the page can see them too.
 ## What comes out
 
 ```
-docs/shots/<palette>/<name>.png     30 shots, 8 palettes
+docs/shots/<palette>/<name>.png     31 shots, 8 palettes
 docs/shots/tour/<palette>-<n>.png   the example's window, with --tour
 docs/shots/shots.json               what was written, and how big
 ```
 
 The manifest carries the CSS size of every shot next to its files, which is
-the width to give an `img` tag: the files are at twice that by default, so
-they stay sharp on a dense display.
+the width to give an `img` tag: the files are at four times that by default,
+so a reader who zooms into one finds more of it. The glyphs are drawn with
+grey antialiasing, because subpixel fringes are tuned to one display's pixels
+and a picture is never looked at at the size it was drawn.
 
 `--scale` fixes the device pixel ratio instead of taking the display's, so
 the same command gives the same pixel sizes on a 100 % monitor and on a
-150 % one. At 2 the window is larger than most screens, which is fine: the
+150 % one. At 4 the window is larger than any screen, which is fine: the
 scene graph renders all of it and the grab reads that, not the screen.
 Chromium logs a line or two about its GPU context while that is true, and
 the files are unaffected.
 
 `--palettes` and `--shots` take comma separated lists and are how you
-iterate on one cell without waiting for 240 files. A full run clears the
+iterate on one cell without waiting for 248 files. A full run clears the
 PNGs of each palette before writing them again, so a renamed shot leaves
 nothing behind, and writes the manifest; a run of one shot touches that one
 file and leaves the manifest as it was.
@@ -71,7 +87,7 @@ file and leaves the manifest as it was.
 
 ## shots/ is not in the repository, img/ is
 
-`docs/shots/` is generated and ignored by git: 251 files and six megabytes
+`docs/shots/` is generated and ignored by git: 262 files and twelve megabytes
 with `--tour`, and all but a few of them illustrate nothing. GitHub draws what
 is in the repository and nothing else, so the ones the pages do show are
 copied into `docs/img/`, which is tracked.

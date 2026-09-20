@@ -23,11 +23,59 @@ option out of many instead of the thing the components are written against.
 
 The same three buttons, with no rule written twice:
 
-| Gold Dark | Gold Light | Teal Dark | Blue Dark |
-|:---:|:---:|:---:|:---:|
-| <img src="img/gold-dark/buttons.png" width="296" alt="The three buttons on Gold Dark"> | <img src="img/gold-light/buttons.png" width="296" alt="The three buttons on Gold Light"> | <img src="img/teal-dark/buttons.png" width="296" alt="The three buttons on Teal Dark"> | <img src="img/blue-dark/buttons.png" width="296" alt="The three buttons on Blue Dark"> |
-| **Purple Dark** | **Green Dark** | **Slate Light** | **High Contrast** |
-| <img src="img/purple-dark/buttons.png" width="296" alt="The three buttons on Purple Dark"> | <img src="img/green-dark/buttons.png" width="296" alt="The three buttons on Green Dark"> | <img src="img/slate-light/buttons.png" width="296" alt="The three buttons on Slate Light"> | <img src="img/high-contrast/buttons.png" width="296" alt="The three buttons on High Contrast"> |
+<table>
+<tr>
+<th align="center">Gold Dark</th>
+<th align="center">Gold Light</th>
+</tr>
+<tr>
+<td align="center" valign="middle">
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="img/gold-dark/buttons.png">
+<img src="img/gold-light/buttons.png" width="235" alt="The three buttons on Gold Dark">
+</picture>
+</td>
+<td align="center" valign="middle">
+<img src="img/gold-light/buttons.png" width="235" alt="The three buttons on Gold Light">
+</td>
+</tr>
+<tr>
+<th align="center">Teal Dark</th>
+<th align="center">Blue Dark</th>
+</tr>
+<tr>
+<td align="center" valign="middle">
+<img src="img/teal-dark/buttons.png" width="235" alt="The three buttons on Teal Dark">
+</td>
+<td align="center" valign="middle">
+<img src="img/blue-dark/buttons.png" width="235" alt="The three buttons on Blue Dark">
+</td>
+</tr>
+<tr>
+<th align="center">Purple Dark</th>
+<th align="center">Green Dark</th>
+</tr>
+<tr>
+<td align="center" valign="middle">
+<img src="img/purple-dark/buttons.png" width="235" alt="The three buttons on Purple Dark">
+</td>
+<td align="center" valign="middle">
+<img src="img/green-dark/buttons.png" width="235" alt="The three buttons on Green Dark">
+</td>
+</tr>
+<tr>
+<th align="center">Slate Light</th>
+<th align="center">High Contrast</th>
+</tr>
+<tr>
+<td align="center" valign="middle">
+<img src="img/slate-light/buttons.png" width="235" alt="The three buttons on Slate Light">
+</td>
+<td align="center" valign="middle">
+<img src="img/high-contrast/buttons.png" width="235" alt="The three buttons on High Contrast">
+</td>
+</tr>
+</table>
 
 Four of them are written out in full in `slantui/tokens/palettes.py`, because a
 design system you cannot read off the page is one nobody trusts. The other four
@@ -72,9 +120,13 @@ win = Window(UI / "index.html", background="#101014")
 Here is the same window on two of them. Same markup, same stylesheets, one
 attribute apart:
 
-| Slate Light | High Contrast |
-|:---:|:---:|
-| <img src="img/tour/slate-light-2.png" width="1240" alt="The example window on Slate Light, a light palette with a blue accent"> | <img src="img/tour/high-contrast-2.png" width="1240" alt="The example window on High Contrast, black with a yellow accent"> |
+<img src="img/tour/slate-light-2.png" width="1240" alt="The example window on Slate Light, a light palette with a blue accent">
+
+*Slate Light.*
+
+<img src="img/tour/high-contrast-2.png" width="1240" alt="The example window on High Contrast, black with a yellow accent">
+
+*High Contrast.*
 
 ## A palette from five values
 

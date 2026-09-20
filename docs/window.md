@@ -6,7 +6,10 @@ gone: the slide out of the taskbar, Aero Snap, the drop shadow, the rounded
 corners. This page is what the library does to keep all of them, and what your
 application has to do about it, which is mostly nothing.
 
-![The window: the oblique band across the top, the step rail under it, the work area with the catalogue in it, and the side panel on the right](img/gold-dark/window.png)
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="img/gold-dark/window.png">
+<img src="img/gold-light/window.png" width="1240" alt="The window: the oblique band across the top, the step rail under it, the work area with the catalogue in it, and the side panel on the right">
+</picture>
 
 ## Frameless, with a real frame
 
@@ -180,7 +183,10 @@ application built on this class, and a `QMainWindow` answers all of it too,
 which is what lets an application keep a widget window and still use this
 bridge.
 
-<img src="img/gold-dark/window-buttons.png" width="296" alt="The three window buttons: minimise, maximise and close, the close one red under the pointer">
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="img/gold-dark/window-buttons.png">
+<img src="img/gold-light/window-buttons.png" width="253" alt="The three window buttons: minimise, maximise and close, the close one red under the pointer">
+</picture>
 
 ## The title bar's shape
 
@@ -188,7 +194,10 @@ The band is clipped by `titlebar.js` and not by CSS, because its profile
 depends on the real layout: the taper starts where the application's name ends,
 so it is measured and not guessed.
 
-<img src="img/gold-dark/titlebar.png" width="1240" alt="The oblique band: thick under the logo and the name, tapering down to a thin strip under the window buttons, with the credit line in the middle">
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="img/gold-dark/titlebar.png">
+<img src="img/gold-light/titlebar.png" width="1240" alt="The oblique band: thick under the logo and the name, tapering down to a thin strip under the window buttons, with the credit line in the middle">
+</picture>
 
 Four metrics cut it, and a page can redefine any of them after `slantui.css`:
 

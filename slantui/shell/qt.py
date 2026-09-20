@@ -7,9 +7,10 @@ flavour they got where the two differ (scoped enums, ``exec`` vs ``exec_``).
 
 The names exported are the ones the shell uses plus the ones an application
 built on it is likely to want next: the file dialogs, the widget view, the
-page settings and the page layout for printing, the process class for work
-an application hands to another executable, and the desktop services that
-open a link in the user's own browser.
+page settings and the page layout for printing, the image a grab of a window
+comes back as, the process class for work an application hands to another
+executable, and the desktop services that open a link in the user's own
+browser.
 """
 from __future__ import annotations
 
@@ -32,7 +33,7 @@ try:
                               Q_ARG, QVariant, QRect, QVariantAnimation, QEasingCurve,
                               qVersion)
     from PyQt6.QtGui import (QColor, QCursor, QDesktopServices, QIcon,  # noqa: F401
-                             QPageLayout, QPageSize)
+                             QImage, QPageLayout, QPageSize)
 
     USE_QT6 = True
     QUEUED = Qt.ConnectionType.QueuedConnection
@@ -53,7 +54,7 @@ except ImportError as exc_qt6:  # pragma: no cover - depends on the install
                                   Q_ARG, QVariant, QRect, QVariantAnimation, QEasingCurve,
                                   qVersion)
         from PyQt5.QtGui import (QColor, QCursor, QDesktopServices, QIcon,  # noqa: F401
-                             QPageLayout, QPageSize)
+                                 QImage, QPageLayout, QPageSize)
 
         USE_QT6 = False
         QUEUED = Qt.QueuedConnection

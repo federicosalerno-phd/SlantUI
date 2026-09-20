@@ -2,12 +2,14 @@
    The gallery's own script.
 
    Two jobs. One is the page a person browses: the palette list, the four
-   sections, the toolbar. The other is the four calls docs/capture.py makes
+   sections, the toolbar. The other is the six calls docs/capture.py makes
    to shoot it, which are the only reason this page is not a static file:
 
      shotNames()        every name in the catalogue, in the order they appear
      pose(name)         bring that one into view, and put it in its state
+     isolate(name)      take the page out from under it, so the crop is it
      shotRect(name)     where it ended up, in CSS pixels of the viewport
+     unisolate()        put the page back
      unpose()           take the state back off
 
    A shot is an element carrying data-shot. Four of them are states no markup
@@ -33,9 +35,11 @@ const PALETTES = [
   { name: 'High Contrast', slug: 'high-contrast', scheme: 'dark' },
 ];
 
-/* How much of what is around a shot comes with it. The shell parts and the
-   window itself say data-pad="0" in the markup and take none. */
-const PAD = 10;
+/* The clear margin left around a shot, in CSS pixels. It is there for the
+   half pixel a glyph or a rounded corner fades out over, not for looks: what
+   a picture is cropped to is what the shot paints and nothing else. The shell
+   parts and the window itself say data-pad="0" in the markup and take none. */
+const PAD = 4;
 
 const GROUP_ROLE = { accent: 'accent-text', ok: 'ok-text' };
 
@@ -77,7 +81,10 @@ const POSES = {
     hide: function () {
       document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
     },
-    rect: function (r) { return union(r, box('.combopop')); },
+    /* The popup is a child of the body, so it is not under the shot and has
+       to be named to survive the isolation. */
+    keep: ['.combopop'],
+    rect: function (r) { return union(r, ink('.combopop')); },
   },
   'toast': {
     show: function () { showToast('A line at the bottom, and then gone'); },
@@ -92,11 +99,6 @@ const POSES = {
     hide: function () { $('job').classList.remove('show'); },
   },
 };
-
-function box(sel) {
-  const el = document.querySelector(sel);
-  return el ? el.getBoundingClientRect() : null;
-}
 
 function union(a, b) {
   if (!b) return a;
@@ -126,6 +128,7 @@ function pose(name) {
 }
 
 function unpose() {
+  unisolate();
   const p = POSES[posed];
   if (p) p.hide();
   clearTimeout(toastTimer);
@@ -134,19 +137,196 @@ function unpose() {
   return 'clear';
 }
 
-/* Where the shot ended up, padded, in CSS pixels of the viewport. */
+/* ── taking the page out from under a shot ────────────────────────────────── */
+/* A picture of a widget is the widget. What it happened to be standing on is
+   the page, and the page is not in the picture: the cell it sits in, the
+   catalogue behind the cell, the window behind the catalogue, and the widget
+   in the next cell along.
+
+   So every ancestor of the shot gives up its fill, and everything that is
+   neither the shot nor an ancestor of it is made invisible. Nothing moves,
+   because visibility keeps the layout: the rectangle measured under the
+   isolation is the rectangle the page had before it. capture.py clears the
+   colour behind the page at the same time, so what is left under the widget
+   is the empty frame, and the grab comes back with the corners Chromium
+   antialiased against nothing at all. */
+let dressed = [];               // [element, its own style] of everything moved
+
+function ancestors(el) {
+  const out = [];
+  for (let n = el.parentElement; n; n = n.parentElement) out.push(n);
+  return out;
+}
+
+function isolate(name) {
+  unisolate();
+  const el = shotEl(name);
+  if (!el) return 'missing';
+  const p = POSES[name];
+  const shot = [el];
+  ((p && p.keep) || []).forEach(function (sel) {
+    document.querySelectorAll(sel).forEach(function (k) { shot.push(k); });
+  });
+
+  const inside = new Set(shot);          // the shot itself: left alone
+  const above = new Set();               // its ancestors: emptied, walked into
+  shot.forEach(function (k) {
+    ancestors(k).forEach(function (n) { above.add(n); });
+  });
+
+  above.forEach(function (n) {
+    dressed.push([n, n.style.cssText]);
+    n.style.setProperty('background', 'transparent', 'important');
+    n.style.setProperty('box-shadow', 'none', 'important');
+  });
+
+  (function sweep(node) {
+    for (let i = 0; i < node.children.length; i++) {
+      const c = node.children[i];
+      if (inside.has(c)) continue;
+      if (above.has(c)) { sweep(c); continue; }
+      dressed.push([c, c.style.cssText]);
+      c.style.setProperty('visibility', 'hidden', 'important');
+    }
+  })(document.documentElement);
+
+  return name;
+}
+
+function unisolate() {
+  for (let i = dressed.length - 1; i >= 0; i--) {
+    dressed[i][0].style.cssText = dressed[i][1];
+  }
+  dressed = [];
+  return 'dressed';
+}
+
+/* ── what a shot covers ───────────────────────────────────────────────────── */
+/* The crop is the ink, not the box. A row of three buttons is a block as wide
+   as the column it stands in, and cropping to that block would leave the
+   buttons off centre in the picture with transparency making up the rest. So
+   the rectangle is the union of everything under the shot that paints: a
+   fill, a background image, a border, a shadow, a glyph. */
+const CLEAR = /^(transparent|rgba\(0,\s*0,\s*0,\s*0\))$/;
+const SIDES = ['Top', 'Right', 'Bottom', 'Left'];
+const DRAWN = /^(IMG|SVG|CANVAS|VIDEO|INPUT|SELECT|TEXTAREA)$/;
+
+function paints(el, cs) {
+  if (!CLEAR.test(cs.backgroundColor)) return true;
+  if (cs.backgroundImage !== 'none') return true;
+  if (cs.boxShadow !== 'none') return true;
+  if (DRAWN.test(el.tagName.toUpperCase())) return true;
+  return SIDES.some(function (s) {
+    return parseFloat(cs['border' + s + 'Width']) > 0
+      && cs['border' + s + 'Style'] !== 'none'
+      && !CLEAR.test(cs['border' + s + 'Color']);
+  });
+}
+
+/* A shadow paints outside the element it belongs to. Chromium writes the
+   computed value as "colour x y blur spread", and an inset one paints
+   nothing outside at all.
+
+   A blur of n is a gaussian of half that, and a gaussian is not finished at
+   one standard deviation: cropping at the blur leaves the tail of the shadow
+   cut off square, which on a transparent picture is a faint rectangle around
+   the widget. Three halves of it is past the last pixel that carries any. */
+function shadowed(cs, r) {
+  if (cs.boxShadow === 'none') return r;
+  let out = r;
+  cs.boxShadow.split(/,(?![^(]*\))/).forEach(function (one) {
+    if (one.indexOf('inset') >= 0) return;
+    const n = (one.replace(/\w+\([^)]*\)/g, ' ').match(/-?[\d.]+px/g) || [])
+      .map(parseFloat);
+    if (n.length < 2) return;
+    const grow = (n[2] || 0) * 1.5 + (n[3] || 0);
+    out = union(out, {
+      left: r.left + n[0] - grow, top: r.top + n[1] - grow,
+      right: r.right + n[0] + grow, bottom: r.bottom + n[1] + grow,
+    });
+  });
+  return out;
+}
+
+/* The lines of text an element holds itself. A line box is the glyphs plus
+   the leading above and below them, which is the room a line of type asks
+   for and the right thing to crop to. */
+function lines(el, out) {
+  for (let i = 0; i < el.childNodes.length; i++) {
+    const n = el.childNodes[i];
+    if (n.nodeType !== 3 || !n.nodeValue.trim()) continue;
+    const range = document.createRange();
+    range.selectNodeContents(n);
+    const list = range.getClientRects();
+    for (let k = 0; k < list.length; k++) {
+      if (list[k].width > 0 && list[k].height > 0) out = union(out || list[k], list[k]);
+    }
+  }
+  return out;
+}
+
+/* What an element hides is not ink. The side panel is a column with its body
+   scrolling inside it, so the rows below the fold are laid out and drawn
+   nowhere: an element that clips passes its own rectangle down, and what its
+   children paint is counted only where the two meet. */
+function cut(r, c) {
+  if (!c || !r) return r;
+  const left = Math.max(r.left, c.left), top = Math.max(r.top, c.top);
+  const right = Math.min(r.right, c.right), bottom = Math.min(r.bottom, c.bottom);
+  if (right <= left || bottom <= top) return null;
+  return { left: left, top: top, right: right, bottom: bottom,
+           width: right - left, height: bottom - top };
+}
+
+function inkRect(el) {
+  let out = null;
+  const add = function (r) { if (r) out = union(out || r, r); };
+  (function walk(node, clip) {
+    const cs = getComputedStyle(node);
+    if (cs.display === 'none' || cs.visibility === 'hidden'
+        || parseFloat(cs.opacity) === 0) return;
+    if (cs.position === 'fixed') clip = null;
+    const r = node.getBoundingClientRect();
+    if (r.width > 0 && r.height > 0 && paints(node, cs)) {
+      add(cut(shadowed(cs, r), clip));
+    }
+    const text = lines(node, null);
+    if (text) add(cut(text, clip));
+    if (cs.overflowX !== 'visible' || cs.overflowY !== 'visible') {
+      clip = cut(r, clip);
+      /* Nothing of it is on screen, so nothing under it is either. The side
+         panel's body is a column of rows and only the first few are in the
+         window; walking into one that is wholly below the fold with no
+         rectangle left to clip it against is what once made the picture of
+         the window half as tall again as the window. */
+      if (!clip) return;
+    }
+    for (let i = 0; i < node.children.length; i++) walk(node.children[i], clip);
+  })(el, null);
+  return out || el.getBoundingClientRect();
+}
+
+function ink(sel) {
+  const el = document.querySelector(sel);
+  return el ? inkRect(el) : null;
+}
+
+/* Where the shot ended up, padded, in CSS pixels of the viewport. Whole
+   pixels, and outwards, so that a scale of two or three lands the crop on
+   pixel boundaries of the grab and no edge is resampled. */
 function shotRect(name) {
   const el = shotEl(name);
   if (!el) return '{}';
   const p = POSES[name];
-  let r = el.getBoundingClientRect();
+  let r = inkRect(el);
   if (p && p.rect) r = p.rect(r);
   const pad = el.dataset.pad === undefined ? PAD : Number(el.dataset.pad);
+  const x = Math.floor(r.left) - pad;
+  const y = Math.floor(r.top) - pad;
   return JSON.stringify({
-    x: Math.round(r.left) - pad,
-    y: Math.round(r.top) - pad,
-    w: Math.round(r.width) + pad * 2,
-    h: Math.round(r.height) + pad * 2,
+    x: x, y: y,
+    w: Math.ceil(r.right) + pad - x,
+    h: Math.ceil(r.bottom) + pad - y,
   });
 }
 

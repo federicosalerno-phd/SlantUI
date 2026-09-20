@@ -34,10 +34,13 @@ BRANCH = "main"
 RAW = f"https://raw.githubusercontent.com/federicosalerno-phd/SlantUI/{BRANCH}"
 BLOB = f"{REPO}/blob/{BRANCH}"
 
-# ![alt](path), <img src="path">, [text](path). The first two are pictures and
-# want the bytes; the third is a link and wants the page.
+# ![alt](path), <img src="path">, <source srcset="path">, [text](path). The
+# first three are pictures and want the bytes; the last is a link and wants
+# the page. A picture in both schemes is a source and an img together, and an
+# index that keeps neither tag still shows the img's own path.
 _MD_IMAGE = re.compile(r"(!\[[^\]]*\]\()([^)\s]+)(\))")
 _HTML_IMAGE = re.compile(r"(<img\b[^>]*?\bsrc=\")([^\"]+)(\")", re.IGNORECASE)
+_HTML_SOURCE = re.compile(r"(<source\b[^>]*?\bsrcset=\")([^\"]+)(\")", re.IGNORECASE)
 _MD_LINK = re.compile(r"(?<!!)(\[[^\]]*\]\()([^)\s]+)(\))")
 
 ABSOLUTE = ("http:", "https:", "data:", "mailto:", "#")
@@ -52,6 +55,7 @@ def _absolute(path: str, base: str) -> str:
 def render(text: str) -> str:
     text = _MD_IMAGE.sub(lambda m: m.group(1) + _absolute(m.group(2), RAW) + m.group(3), text)
     text = _HTML_IMAGE.sub(lambda m: m.group(1) + _absolute(m.group(2), RAW) + m.group(3), text)
+    text = _HTML_SOURCE.sub(lambda m: m.group(1) + _absolute(m.group(2), RAW) + m.group(3), text)
     text = _MD_LINK.sub(lambda m: m.group(1) + _absolute(m.group(2), BLOB) + m.group(3), text)
     return text
 

@@ -17,3 +17,8 @@ docs/slantui.js
 # The working log. It names the applications this design came out of, so it
 # stays out of the repository.
 HANDOFF.md
+
+# An editor's own index of the project, written next to it. It is nobody
+# else's business and tests/test_prose.py reads every file that would be
+# committed, this one included.
+.serena/

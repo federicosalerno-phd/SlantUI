@@ -4,7 +4,10 @@ Everything below is one window on screen, from an empty folder. The library
 draws the frame, the title bar, the rail and the widget set; you write the
 page inside them and the Python behind it.
 
-![The example window on its first step: the oblique band across the top, four steps in the rail, a drop card on the stage and a side panel of controls](img/tour/gold-dark-1.png)
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="img/tour/gold-dark-1.png">
+<img src="img/tour/gold-light-1.png" width="1240" alt="The example window on its first step: the oblique band across the top, four steps in the rail, a drop card on the stage and a side panel of controls">
+</picture>
 
 *This is `examples/tour`, which is the finished version of what this page
 builds. Open it beside you while you read: `.venv\Scripts\python
@@ -241,7 +244,10 @@ with no colour at all, the stylesheets did not get written next to the page.
 The window has four parts, and the markup above uses two of them. All four are
 in this picture, which is `docs/gallery.html` running:
 
-![The gallery window: the oblique band across the top, the step rail under it, a toolbar strip over the work area, the catalogue of widgets in the middle and the side panel on the right](img/gold-dark/window.png)
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="img/gold-dark/window.png">
+<img src="img/gold-light/window.png" width="1240" alt="The gallery window: the oblique band across the top, the step rail under it, a toolbar strip over the work area, the catalogue of widgets in the middle and the side panel on the right">
+</picture>
 
 - **`.titlebar`**, the band. One piece of chrome doing three jobs: the
   application's name, the licence line, and the window buttons.
