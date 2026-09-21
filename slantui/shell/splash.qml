@@ -1,0 +1,238 @@
+import QtQuick 2.15
+
+/* The loading screen, drawn the way the WPF half of the library draws it: the
+   brand in the middle of a ring, a figure, a line saying what is happening,
+   and a thin bar under it.
+
+   One file, two places. Over the body of a window this library dressed it is
+   a veil, with the band left sharp above it so the window can still be moved
+   and closed while it loads; on its own it is a small window with the same
+   screen on it, for the seconds before there is an application to dress.
+   Both are this file, which is what makes the two hand over without a jump.
+
+   The ring is a canvas and not a shape, for one reason: the arc is not a flat
+   colour. It runs from a lighter accent to the accent, along a gradient
+   mapped to the box and not to the arc, so that it does not swing round as
+   the arc grows, and a stroke gradient is something a canvas has and a Shape
+   does not. The head of the arc and the halo around it are on the same
+   canvas, since they are part of the same drawing.
+
+   Everything here is driven from splash.py: this file draws a state and holds
+   no rule about how that state moves. The colours arrive as the accent's and
+   the track's own components, out of the palette, so no value in this file is
+   a colour. */
+Rectangle {
+    id: root
+
+    property real progress: 0          // 0 .. 1, the arc's fill
+    property bool busy: false          // a wait with nothing to measure
+    property real spin: 0              // turns, while waiting
+    property real phase: 0             // the bar's travel, 0 .. 1
+    property real burst: 0             // the ring's one flourish, at the end
+    property string line: ""           // what is happening, in words
+    property url logo: ""
+    property bool veil: false          // over an application's body, not on its own
+
+    readonly property real ring: ringSize
+    readonly property real thick: ringThickness
+
+    color: veil ? scrimColour : surfaceColour
+    radius: veil ? 0 : cornerRadius
+
+    // The accent, lifted towards white. The arc is lighter where it starts
+    // than where it ends, and the head lighter still: that is what makes a
+    // ring read as one moving thing and not as a bent line.
+    function lift(c, k) { return c + (1 - c) * k }
+    function accent(a) { return Qt.rgba(accentR, accentG, accentB, a) }
+    function lifted(k, a) {
+        return Qt.rgba(lift(accentR, k), lift(accentG, k), lift(accentB, k), a)
+    }
+    function track(a) { return Qt.rgba(trackR, trackG, trackB, a) }
+
+    onProgressChanged: ringCanvas.requestPaint()
+    onSpinChanged: if (busy) ringCanvas.requestPaint()
+    onBusyChanged: ringCanvas.requestPaint()
+    onBurstChanged: ringCanvas.requestPaint()
+
+    Column {
+        anchors.centerIn: parent
+        spacing: 0
+
+        Item {
+            width: root.ring
+            height: root.ring
+            anchors.horizontalCenter: parent.horizontalCenter
+
+            Canvas {
+                id: ringCanvas
+                anchors.fill: parent
+                antialiasing: true
+
+                // an arc from twelve o'clock, clockwise, sweep as a fraction
+                // of a turn
+                function drawArc(ctx, cx, cy, r, t, stroke, from, sweep) {
+                    var a0 = (from - 0.25) * 2 * Math.PI
+                    var a1 = (from + Math.min(sweep, 0.9999) - 0.25) * 2 * Math.PI
+                    ctx.beginPath()
+                    ctx.arc(cx, cy, r, a0, a1, false)
+                    ctx.lineWidth = t
+                    ctx.lineCap = "round"
+                    ctx.strokeStyle = stroke
+                    ctx.stroke()
+                }
+
+                // The head is where the eye goes. It is what makes a growing
+                // arc read as something moving, and not as a shape that
+                // happens to be longer than it was a moment ago.
+                function drawHead(ctx, cx, cy, r, t, at) {
+                    var a = (at - 0.25) * 2 * Math.PI
+                    var hx = cx + r * Math.cos(a), hy = cy + r * Math.sin(a)
+                    var g = ctx.createRadialGradient(hx, hy, 0, hx, hy, t * 2.3)
+                    g.addColorStop(0, root.accent(0.30))
+                    g.addColorStop(0.55, root.accent(0.09))
+                    g.addColorStop(1, root.accent(0))
+                    ctx.beginPath()
+                    ctx.arc(hx, hy, t * 2.3, 0, 2 * Math.PI)
+                    ctx.fillStyle = g
+                    ctx.fill()
+                    ctx.beginPath()
+                    ctx.arc(hx, hy, t * 0.46, 0, 2 * Math.PI)
+                    ctx.fillStyle = root.lifted(0.30, 1)
+                    ctx.fill()
+                }
+
+                onPaint: {
+                    var ctx = getContext("2d")
+                    var s = width, t = root.thick
+                    var r = (s - t) / 2, cx = s / 2, cy = s / 2
+                    ctx.reset()
+
+                    // the track: thinner than the arc, since the measure is
+                    // what should carry the weight and a track of equal
+                    // stroke competes with it
+                    ctx.beginPath()
+                    ctx.arc(cx, cy, r, 0, 2 * Math.PI)
+                    ctx.lineWidth = Math.max(1, t * 0.55)
+                    ctx.strokeStyle = root.track(0.38)
+                    ctx.stroke()
+
+                    var grad = ctx.createLinearGradient(s * 0.10, 0, s * 0.90, s)
+                    grad.addColorStop(0, root.lifted(0.38, 1))
+                    grad.addColorStop(0.65, root.accent(1))
+
+                    if (root.busy) {
+                        // a fifth of the circle, turning, its head lit like
+                        // the arc's: the same drawing language, saying "no
+                        // idea how long" instead of "this far"
+                        drawArc(ctx, cx, cy, r, t, grad, root.spin, 0.2)
+                        drawHead(ctx, cx, cy, r, t, root.spin + 0.2)
+                    } else if (root.progress > 0.0025) {
+                        var p = Math.min(1, root.progress)
+                        drawArc(ctx, cx, cy, r, t, grad, 0, p)
+                        drawHead(ctx, cx, cy, r, t, p)
+                    }
+
+                    // The one flourish on the whole screen, and it lasts half
+                    // a second: at the end the ring lets a thin circle go
+                    // outwards and fade.
+                    if (root.burst > 0.001 && root.burst < 0.999) {
+                        var k = 1 - root.burst
+                        ctx.beginPath()
+                        ctx.arc(cx, cy, r + r * 0.26 * root.burst, 0, 2 * Math.PI)
+                        ctx.lineWidth = Math.max(0.5, t * k)
+                        ctx.strokeStyle = root.accent(0.59 * k * k)
+                        ctx.stroke()
+                    }
+                }
+            }
+
+            Image {
+                source: root.logo
+                visible: String(root.logo).length > 0
+                width: Math.round(root.ring * 0.52)
+                height: Math.round(root.ring * 0.52)
+                anchors.centerIn: parent
+                fillMode: Image.PreserveAspectFit    // the brand is not stretched
+                smooth: true
+                mipmap: true
+            }
+        }
+
+        Item { width: 1; height: figureGap }
+
+        Text {
+            text: Math.floor(root.progress * 100 + 0.5) + "%"
+            visible: !root.busy
+            color: accentColour
+            font.family: fontFamily
+            font.pixelSize: figureSize
+            font.weight: Font.DemiBold
+            anchors.horizontalCenter: parent.horizontalCenter
+        }
+
+        Item { width: 1; height: root.busy ? 0 : lineGap }
+
+        Text {
+            text: root.line
+            color: textColour
+            font.family: fontFamily
+            font.pixelSize: lineSize
+            anchors.horizontalCenter: parent.horizontalCenter
+        }
+
+        Item { width: 1; height: barGap }
+
+        /* The bar: two lozenges that grow out of the left edge, cross, and are
+           drawn out of the right one. It has no scale and no beginning, which
+           is the point: it says work is going on, and nobody glancing at it
+           can take it for a quantity. Two of them, half a turn apart, so the
+           bar is never empty: an activity mark that stops, even for a frame,
+           reads as a hang. */
+        Item {
+            id: bar
+            width: root.ring * 1.3
+            height: barHeight
+            anchors.horizontalCenter: parent.horizontalCenter
+
+            readonly property real inset: height / 2
+            readonly property real span: width - 2 * inset
+
+            function ease(t) {
+                if (t <= 0) return 0
+                if (t >= 1) return 1
+                return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2
+            }
+            // head and tail ease along the same curve, a third of a turn
+            // apart: the lozenge is short as it enters, long as it crosses,
+            // short as it leaves
+            function head(t) { return ease(Math.max(0, Math.min(1, t / 0.66))) }
+            function tail(t) { return ease(Math.max(0, Math.min(1, (t - 0.34) / 0.66))) }
+
+            Rectangle {                         // the rail
+                x: bar.inset
+                width: bar.span
+                height: Math.max(1, bar.height * 0.5)
+                radius: height / 2
+                anchors.verticalCenter: parent.verticalCenter
+                color: root.track(0.30)
+            }
+
+            Repeater {
+                model: [{ "at": 0.5, "ink": 0.30, "thin": 0.8 },   // the trailing one
+                        { "at": 0.0, "ink": 0.92, "thin": 1.0 }]   // the leading one
+                Rectangle {
+                    readonly property real t: (root.phase + modelData.at) % 1.0
+                    readonly property real from_: bar.tail(t)
+                    readonly property real to_: bar.head(t)
+                    visible: to_ - from_ > 0.006
+                    x: bar.inset + bar.span * from_
+                    width: bar.span * (to_ - from_)
+                    height: bar.height * modelData.thin
+                    radius: height / 2
+                    anchors.verticalCenter: parent.verticalCenter
+                    color: root.accent(modelData.ink)
+                }
+            }
+        }
+    }
+}

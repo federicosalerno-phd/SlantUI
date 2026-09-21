@@ -133,7 +133,7 @@ nobody looks at again, so the test suite fails when one is.
 <td align="center" valign="middle">
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="docs/img/gold-dark/toolbar-buttons.png">
-<img src="docs/img/gold-light/toolbar-buttons.png" width="211" alt="Three small square buttons, one of them on, and a line of hint text">
+<img src="docs/img/gold-light/toolbar-buttons.png" width="243" alt="Four small square buttons: one plain, one on, one destructive, one with nothing to act on, and a line of hint text">
 </picture>
 </td>
 </tr>
@@ -544,6 +544,52 @@ a `.titlebar` in its markup, and calls `Bridge.init()` and `initTitlebar()`.
 A page that lets the user change palette tells the window with
 `Window.set_palette(slug)`, so the colour behind it moves too.
 
+### The loading screen
+
+Every application wearing this library shows one, and it is the same screen
+on both halves of the library: the brand in the middle of a ring, a figure, a
+line saying what is happening, and a thin bar under it. On the Python side it
+is one object.
+
+```python
+from slantui.shell import Splash
+
+splash = Splash(window=win, logo="brand.svg", text="starting", busy=True)
+splash.show()
+win.show()
+...
+splash.set_progress(0.4, "reading the folders")
+...
+splash.hide()
+```
+
+It goes over the application's own window, under the band, which stays sharp
+so the window can still be moved and closed while it loads, and the page goes
+out of focus under the veil. That is the form to use: the loading screen is
+the application's window a second before the application is in it, never a
+separate little window that disappears and leaves the desktop empty for a
+moment. Passing no window opens a screen of its own instead, for the seconds
+before there is a window at all, and the two hand over without a seam because
+they are the same file.
+
+Over a window it follows the page's own loading by itself, so an application
+that announces nothing still shows a load that moves; announced steps are
+laid on top of that and only ever move the goal forward.
+
+The ring measures and nothing else. The bar carries the other half of what a
+load has to say, that it is still going, and it has no scale precisely so
+that it cannot be read as a quantity. `busy` drops the figure, because a
+figure with nothing behind it is a lie, and turns the arc instead of filling
+it; the first announced step turns it back into a measure. Hiding closes the
+circle before the screen goes, since work ends wherever it ends and an arc
+cut off two thirds of the way round reads as a load that was abandoned.
+
+The arc has a speed, not a destination: it crosses what is left quickly, and
+at the goal it drifts on towards a third of what remains, because a load with
+nothing to report for four seconds must not look like a load that has
+stopped. The movement beats on the event loop, so a call that blocks the loop
+holds the arc still; announce the steps around such a call.
+
 Qt names come from `slantui.shell.qt`, PyQt6 first and PyQt5 as a fallback, so
 an application that imports its Qt names from there gets the fallback too.
 `SLANTUI_SOFTWARE_RENDER=1` in the environment draws every SlantUI application
@@ -613,7 +659,7 @@ way is under [Outside a browser](#outside-a-browser).*
 
 `docs/gallery.html` is a window holding a catalogue of the widget set, one
 cell per component, and `docs/capture.py` opens it and saves a picture of
-every cell in every palette: thirty one shots, eight palettes, and the four parts
+every cell in every palette: thirty two shots, eight palettes, and the four parts
 of the shell shot where they are. There is no screenshot tool in it. The
 window renders the page, `grabWindow()` hands the frame back as an image, and
 the page itself says which rectangle to keep, so a picture is of the real
@@ -627,7 +673,7 @@ the radius Windows cuts the window to. They are drawn at four times the size
 they are shown at, with grey antialiasing, so that zooming into one finds
 more of it and no coloured fringe on any edge.
 
-A full run is 262 files and twelve megabytes, and `docs/shots/` is ignored by
+A full run is 270 files and twelve megabytes, and `docs/shots/` is ignored by
 git. `docs/publish.py` is what puts the handful this page shows into
 `docs/img/`, which is tracked: it reads the markdown, copies every picture a
 page points at, and deletes the ones nobody points at any more. So a picture

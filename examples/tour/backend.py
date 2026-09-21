@@ -62,6 +62,11 @@ class Tour(Bridge):
         # answer the same way whether or not Qt has an event loop under it.
         self._running = False
 
+        # Called once, when the page first speaks. main.py hangs the loading
+        # screen on it: the page asking for this is the page being alive, and
+        # is the one moment that says the window has something on it.
+        self.on_page_ready = None
+
     # ── what the page asks ───────────────────────────────────────────────
     @pyqtSlot(result=str)
     def appInfo(self) -> str:
@@ -71,6 +76,9 @@ class Tour(Bridge):
         one that carries a whole record in a single call. The page reads it
         with ``beJson('appInfo', undefined, fn)``.
         """
+        if self.on_page_ready is not None:
+            ready, self.on_page_ready = self.on_page_ready, None
+            ready()
         return json.dumps({
             "slantui": __version__,
             "python": "%d.%d.%d" % sys.version_info[:3],

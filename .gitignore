@@ -11,6 +11,7 @@ docs/shots/
 # Written next to a page by the script that opens it, out of the library.
 examples/*/ui/slantui.css
 examples/*/ui/slantui.js
+examples/*/ui/brand.svg
 docs/slantui.css
 docs/slantui.js
 

@@ -25,7 +25,7 @@ try:
     from PyQt6.QtWebEngineWidgets import QWebEngineView  # noqa: F401
     from PyQt6.QtWebEngineCore import QWebEngineSettings, QWebEnginePage  # noqa: F401
     from PyQt6.QtWebEngineQuick import QtWebEngineQuick  # noqa: F401
-    from PyQt6.QtQuick import QQuickView  # noqa: F401
+    from PyQt6.QtQuick import QQuickImageProvider, QQuickView  # noqa: F401
     from PyQt6.QtWebChannel import QWebChannel  # noqa: F401
     from PyQt6.QtCore import (QObject, pyqtSlot, pyqtSignal, QUrl, Qt,  # noqa: F401
                               QProcess, QProcessEnvironment,
@@ -46,7 +46,7 @@ except ImportError as exc_qt6:  # pragma: no cover - depends on the install
         from PyQt5.QtWebEngineWidgets import (QWebEngineView, QWebEngineSettings,  # noqa: F401
                                               QWebEnginePage)
         from PyQt5.QtWebEngine import QtWebEngine as QtWebEngineQuick  # noqa: F401
-        from PyQt5.QtQuick import QQuickView  # noqa: F401
+        from PyQt5.QtQuick import QQuickImageProvider, QQuickView  # noqa: F401
         from PyQt5.QtWebChannel import QWebChannel  # noqa: F401
         from PyQt5.QtCore import (QObject, pyqtSlot, pyqtSignal, QUrl, Qt,  # noqa: F401
                               QProcess, QProcessEnvironment,

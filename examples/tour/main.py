@@ -27,7 +27,8 @@ import sys
 from pathlib import Path
 
 from slantui import css, js
-from slantui.shell import Application, Window
+from slantui.shell import Application, Splash, Window
+from slantui.tokens import DEFAULT, PALETTES
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from backend import Tour  # noqa: E402  the backend sits next to this file
@@ -44,13 +45,31 @@ def write_library_files() -> None:
     """
     (UI / "slantui.css").write_text(css.bundle(), encoding="utf-8")
     (UI / "slantui.js").write_text(js.bundle(), encoding="utf-8")
+    # The mark for the loading screen, which is a file and not a fill this
+    # time: the one in the band is inline SVG taking the accent from the
+    # page's own colour, and a file has to carry its own. So it is written
+    # here, out of the palette, like everything else this example draws.
+    (UI / "brand.svg").write_text(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" '
+        'fill="%s"><path d="M2 4h20v5.6h-6.1L9.6 16.4H2z"/></svg>'
+        % PALETTES[DEFAULT.slug]["accent"], encoding="utf-8")
 
 
 def main() -> int:
     write_library_files()
     app = Application(APP_NAME, app_id="SlantUI.Tour")
-    win = Window(UI / "index.html", bridge=Tour(), title=APP_NAME,
+    tour = Tour()
+    win = Window(UI / "index.html", bridge=tour, title=APP_NAME,
                  size=(1240, 800), min_size=(940, 600))
+
+    # What every application wearing this library does, in three lines: the
+    # loading screen over its own window while the page loads, and away when
+    # the page speaks. It starts waiting, because at this point there is
+    # nothing to measure; the page's own loading is followed from there.
+    splash = Splash(window=win, logo=UI / "brand.svg", text="starting", busy=True)
+    splash.show()
+    tour.on_page_ready = lambda: splash.hide()
+
     win.show()
     return app.run()
 

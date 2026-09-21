@@ -36,6 +36,7 @@ from . import win32
 from .bridge import Bridge
 from .qt import (QColor, QCursor, QEasingCurve, QIcon, QMetaObject, QObject, QQuickView, QRect,
                  QSize, QUrl, QVariant, QVariantAnimation, Q_ARG, Qt)
+from .splash import screen_context
 
 __all__ = ["Window", "SHELL_QML", "STATE_ANIM_MS"]
 
@@ -94,8 +95,9 @@ class Window(QQuickView):
         self.setFlag(Qt.WindowType.FramelessWindowHint, True)
         if icon is not None and Path(icon).is_file():
             self.setIcon(QIcon(str(icon)))
+        self.palette_slug = palette or DEFAULT.slug
         if background is None:
-            background = PALETTES[palette or DEFAULT.slug]["surface-0"]
+            background = PALETTES[self.palette_slug]["surface-0"]
         self.background = background
         self.setColor(QColor(background))
         self._default_size = QSize(*size)
@@ -128,6 +130,10 @@ class Window(QQuickView):
         ctx = self.rootContext()
         ctx.setContextProperty("uiUrl", url)
         ctx.setContextProperty("uiBackground", self.background)
+        # The loading screen's vocabulary, whether or not this window ever
+        # shows one: the shell reads these names, so they have to be there
+        # before it is loaded, and a Splash raised later needs nothing more.
+        screen_context(ctx, self.palette_slug)
         self.setSource(QUrl.fromLocalFile(str(SHELL_QML)))
         if self.status() != QQuickView.Status.Ready:
             raise RuntimeError("window shell failed to load: "
@@ -169,11 +175,15 @@ class Window(QQuickView):
         if palette not in PALETTES:
             raise KeyError(f"{palette!r} is not a SlantUI palette. "
                            f"Known: {', '.join(PALETTES)}")
+        self.palette_slug = palette
         self.background = PALETTES[palette]["surface-0"]
         self.setColor(QColor(self.background))
         # The QML view reads this as a binding, so the web view's own
         # background follows the assignment.
         self.rootContext().setContextProperty("uiBackground", self.background)
+        # and so does the loading screen, which is drawn by the window and not
+        # by the page: on the old palette it would come up in the old accent.
+        screen_context(self.rootContext(), palette)
 
     # ── the minimum width, when the page has measured itself ─────────────
     def set_min_width(self, width: int) -> int:
