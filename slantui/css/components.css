@@ -43,6 +43,12 @@
 .btn-2:hover:not(:disabled){background:var(--control-hover);color:var(--text-1)}
 .btn-2:active:not(:disabled){background:var(--control-active)}
 .btn-2:disabled{background:var(--surface-2);color:var(--text-4)}
+/* One that stays pressed, because the mode it turns on is on now. The accent
+   tint, like the step you are on, and not the filled accent, which belongs to
+   the button you are meant to press next: a page with three of those in it
+   has told the reader nothing. */
+.btn-2.on{background:var(--accent-surface);color:var(--accent-text);font-weight:600}
+.btn-2.on:hover:not(:disabled){background:var(--accent-surface-hover);color:var(--accent-text)}
 
 /* destructive */
 .btn-danger{background:var(--err-surface);color:var(--err-text)}
@@ -148,6 +154,11 @@ body.maximized .rz{display:none}
 .ct.on{background:var(--control);color:var(--accent-text)}
 .ct.danger{color:var(--err-text)}
 .ct.danger:hover{background:var(--err-surface)}
+/* Nothing to act on: undo with an empty stack. It keeps its place in the row
+   and recedes to text-4, the same way a step not yet reached does, and it
+   stops answering, so the hover never promises something that would not
+   happen. Off, never hidden: a row that loses a button moves. */
+.ct.off{color:var(--text-4);pointer-events:none}
 /* A gap, not a rule: toolbar groups are separated by space. */
 .ctsep{width:10px;flex-shrink:0}
 /* A hint for the current tool, a sentence long, so it is text-3. */
@@ -383,6 +394,10 @@ input[type=range]::-webkit-slider-thumb{
 }
 @keyframes spin{to{transform:rotate(360deg)}}
 .busy-text{font-size:var(--fs);color:var(--text-3);margin-top:12px}
+/* The same ring beside a line of text, where a card over the whole work area
+   would be too much: a job that runs in one panel while the rest of the
+   window stays usable. */
+.spinner-sm{width:16px;height:16px;border-width:2px}
 
 /* A title, a large percentage, a track, and a line naming the stage. */
 .progress-card{
@@ -401,6 +416,15 @@ input[type=range]::-webkit-slider-thumb{
   transform:scaleX(0);transform-origin:left center;will-change:transform;
   background:linear-gradient(90deg,var(--accent-active),var(--accent));
 }
+/* A job that reports no percentage at all. A bar parked at two per cent reads
+   as stuck, not as working, so a short band crosses the track instead: it
+   says what the spinner says, in the shape the panel already has. On the
+   transform as well, so a job nobody can measure still costs no layout. */
+.progress-unknown{
+  width:35%;transform:translateX(-100%);
+  animation:sweep 1.15s ease-in-out infinite;
+}
+@keyframes sweep{from{transform:translateX(-100%)}to{transform:translateX(286%)}}
 .progress-stage{font-size:var(--fs-sm);color:var(--text-4);margin-top:14px;min-height:16px;letter-spacing:.2px}
 
 /* -- drop zone ------------------------------------------------------------- */

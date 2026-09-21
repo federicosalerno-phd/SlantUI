@@ -95,7 +95,7 @@ passes.*
 
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="img/gold-dark/buttons-off.png">
-<img src="img/gold-light/buttons-off.png" width="218" alt="The same three buttons disabled: the fills flattened and the labels in the faintest text">
+<img src="img/gold-light/buttons-off.png" width="295" alt="Two buttons disabled, the fills flattened and the labels in the faintest text, then one that stays pressed in the accent tint, and the small size">
 </picture>
 
 *Disabled is `text-4` on a flattened fill, for every kind of button. There is

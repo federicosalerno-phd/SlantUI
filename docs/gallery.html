@@ -152,7 +152,7 @@
               </div>
 
               <div class="gal-cell">
-                <div class="sec-lbl">Disabled, and the small size</div>
+                <div class="sec-lbl">Disabled, pressed, and the small size</div>
                 <div class="row" data-shot="buttons-off">
                   <button class="btn btn-primary" disabled>
                     <span class="btn-label">Next</span>
@@ -160,6 +160,10 @@
                   </button>
                   <button class="btn btn-2" disabled>
                     <span class="btn-label">Back</span>
+                  </button>
+                  <button class="btn btn-2 on">
+                    <svg viewBox="0 0 24 24"><rect x="4.5" y="4.5" width="6" height="6" rx="1"/><rect x="13.5" y="4.5" width="6" height="6" rx="1"/><rect x="4.5" y="13.5" width="6" height="6" rx="1"/><rect x="13.5" y="13.5" width="6" height="6" rx="1"/></svg>
+                    <span class="btn-label">Grid</span>
                   </button>
                   <button class="btn btn-2 btn-sm">
                     <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16.5"/><line x1="12" y1="7.6" x2="12" y2="8"/></svg>
@@ -219,6 +223,9 @@
                   <div class="ctsep"></div>
                   <div class="ct danger" title="Destructive">
                     <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><line x1="6.3" y1="17.7" x2="17.7" y2="6.3"/></svg>
+                  </div>
+                  <div class="ct off" title="Nothing to undo">
+                    <svg viewBox="0 0 24 24"><polyline points="4 5.5 4 11 9.5 11"/><path d="M4.6 15a8 8 0 1 0 1.2-7"/></svg>
                   </div>
                   <span class="cthint">A gap, never a rule</span>
                 </div>
@@ -528,6 +535,24 @@
                   <span class="btn-label">Show the spinner</span>
                 </button>
                 <div class="gal-name hidden">spinner</div>
+              </div>
+
+              <div class="gal-cell">
+                <div class="sec-lbl">Work inside a panel</div>
+                <p class="note">
+                  A job small enough to leave the window usable: the same ring
+                  beside its line, and, when the job can report no percentage
+                  at all, a band crossing the track instead of a bar parked at
+                  two per cent, which would read as stuck.
+                </p>
+                <div class="col" data-shot="panel-job">
+                  <div class="row">
+                    <span class="spinner spinner-sm"></span>
+                    <span class="note grow">Reading the scans</span>
+                  </div>
+                  <div class="progress-track"><div class="progress-fill progress-unknown"></div></div>
+                </div>
+                <div class="gal-name hidden">panel-job</div>
               </div>
 
               <div class="gal-cell">

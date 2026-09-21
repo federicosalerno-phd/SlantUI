@@ -190,6 +190,24 @@ function isolate(name) {
     }
   })(document.documentElement);
 
+  // A picture cannot carry a movement, and a grab lands wherever the clock
+  // happens to be: the spinner's ring came out at a different angle every
+  // run, and a band crossing a track could be off the end of it entirely.
+  // So anything animating inside the shot is stopped, on the same frame
+  // every time, a third of the way through whatever its own duration is.
+  // unisolate puts the style attributes back, so the page keeps moving.
+  shot.forEach(function (k) {
+    const all = [k].concat(Array.prototype.slice.call(k.querySelectorAll('*')));
+    all.forEach(function (n) {
+      const cs = getComputedStyle(n);
+      if (!cs.animationName || cs.animationName === 'none') return;
+      dressed.push([n, n.style.cssText]);
+      n.style.setProperty('animation-delay',
+                          (-0.35 * (parseFloat(cs.animationDuration) || 0)) + 's', 'important');
+      n.style.setProperty('animation-play-state', 'paused', 'important');
+    });
+  });
+
   return name;
 }
 
