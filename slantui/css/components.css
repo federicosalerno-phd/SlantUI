@@ -301,7 +301,26 @@ input[type=range]::-webkit-slider-thumb{
 .toggle:hover{background:var(--control);transition-duration:var(--t-in)}
 .toggle input{margin-right:9px;accent-color:var(--accent);flex-shrink:0}
 .toggle b{font-weight:600}
-.toggle .aside{color:var(--text-3);margin-left:5px}
+/* The dimmed line that belongs to the control above it: what the choice costs,
+   where the folder has to be, what the other setting does. Beside a switch it
+   runs on the same line; on its own it is a line under what it explains. */
+.aside{color:var(--text-3);font-size:var(--fs-sm)}
+.toggle .aside{margin-left:5px}
+
+/* -- a line of state that is a path ---------------------------------------- */
+/* A folder somebody chose. It is a note like any other except that it has no
+   spaces to break at, so it is allowed to break anywhere: the alternative is a
+   panel that grows a sideways scrollbar the first time a path is long. */
+.note-path{word-break:break-all;color:var(--text-1)}
+
+/* -- a log ----------------------------------------------------------------- */
+/* What a long job is saying while it runs: fixed width so the lines stay in
+   columns, its own surface so it reads as a thing the application is quoting,
+   and a ceiling so it never pushes the panel it sits in. */
+.log{background:var(--surface-3);border-radius:var(--r-lg);padding:8px 10px;
+     max-height:110px;overflow:auto;white-space:pre-wrap;
+     font-family:var(--mono);font-size:var(--fs-sm);line-height:1.5;
+     color:var(--text-2)}
 
 /* -- cards ----------------------------------------------------------------- */
 .card{background:var(--surface-3);border-radius:var(--r-md);padding:9px 12px}

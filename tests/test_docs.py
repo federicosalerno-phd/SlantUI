@@ -62,7 +62,8 @@ _LINK = re.compile(r"(?<!!)\[[^\]]*\]\(([^)]+)\)")
 # The numbers the pages are allowed to quote, and what each one has to equal.
 WORDS = {20: "twenty", 21: "twenty one", 29: "twenty nine", 30: "thirty",
          31: "thirty one", 32: "thirty two", 33: "thirty three",
-         34: "thirty four", 35: "thirty five", 36: "thirty six"}
+         34: "thirty four", 35: "thirty five", 36: "thirty six",
+         37: "thirty seven"}
 
 
 def fences(page: Path, lang: str | None = None) -> list[str]:

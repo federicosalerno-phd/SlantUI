@@ -677,7 +677,7 @@ way is under [Outside a browser](#outside-a-browser).*
 
 `docs/gallery.html` is a window holding a catalogue of the widget set, one
 cell per component, and `docs/capture.py` opens it and saves a picture of
-every cell in every palette: thirty six shots, eight palettes, and the four parts
+every cell in every palette: thirty seven shots, eight palettes, and the four parts
 of the shell shot where they are. There is no screenshot tool in it. The
 window renders the page, `grabWindow()` hands the frame back as an image, and
 the page itself says which rectangle to keep, so a picture is of the real
