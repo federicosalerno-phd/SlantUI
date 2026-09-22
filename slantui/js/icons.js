@@ -22,10 +22,12 @@
    that, but it puts it in the one place where fixing it is a one line change,
    and `report()` counts how many are left.
 
-   Everything is drawn on a 24 by 24 grid, stroked, never filled, so one
-   `stroke-width` in the stylesheet governs the lot. The two stepper arrows are
-   the exception and carry their own `vb`: they fill a strip nine pixels by
-   five, and a square drawing in there would come out five pixels tall.
+   The set is drawn on a 24 by 24 grid, stroked, never filled, so one
+   `stroke-width` in the stylesheet governs the lot. Six entries carry a `vb`
+   of their own and are exceptions on purpose: the four window buttons, which
+   are finished and drawn for a twelve pixel button, and the two stepper
+   arrows, which fill a strip nine pixels by five where a square drawing would
+   come out five pixels tall.
 
    Leaves on the window: ICONS, icon, setIcon, iconReport.
    ========================================================================== */
@@ -36,15 +38,19 @@ const ICON_GRID = '0 0 24 24';
 
 const ICONS = {
   /* ── the window's own buttons ──────────────────────────────────────────
-     Drawn on the same grid as everything else and scaled down by
-     `.wbtn svg`, which is why that rule carries its own stroke-width: a
-     twelve pixel button showing a twenty-four unit drawing halves every
-     line it is given. */
-  'win-minimise': 'M5 12h14',
-  'win-maximise': { s: '<rect x="5" y="5" width="14" height="14" rx="2"/>' },
-  'win-restore': { s: '<rect x="3.6" y="8.4" width="12" height="12" rx="2"/>'
-    + '<path d="M9.2 8.4V5.6a2 2 0 0 1 2-2h7.2a2 2 0 0 1 2 2v7.2a2 2 0 0 1-2 2H17.6"/>' },
-  'win-close': 'M6 6l12 12M18 6L6 18',
+     The four exceptions to the grid, and they carry their own `vb` to say
+     so. They are drawn for a twelve pixel button and they are finished: the
+     rest of the set is provisional and will be redrawn, these four will not,
+     so putting them on the common grid would be rescaling something that
+     nobody asked to change. They keep the coordinates and the 1.35 stroke
+     `.wbtn svg` has always given them. */
+  'win-minimise': { vb: '0 0 12 12', s: '<path d="M2.5 6h7"/>' },
+  'win-maximise': { vb: '0 0 12 12',
+    s: '<rect x="2.5" y="2.5" width="7" height="7" rx="1"/>' },
+  'win-restore': { vb: '0 0 12 12',
+    s: '<rect x="1.8" y="4.2" width="6" height="6" rx="1"/>'
+      + '<path d="M4.6 4.2V2.8a1 1 0 0 1 1-1h3.6a1 1 0 0 1 1 1v3.6a1 1 0 0 1-1 1H8.8"/>' },
+  'win-close': { vb: '0 0 12 12', s: '<path d="M3 3l6 6M9 3l-6 6"/>' },
 
   /* ── pointing ──────────────────────────────────────────────────────── */
   'chevron-down': { s: '<polyline points="7.5 10 12 14.5 16.5 10"/>' },

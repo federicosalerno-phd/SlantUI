@@ -78,11 +78,7 @@
   cursor:pointer;color:var(--text-3);
   transition:background var(--t-out),color var(--t-chg);
 }
-/* The three window signs are drawn on the same twenty-four unit grid as every
-   other icon and shown at twelve pixels, so a user unit is half a pixel here
-   and the stroke is given in the grid's units, not the screen's: 2.7 of them
-   is the 1.35px line the band wants. */
-.wbtn svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2.7;
+.wbtn svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:1.35;
           stroke-linecap:round;stroke-linejoin:round}
 /* The buttons sit on the band, whose fill is control, so the hover has to be
    the next step up or it would not show. */
