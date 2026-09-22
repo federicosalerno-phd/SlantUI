@@ -50,6 +50,7 @@ _CLASS_ATTR = re.compile(r'class="([^"]+)"')
 # Everything else the library defines has to be somewhere in the page.
 SCRIPT_ONLY = {
     "combopop", "combo-opt", "combo-on", "open",   # the dropdown's popup
+    "combo-c",                                     # widgets.js puts the arrow there
     "dzover",                                      # a file is over the card
     "maximized",                                   # the window state, on body
     "tbar-credit",                                 # titlebar.js writes it

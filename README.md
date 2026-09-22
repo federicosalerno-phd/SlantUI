@@ -498,10 +498,11 @@ behind it by being another surface, and its states are fills too.
 
 ## Scripts
 
-Four classic scripts, no modules, because the embedded browser serves the
+Five classic scripts, no modules, because the embedded browser serves the
 page from `file://`:
 
 ```
+icons.js         the named signs a window is made of, as markup
 theme.js         the roles read back off :root for a canvas, plus colour maths
 bridge.js        the QWebChannel transport, with a queue for calls made too early
 widgets.js       the dropdown, the number stepper, text that has to fit on one line
@@ -514,8 +515,39 @@ from slantui.js import SCRIPTS, path, bundle
 
 `titlebar.js` cuts the band to the four metrics and the measured width of the
 brand block, so the taper starts where the name ends whatever the name is. It
-also writes the credit line the licence asks for. The tests run all four files
+also writes the credit line the licence asks for. The tests run all five files
 in a bare V8 against a small fake DOM.
+
+### Icons
+
+A window says the same dozen things everywhere: close me, open a file, undo
+that, this went wrong. Written as an `<svg>` wherever each one happened to be
+needed, the same idea comes out differently in two places and two different
+ideas come out the same. A page asks for a name instead.
+
+```js
+btn.innerHTML = icon('undo');
+setIcon(btn, 'undo');
+```
+
+An entry is a path, or the `<svg>`'s contents, or a character that has not been
+drawn yet, and `icon()` returns markup for all three:
+
+```js
+undo:  'M4 12a8 8 0 1 1 2.3 5.6'
+close: { s: '<rect x="5" y="5" width="14" height="14" rx="2"/>' }
+info:  { g: '?' }
+```
+
+The third shape is the useful one. A sign drawn with a character out of the
+font has no stroke, no grid and no weight of its own, and naming it does not
+change that; what it changes is that fixing it is one line, in one place, and
+`iconReport()` says how many are left and which names still share a drawing.
+
+Everything is on a 24 by 24 grid, stroked and never filled, so one
+`stroke-width` per context governs the lot. `.wbtn svg` carries its own,
+because a twelve pixel button showing a twenty-four unit drawing halves every
+line it is given.
 
 ## Shell
 
@@ -677,7 +709,7 @@ way is under [Outside a browser](#outside-a-browser).*
 
 `docs/gallery.html` is a window holding a catalogue of the widget set, one
 cell per component, and `docs/capture.py` opens it and saves a picture of
-every cell in every palette: thirty seven shots, eight palettes, and the four parts
+every cell in every palette: thirty eight shots, eight palettes, and the four parts
 of the shell shot where they are. There is no screenshot tool in it. The
 window renders the page, `grabWindow()` hands the frame back as an image, and
 the page itself says which rectangle to keep, so a picture is of the real

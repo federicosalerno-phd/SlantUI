@@ -36,6 +36,9 @@
    winDrag, winResize(edge), winMinimize, winMaximizeToggle, winClose,
    winIsMaximized, and windowMaximized(bool).
 
+   The two drawings the maximise button swaps between are not here: they are
+   `win-maximise` and `win-restore` in icons.js, like every other sign.
+
    Leaves on the window: initTitlebar, shapeTitleBar, onWindowMaximized,
    roundedPolyPath, CREDIT_TEXT.
    ========================================================================== */
@@ -44,9 +47,6 @@
    css/layout.css, and both stay. */
 const CREDIT_TEXT = 'Layout by Federico Salerno';
 
-const MAX_ICON = '<svg viewBox="0 0 12 12"><rect x="2.5" y="2.5" width="7" height="7" rx="1"/></svg>';
-const RESTORE_ICON = '<svg viewBox="0 0 12 12"><rect x="1.8" y="4.2" width="6" height="6" rx="1"/>' +
-                     '<path d="M4.6 4.2V2.8a1 1 0 0 1 1-1h3.6a1 1 0 0 1 1 1v3.6a1 1 0 0 1-1 1H8.8"/></svg>';
 
 /* An SVG path through the points, with each corner rounded by its own `r`
    (a quadratic through the vertex, trimmed to half the shorter side). */
@@ -182,7 +182,7 @@ function onWindowMaximized(max) {
   const btn = document.querySelector('.titlebar .wbtn-max');
   if (btn) {
     btn.title = max ? 'Restore' : 'Maximise';
-    btn.innerHTML = max ? RESTORE_ICON : MAX_ICON;
+    setIcon(btn, max ? 'win-restore' : 'win-maximise');
   }
   shapeTitleBar();
 }

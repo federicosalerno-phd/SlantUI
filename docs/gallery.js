@@ -516,12 +516,30 @@ function wire() {
   window.addEventListener('drop', function (e) { e.preventDefault(); });
 }
 
+/* The icon cell fills itself from ICONS, so a name added to the library shows
+   up here without anyone remembering to add a tile. A sign that is still a
+   character out of the font says so under itself: that is the list of what is
+   left to draw, and it shortens on its own. */
+function buildIcons() {
+  const box = $('iconSet');
+  if (!box) return;
+  const names = Object.keys(ICONS).sort();
+  box.innerHTML = names.map(function (n) {
+    const e = ICONS[n];
+    const glyph = (e && e.g) ? e.g : '';
+    return '<div class="gal-icon' + (glyph ? ' gal-icon-raw' : '') + '">'
+      + '<span class="gal-icon-m">' + icon(n) + '</span>'
+      + '<span class="gal-icon-n">' + n + '</span></div>';
+  }).join('');
+}
+
 function boot() {
   Bridge.init();
   initSelects();
   initTitlebar();
 
   Theme.read();
+  buildIcons();
   buildPalettes();
   wire();
   setPalette(current);

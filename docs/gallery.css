@@ -44,6 +44,35 @@
   background:var(--surface-0);border-radius:var(--r-md);
 }
 
+/* The icon set. The cell lays itself out from ICONS, one column per sign with
+   the name under it, so a name added to the library shows up here and nobody
+   has to remember a tile. A sign still drawn with a character out of the font
+   wears the warning role: that is what is left to do, and it should be what
+   the eye lands on. */
+/* auto-fill and not a fixed count, so the set can grow without the grid
+   growing past the panel it sits in: a column that does not fit wraps. */
+.gal-icons{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(74px,1fr));
+  gap:var(--sp-2);
+  background:var(--surface-2);border-radius:var(--r-md);padding:var(--sp-2);
+}
+.gal-icon{
+  display:flex;flex-direction:column;align-items:center;gap:var(--sp-1);
+  padding:var(--sp-2) var(--sp-1);min-height:58px;min-width:0;
+  color:var(--text-1);
+}
+.gal-icon-m{
+  height:22px;display:flex;align-items:center;justify-content:center;
+  font-size:var(--fs-lg);
+}
+.gal-icon-m svg{
+  width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8;
+  stroke-linecap:round;stroke-linejoin:round;
+}
+.gal-icon-n{font-size:var(--fs-xs);color:var(--text-3);text-align:center;line-height:1.2}
+.gal-icon-raw{color:var(--warn-text)}
+.gal-icon-raw .gal-icon-n{color:var(--warn-text)}
+
 /* The word next to a glyph goes in a .btn-label, and a page that runs out of
    width hides them and keeps the glyphs. The breakpoint belongs to the page,
    since it depends on what the page put in the bar: here four tabs of

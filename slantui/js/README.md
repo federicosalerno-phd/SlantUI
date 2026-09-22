@@ -2,6 +2,7 @@ The browser side scripts, in load order:
 
 | File | What | Leaves on the window |
 |------|------|----------------------|
+| `icons.js` | the named signs a window is made of, as markup | `ICONS`, `icon`, `setIcon`, `iconReport` |
 | `theme.js` | the roles read back off `:root` for a canvas, and four pieces of colour maths | `Theme`, `THEME_ROLES` |
 | `bridge.js` | the QWebChannel transport, with a queue for calls made too early | `Bridge`, `be`, `beJson` |
 | `widgets.js` | the dropdown, the number stepper, text that has to fit on one line | `initSelects`, `numStep`, `fitOneLine` |

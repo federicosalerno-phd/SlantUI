@@ -2,9 +2,9 @@
 
     from slantui.js import SCRIPTS, path, bundle
 
-    SCRIPTS              the four file names, in the order a page loads them
+    SCRIPTS              the five file names, in the order a page loads them
     path("bridge.js")    the absolute path of one, inside the installed package
-    bundle()             all four in that order, as one string
+    bundle()             all five in that order, as one string
 
 They are classic scripts, not modules: a page served from file:// gets no
 module loading, and the embedded browser serves from file://. Each one leaves
@@ -18,10 +18,12 @@ __all__ = ["SCRIPTS", "HERE", "path", "bundle"]
 
 HERE = Path(__file__).resolve().parent
 
-# Load order. theme.js stands alone. bridge.js stands alone. widgets.js stands
-# alone. titlebar.js calls be() and Bridge.on() from bridge.js, so it comes
-# after it.
+# Load order. icons.js stands alone and goes first, because widgets.js and
+# titlebar.js both ask it for a drawing. theme.js stands alone. bridge.js
+# stands alone. titlebar.js calls be() and Bridge.on() from bridge.js, so it
+# comes after it.
 SCRIPTS: tuple[str, ...] = (
+    "icons.js",
     "theme.js",
     "bridge.js",
     "widgets.js",

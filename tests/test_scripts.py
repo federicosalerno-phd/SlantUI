@@ -20,7 +20,21 @@ FAKEDOM = (ROOT / "tests" / "fakedom.js").read_text(encoding="utf-8")
 
 
 def _src(name: str) -> str:
+    """The file, exactly as it ships."""
     return path(name).read_text(encoding="utf-8")
+
+
+def _runnable(name: str) -> str:
+    """The file with what it needs in front of it.
+
+    icons.js leaves `icon` and `setIcon` on the window, and widgets.js and
+    titlebar.js both ask for a drawing by name now. Evaluating one of those on
+    its own is evaluating a file with a hole in it, and the hole throws on the
+    first dropdown."""
+    text = _src(name)
+    if name != "icons.js" and ("icon(" in text or "setIcon(" in text):
+        return _src("icons.js") + "\n" + text
+    return text
 
 
 # ── text level ──────────────────────────────────────────────────────────────
@@ -296,6 +310,69 @@ def test_bridge_says_when_the_object_is_not_there(js):
     assert any("no object called backend" in " ".join(map(str, e)) for e in J(js, "LOG"))
 
 
+# ── icons.js ────────────────────────────────────────────────────────────────
+def test_the_icon_set_is_on_one_grid(js):
+    """Every sign on 24 by 24, so one stroke-width governs the lot.
+
+    The two stepper arrows are the exception and say so: they fill a strip nine
+    pixels by five, and a square drawing in there would be five pixels tall.
+
+    To see it fail, give a new entry a `vb` of its own.
+    """
+    js.eval(_src("icons.js"))
+    odd = J(js, """(function(){var o=[];for(var n in ICONS){var e=ICONS[n];
+      if(e&&e.vb&&e.vb!=='0 0 24 24')o.push(n);}return o;})()""")
+    assert odd == ["step-up", "step-down"], odd
+
+
+def test_an_entry_comes_back_as_markup_whatever_shape_it_is(js):
+    """The three shapes an entry can take, and the one thing they all return."""
+    js.eval(_src("icons.js"))
+    js.eval("ICONS['t-path']='M1 1h2'; ICONS['t-raw']={s:'<circle r=\"2\"/>'};"
+            "ICONS['t-glyph']={g:'×'};")
+    assert J(js, "icon('t-path')") == '<svg viewBox="0 0 24 24"><path d="M1 1h2"/></svg>'
+    assert J(js, "icon('t-raw')") == '<svg viewBox="0 0 24 24"><circle r="2"/></svg>'
+    assert J(js, "icon('t-glyph')") == "×"
+    assert J(js, "icon('t-path',{class:'r'})").startswith('<svg viewBox="0 0 24 24" class="r"')
+    assert J(js, "icon('no-such-sign')") == ""
+
+
+def test_set_icon_says_whether_there_was_one_to_set(js):
+    """A name that is not in the set leaves the element alone instead of
+    emptying it, which is what a typo would otherwise do silently."""
+    js.eval(_src("icons.js"))
+    js.eval("const el = new El('div'); el.innerHTML = 'kept';")
+    assert J(js, "setIcon(el,'no-such-sign')") is False
+    assert J(js, "el.innerHTML") == "kept"
+    assert J(js, "setIcon(el,'win-close')") is True
+    assert "<svg" in J(js, "el.innerHTML")
+
+
+def test_the_report_counts_what_is_left_to_draw(js):
+    """The set ships unfinished on purpose: some signs are still a character
+    out of the font, and two names still share one drawing. Both are counted
+    here so the work is visible instead of remembered."""
+    js.eval(_src("icons.js"))
+    r = J(js, "iconReport()")
+    assert r["total"] == len(J(js, "Object.keys(ICONS)"))
+    assert r["drawn"] + len(r["glyphs"]) == r["total"]
+    # save and export are the one drawing that two names share today
+    shared = sorted(sorted(g) for g in r["shared"])
+    assert ["export", "save"] in shared, shared
+    # and the glyphs are named, not anonymous
+    assert "info" in r["glyphs"] and "reset" in r["glyphs"]
+
+
+def test_no_page_of_the_library_draws_a_sign_of_its_own():
+    """A drawing written where it is needed is the defect the file exists to
+    end. The scripts ask `icon()` for one instead.
+
+    To see it fail, put an <svg> back into titlebar.js.
+    """
+    wrote = [n for n in SCRIPTS if n != "icons.js" and "<svg" in _src(n)]
+    assert not wrote, f"{wrote} still draw a sign instead of naming one"
+
+
 # ── titlebar.js ─────────────────────────────────────────────────────────────
 TITLEBAR_PAGE = """
   CSS_VARS = { '--tbar-thin': '28px', '--tbar-slant': '38px', '--tbar-join': '8px' };
@@ -329,7 +406,7 @@ TITLEBAR_PAGE = """
 
 def test_the_band_is_cut_to_the_metrics(js):
     js.eval(TITLEBAR_PAGE)
-    js.eval(_src("titlebar.js"))
+    js.eval(_runnable("titlebar.js"))
     js.eval("shapeTitleBar()")
     clip = J(js, "band.style.clipPath")
     # the three window corners, then the thin end flush with the right edge
@@ -352,7 +429,7 @@ def test_the_band_is_cut_to_the_metrics(js):
 
 
 def test_rounded_poly_path_leaves_sharp_corners_alone(js):
-    js.eval(_src("titlebar.js"))
+    js.eval(_runnable("titlebar.js"))
     assert J(js, "roundedPolyPath([{x:0,y:0},{x:10,y:0},{x:10,y:10}])") == \
         "M0.00,0.00 L10.00,0.00 L10.00,10.00 Z"
     # a radius larger than half the shorter side is trimmed to it
@@ -362,7 +439,7 @@ def test_rounded_poly_path_leaves_sharp_corners_alone(js):
 
 def test_the_title_bar_writes_the_credit_and_wires_the_window(js):
     js.eval(TITLEBAR_PAGE)
-    js.eval(_src("titlebar.js"))
+    js.eval(_runnable("titlebar.js"))
     js.eval("initTitlebar()")
 
     # the credit line is there, with the licence's text, before the buttons
@@ -395,20 +472,23 @@ def test_the_title_bar_writes_the_credit_and_wires_the_window(js):
     js.eval("fire(document.body.querySelector('.rz-se'), 'mousedown', { button: 0 })")
     assert J(js, "CALLS") == [["winResize", "se"]]
 
-    # the state Qt reports swaps the glyph and the class the strips hide on
+    # the state Qt reports swaps the sign and the class the strips hide on.
+    # The sign is checked by NAME, against icons.js, so redrawing it does not
+    # come back here: the two drawings are `win-restore` and `win-maximise`.
     js.eval("onWindowMaximized(true)")
     assert J(js, "document.body.classList.contains('maximized')") is True
     assert J(js, "bMax.title") == "Restore"
-    assert "M4.6" in J(js, "bMax.innerHTML")
+    assert J(js, "bMax.innerHTML") == J(js, "icon('win-restore')")
     js.eval("onWindowMaximized(false)")
     assert J(js, "document.body.classList.contains('maximized')") is False
     assert J(js, "bMax.title") == "Maximise"
+    assert J(js, "bMax.innerHTML") == J(js, "icon('win-maximise')")
 
 
 def test_a_credit_the_page_wrote_is_replaced_not_doubled(js):
     js.eval(TITLEBAR_PAGE)
     js.eval("const mine = new El('span', 'tbar-credit'); mine.textContent = 'nope'; bar.insertBefore(mine, btns);")
-    js.eval(_src("titlebar.js"))
+    js.eval(_runnable("titlebar.js"))
     js.eval("initTitlebar()")
     assert J(js, "bar.querySelectorAll('.tbar-credit').length") == 1
     assert J(js, "mine.textContent") == "Layout by Federico Salerno"
@@ -431,7 +511,7 @@ COMBO_PAGE = """
 
 def test_the_dropdown_answers_like_a_select(js):
     js.eval(COMBO_PAGE)
-    js.eval(_src("widgets.js"))
+    js.eval(_runnable("widgets.js"))
     js.eval("initSelects()")
 
     # the first option when the page set none, and the label follows
@@ -476,7 +556,7 @@ def test_the_dropdown_keeps_a_value_apart_from_its_label(js):
     A list built from data needs it: the row reads "Report of March, 412
     slices" and the value is the index."""
     js.eval(COMBO_PAGE)
-    js.eval(_src("widgets.js"))
+    js.eval(_runnable("widgets.js"))
     js.eval("combo.setAttribute('data-values', 'a|b|c')")
     js.eval("initSelects()")
 
@@ -501,7 +581,7 @@ def test_the_dropdown_keeps_a_value_apart_from_its_label(js):
 
 def test_a_dropdown_filled_from_code(js):
     js.eval(COMBO_PAGE)
-    js.eval(_src("widgets.js"))
+    js.eval(_runnable("widgets.js"))
     js.eval("initSelects()")
 
     js.eval("setOptions(combo, ['CT head, 412 slices', 'CT neck, 88 slices'], ['0', '1'])")
@@ -528,7 +608,7 @@ def test_a_dropdown_option_may_not_carry_the_separator(js):
     """Writing it would come back as two rows, and the page would show a
     list nobody asked for."""
     js.eval(COMBO_PAGE)
-    js.eval(_src("widgets.js"))
+    js.eval(_runnable("widgets.js"))
     js.eval("initSelects()")
     js.eval("var caught = ''; try { setOptions(combo, ['a|b']); } "
             "catch (e) { caught = e.message; }")
@@ -539,7 +619,7 @@ def test_a_dropdown_option_may_not_carry_the_separator(js):
 
 def test_the_dropdown_opens_above_when_there_is_no_room_below(js):
     js.eval(COMBO_PAGE)
-    js.eval(_src("widgets.js"))
+    js.eval(_runnable("widgets.js"))
     js.eval("initSelects()")
     # the popup measures itself once appended; the fake DOM answers with the
     # height the test set on the prototype for this case
@@ -550,7 +630,7 @@ def test_the_dropdown_opens_above_when_there_is_no_room_below(js):
 
 
 def test_the_stepper_keeps_the_decimals_of_the_step(js):
-    js.eval(_src("widgets.js"))
+    js.eval(_runnable("widgets.js"))
     js.eval("""
       const f = new El('input');
       f.step = '0.1'; f.value = '50'; f.min = '0'; f.max = '60';
@@ -574,7 +654,7 @@ def test_the_stepper_keeps_the_decimals_of_the_step(js):
 
 
 def test_fit_one_line_shrinks_then_drops_the_middle(js):
-    js.eval(_src("widgets.js"))
+    js.eval(_runnable("widgets.js"))
     js.eval("const box = new El('div', 'fit'); box.clientWidth = 120;")
 
     js.eval("fitOneLine(box, 'short.png', 13.5, 10)")

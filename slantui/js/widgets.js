@@ -11,8 +11,10 @@
 
         <div class="combo" tabindex="0" data-options="A|B|C" data-value="B">
           <span class="combo-v"></span>
-          <svg class="combo-c" viewBox="0 0 24 24"><polyline points="7.5 10 12 14.5 16.5 10"/></svg>
         </div>
+
+      The arrow is `chevron-down` out of icons.js and `initSelects` puts it
+      there, so no page writes that drawing.
 
       What the reader sees and what the code reads are the same string
       unless `data-values` says otherwise, parallel to `data-options` and
@@ -139,6 +141,15 @@ function initSelects() {
   document.querySelectorAll('.combo').forEach(function (el) {
     if (el._wired) return;
     el._wired = true;
+    // The arrow is the widget's, not the page's. It used to be written into
+    // the markup wherever a dropdown went, which is five copies of one drawing
+    // and five chances for them to drift; a page that still writes it keeps
+    // working, and one that leaves it out gets it here.
+    if (!el.querySelector('.combo-c')) {
+      const c = document.createElement('span');
+      c.innerHTML = icon('chevron-down', { class: 'combo-c' });
+      if (c.firstChild) el.appendChild(c.firstChild);
+    }
     Object.defineProperty(el, 'value', {
       get: function () { return el.getAttribute('data-value') || ''; },
       set: function (v) { _cbSet(el, v, false); },

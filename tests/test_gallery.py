@@ -51,6 +51,7 @@ _SHOT_NAME = re.compile(r"^[a-z][a-z0-9-]*$")
 # and the gallery shoots that state from the real thing.
 SCRIPT_ONLY = {
     "combopop", "combo-opt", "combo-on", "open",   # the dropdown, while it is open
+    "combo-c",                                     # widgets.js puts the arrow there
     "maximized",                                   # the window state, on body
     "tbar-credit",                                 # titlebar.js writes it
 }
