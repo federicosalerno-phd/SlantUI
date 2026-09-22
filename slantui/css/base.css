@@ -69,14 +69,22 @@ select{border:none}
 
 /* Section label above a group of controls in the side panel. text-4 is the
    one text role held to the 3:1 floor, and an uppercase label of two or three
-   words is the reason it exists. */
+   words is the reason it exists.
+
+   A row, so that a .more asking what the section is for stays on the line the
+   label ends on instead of dropping under it. With nothing beside it the row
+   holds one anonymous box and looks exactly as it did. */
 .sec-lbl{
+  display:flex;align-items:center;gap:6px;
   font-size:var(--fs-xs);font-weight:600;letter-spacing:.8px;text-transform:uppercase;
   color:var(--text-4);padding:9px 0 4px;
 }
 .sec-lbl:first-child{padding-top:2px}
 
-/* Body copy inside the side panel. A sentence is never fainter than text-3. */
+/* A line of state under a control: what was picked, what is still missing,
+   what the last action did. NOT an explanation. Prose belongs in a sheet, and
+   a panel that carries paragraphs is a panel that has stopped being a set of
+   controls. A sentence is never fainter than text-3. */
 .note{font-size:var(--fs-sm);color:var(--text-3);line-height:1.75}
 .num{font-variant-numeric:tabular-nums}
 

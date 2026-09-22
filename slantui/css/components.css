@@ -468,6 +468,11 @@ input[type=range]::-webkit-slider-thumb{
   transition:transform var(--t-out),opacity var(--t-out);
 }
 .scrim-veil.on .sheet{transform:none;opacity:1}
+/* The sheet takes the focus when it opens, so that Esc and Tab have somewhere
+   to arrive and a reader is not left on the control underneath. It is a
+   surface and not a control, though, so it does not wear the ring: that
+   belongs to the thing inside it that the Tab reaches next. */
+.sheet:focus,.sheet:focus-visible{box-shadow:none}
 .sheet-hd{
   flex-shrink:0;display:flex;align-items:center;gap:10px;
   padding:13px 13px 11px 16px;background:var(--surface-3);
