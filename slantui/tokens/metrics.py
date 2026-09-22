@@ -54,6 +54,15 @@ METRICS: tuple[Metric, ...] = (
     Metric("r-lg", "radius", "7px", "A framed pane, a dialog, an image."),
     Metric("r-pill", "radius", "99px", "A pill: any height, fully round ends."),
 
+    # -- spacing ------------------------------------------------------------
+    Metric("sp-1", "spacing", "4px",
+           "Between two controls of one section."),
+    Metric("sp-2", "spacing", "8px",
+           "Between a control and something that is not one, and the gap "
+           "inside a row of controls."),
+    Metric("sp-3", "spacing", "12px",
+           "Before a section that starts a new subject."),
+
     # ── type ────────────────────────────────────────────────────────────────
     Metric("font", "type", "'Segoe UI',system-ui,-apple-system,sans-serif",
            "Every piece of text but the application name.", kind="font"),
@@ -115,6 +124,7 @@ METRICS: tuple[Metric, ...] = (
 # What each group is, for the comment the stylesheet carries over it.
 GROUPS: dict[str, str] = {
     "radius": "radii, on one scale: 4 inputs, 5 buttons, 6 cards, 7 panels",
+    "spacing": "spacing, on one scale: 0, 4, 8, 12",
     "type": "type",
     "band": "the title band",
     "rail": "the step rail under it",
@@ -125,6 +135,13 @@ GROUPS: dict[str, str] = {
 
 # A note printed above a group where the numbers need the picture.
 GROUP_NOTES: dict[str, str] = {
+    "spacing": (
+        "Four steps and no others, counting the zero: nothing, a sibling, a\n"
+        "neighbour, a new subject. A panel that needs a fifth is a panel whose\n"
+        "grouping is wrong, and the way to mend it is a section, not a number.\n"
+        "An application that reads these draws a panel spaced like every other\n"
+        "panel by construction rather than by review."
+    ),
     "motion": (
         "A control answers the pointer faster than it lets go, which is what\n"
         "makes it feel like a thing and not a slide. The rule the components\n"

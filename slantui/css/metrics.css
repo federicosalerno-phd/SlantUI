@@ -21,6 +21,18 @@
   --r-lg:7px;         /* A framed pane, a dialog, an image. */
   --r-pill:99px;      /* A pill: any height, fully round ends. */
 
+  /* spacing, on one scale: 0, 4, 8, 12 */
+  /* Four steps and no others, counting the zero: nothing, a sibling, a */
+  /* neighbour, a new subject. A panel that needs a fifth is a panel whose */
+  /* grouping is wrong, and the way to mend it is a section, not a number. */
+  /* An application that reads these draws a panel spaced like every other */
+  /* panel by construction rather than by review. */
+  --sp-1:4px;         /* Between two controls of one section. */
+  /* Between a control and something that is not one, and the gap inside a row of */
+  /* controls. */
+  --sp-2:8px;
+  --sp-3:12px;        /* Before a section that starts a new subject. */
+
   /* type */
   /* Every piece of text but the application name. */
   --font:'Segoe UI',system-ui,-apple-system,sans-serif;

@@ -277,6 +277,32 @@ input[type=range]::-webkit-slider-thumb{
 .sl-v{font-size:var(--fs);font-weight:600;width:56px;text-align:right;
       color:var(--text-1);flex-shrink:0;white-space:nowrap;font-variant-numeric:tabular-nums}
 
+/* -- controls side by side ------------------------------------------------- */
+/* Two or three controls that belong on one line: a choice between two, a pair
+   of actions, a value with the button that clears it. They share the width
+   equally unless one says otherwise, and the gap is a step of the scale, not a
+   number chosen for this row. A panel that writes display:flex by hand has rows
+   that are only as alike as the last review made them. */
+.ctl-row{display:flex;align-items:center;gap:var(--sp-2)}
+.ctl-row>.btn{flex:1 1 0;min-width:0}
+.ctl-row>.fixed{flex:0 0 auto}      /* stays its own width */
+.ctl-row>.pushed{margin-left:auto}  /* takes the space before it */
+
+/* -- a switch -------------------------------------------------------------- */
+/* Something that is on or off, with its name beside it, and a dimmed second
+   line when the name alone does not say what it costs. It is a filled chip
+   like everything else that can be pressed, because a fill is how this window
+   tells a control from the surface behind it. */
+.toggle{display:flex;align-items:center;cursor:pointer;
+        padding:6px 9px;margin-bottom:4px;
+        background:var(--surface-3);border-radius:var(--r);
+        font-size:var(--fs-sm);color:var(--text-1);
+        transition:background var(--t-out)}
+.toggle:hover{background:var(--control);transition-duration:var(--t-in)}
+.toggle input{margin-right:9px;accent-color:var(--accent);flex-shrink:0}
+.toggle b{font-weight:600}
+.toggle .aside{color:var(--text-3);margin-left:5px}
+
 /* -- cards ----------------------------------------------------------------- */
 .card{background:var(--surface-3);border-radius:var(--r-md);padding:9px 12px}
 
