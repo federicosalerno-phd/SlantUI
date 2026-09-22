@@ -60,6 +60,15 @@
   /* the side panel */
   --rp-w:244px;       /* The width of the panel down the right. */
 
+  /* what opens over the page */
+  /* One veil, one blur, one width. The loading screen and a sheet put */
+  /* the same page out of focus by the same amount, so the window has one */
+  /* way of saying that what is behind is still there and is not the */
+  /* thing to read: shell/splash.py takes --blur from here, and so does */
+  /* .scrim-veil in components.css. */
+  --blur:14px;        /* How far the page behind a veil goes out of focus. */
+  --sheet-w:520px;    /* The width of a sheet, the one surface that opens over the page. */
+
   /* motion. One material, three durations */
   /* A control answers the pointer faster than it lets go, which is what */
   /* makes it feel like a thing and not a slide. The rule the components */

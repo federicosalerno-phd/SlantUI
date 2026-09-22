@@ -299,6 +299,24 @@ nobody looks at again, so the test suite fails when one is.
 </picture>
 </td>
 </tr>
+<tr>
+<th align="center">Asking for more</th>
+<th align="center">A sheet</th>
+</tr>
+<tr>
+<td align="center" valign="middle">
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/federicosalerno-phd/SlantUI/main/docs/img/gold-dark/more.png">
+<img src="https://raw.githubusercontent.com/federicosalerno-phd/SlantUI/main/docs/img/gold-light/more.png" width="176" alt="Two panel rows, each with a small round question mark beside the label; the second one is lit in the accent because its sheet is the one open">
+</picture>
+</td>
+<td align="center" valign="middle">
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/federicosalerno-phd/SlantUI/main/docs/img/gold-dark/sheet.png">
+<img src="https://raw.githubusercontent.com/federicosalerno-phd/SlantUI/main/docs/img/gold-light/sheet.png" width="528" alt="A panel over the page: a title, a close button, and under them what the control does, how it is used, and the keys that drive it">
+</picture>
+</td>
+</tr>
 </table>
 
 ## Colour
@@ -659,7 +677,7 @@ way is under [Outside a browser](#outside-a-browser).*
 
 `docs/gallery.html` is a window holding a catalogue of the widget set, one
 cell per component, and `docs/capture.py` opens it and saves a picture of
-every cell in every palette: thirty two shots, eight palettes, and the four parts
+every cell in every palette: thirty four shots, eight palettes, and the four parts
 of the shell shot where they are. There is no screenshot tool in it. The
 window renders the page, `grabWindow()` hands the frame back as an image, and
 the page itself says which rectangle to keep, so a picture is of the real
@@ -673,7 +691,7 @@ the radius Windows cuts the window to. They are drawn at four times the size
 they are shown at, with grey antialiasing, so that zooming into one finds
 more of it and no coloured fringe on any edge.
 
-A full run is 270 files and twelve megabytes, and `docs/shots/` is ignored by
+A full run is 286 files and twelve megabytes, and `docs/shots/` is ignored by
 git. `docs/publish.py` is what puts the handful this page shows into
 `docs/img/`, which is tracked: it reads the markdown, copies every picture a
 page points at, and deletes the ones nobody points at any more. So a picture

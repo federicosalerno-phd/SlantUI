@@ -427,6 +427,21 @@
               </div>
 
               <div class="gal-cell">
+                <div class="sec-lbl">Asking for more</div>
+                <div class="col" data-shot="more">
+                  <div class="slrow">
+                    <span class="sl-l">Rotation</span>
+                    <button class="more" type="button" aria-label="What this does">?</button>
+                  </div>
+                  <div class="slrow">
+                    <span class="sl-l">Clearance</span>
+                    <button class="more on" type="button" aria-label="What this does">?</button>
+                  </div>
+                </div>
+                <div class="gal-name hidden">more</div>
+              </div>
+
+              <div class="gal-cell">
                 <div class="sec-lbl">Metric rows</div>
                 <div data-shot="metrics">
                   <div class="mg" data-group="accent">The band</div>
@@ -643,6 +658,31 @@
 
 <!-- Qt serves the channel's own script out of its resources, and it has to be
      there before bridge.js. Then SlantUI's four scripts, then this page. -->
+<div class="scrim scrim-veil" id="sheet">
+  <div class="sheet" data-shot="sheet" role="dialog" aria-modal="true" tabindex="-1"
+       aria-labelledby="sheetTitle">
+    <div class="sheet-hd">
+      <div class="sheet-title" id="sheetTitle">Rotation</div>
+      <button class="ct" type="button" data-sheet-close aria-label="Close">
+        <svg viewBox="0 0 24 24"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="sheet-body">
+      <div class="sec-lbl">What it does</div>
+      <p>Turns the model's own reference frame. Everything placed after it is
+        placed in the frame you leave here, so the view you set is the view the
+        next step measures in.</p>
+      <div class="sec-lbl">How to use it</div>
+      <p>Drag the strip for a gentle turn, hold an arrow to go faster the longer
+        you hold, or type the angle. <b>Reset</b> puts the frame back where the
+        file had it.</p>
+      <div class="sec-lbl">Keys</div>
+      <p><span class="chip">R</span> turn, then grab the ring</p>
+      <p><span class="chip">1</span> to <span class="chip">4</span> the four set views</p>
+    </div>
+  </div>
+</div>
+
 <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
 <script src="slantui.js"></script>
 <script src="gallery.js"></script>

@@ -74,7 +74,10 @@ HAZE_QML = Path(__file__).resolve().parent / "haze.qml"
 RING = 132.0
 
 # How far the page behind the veil goes out of focus, as on the WPF side.
-BLUR = 14.0
+# It is a metric, not a number kept here: a sheet opening over the page puts
+# it out of focus by the same amount, and one blur read from one place is what
+# stops the two from drifting apart.
+BLUR = px("blur")
 
 # The bar's band crosses its track in this, whatever else is happening.
 SWEEP_MS = 1750.0

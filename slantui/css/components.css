@@ -68,8 +68,8 @@
    lets go feels like a thing being pressed; the same duration both ways
    feels like a slide. */
 .btn:hover,.wbtn:hover,.ct:hover,.tab:hover,.combo:hover,.combo.open,
-.combo-opt:hover,.mitem:hover,.mrow:hover,.dz:hover,.spin-b:hover,
-.toast.show{transition-duration:var(--t-in)}
+.combo-opt:hover,.mitem:hover,.mrow:hover,.dz:hover,.spin-b:hover,.more:hover,
+.toast.show,.scrim-veil.on,.scrim-veil.on .sheet{transition-duration:var(--t-in)}
 
 /* -- window buttons -------------------------------------------------------- */
 .wbtn{
@@ -435,6 +435,72 @@ input[type=range]::-webkit-slider-thumb{
 }
 @keyframes sweep{from{transform:translateX(-100%)}to{transform:translateX(286%)}}
 .progress-stage{font-size:var(--fs-sm);color:var(--text-4);margin-top:14px;min-height:16px;letter-spacing:.2px}
+
+/* -- the sheet, and the veil it opens on ----------------------------------- */
+/* The one surface that opens over the page to say what a control is for: what
+   it does, how it is driven, and the keys that drive it. One of them in the
+   document, moved from control to control, because two would be two places
+   keeping the same answer.
+
+   Under it the page goes out of focus by --blur, which is the amount the
+   loading screen uses, so the window has ONE way of saying that what is
+   behind is still there and is not the thing to read.
+
+   The scrim above is shown and hidden instantly on purpose, so the fade lives
+   here and not on it: .show puts the layer up, .on fades it in on the next
+   frame, and the layer only comes down once the fade out has run. Hidden
+   still means display:none, and nothing is left composing frames. */
+.scrim-veil{
+  opacity:0;transition:opacity var(--t-out);
+  backdrop-filter:blur(var(--blur));
+}
+.scrim-veil.on{opacity:1}
+
+/* It grows from the control that asked for it: a script puts the origin on
+   that control, so the answer opens out of the question and not out of the
+   middle of the screen. Two composited properties and no layout per frame. */
+.sheet{
+  width:min(var(--sheet-w),calc(100vw - 96px));
+  max-height:calc(100vh - var(--tbar-h) - var(--tab-h) - 96px);
+  display:flex;flex-direction:column;
+  background:var(--surface-2);border-radius:var(--r-lg);
+  transform:scale(.62);opacity:0;
+  transition:transform var(--t-out),opacity var(--t-out);
+}
+.scrim-veil.on .sheet{transform:none;opacity:1}
+.sheet-hd{
+  flex-shrink:0;display:flex;align-items:center;gap:10px;
+  padding:13px 13px 11px 16px;background:var(--surface-3);
+  border-radius:var(--r-lg) var(--r-lg) 0 0;
+}
+.sheet-title{flex:1;font-size:var(--fs-lg);font-weight:600;color:var(--text-1)}
+.sheet-body{
+  flex:1;min-height:0;overflow-y:auto;
+  padding:4px 16px 16px;
+  font-size:var(--fs);line-height:1.7;color:var(--text-2);
+}
+.sheet-body p{margin:0 0 11px}
+.sheet-body p:last-child{margin-bottom:0}
+.sheet-body b{font-weight:600;color:var(--text-1)}
+.sheet-body::-webkit-scrollbar{width:11px}
+.sheet-body::-webkit-scrollbar-thumb{
+  background:var(--control);border-radius:3px;
+  border:3px solid transparent;background-clip:content-box;
+}
+.sheet-body::-webkit-scrollbar-thumb:hover{background:var(--control-hover);background-clip:content-box}
+
+/* The discreet thing that asks, sitting where the control is. A filled dot,
+   never a ring, and it wears the accent while its own sheet is the one open. */
+.more{
+  flex-shrink:0;width:16px;height:16px;padding:0;
+  display:inline-flex;align-items:center;justify-content:center;
+  background:var(--control);color:var(--text-3);
+  border-radius:var(--r-pill);
+  font-size:var(--fs-xs);font-weight:600;line-height:1;
+  transition:background var(--t-out),color var(--t-chg);
+}
+.more:hover{background:var(--control-hover);color:var(--text-1)}
+.more.on{background:var(--accent-surface);color:var(--accent-text)}
 
 /* -- drop zone ------------------------------------------------------------- */
 /* One card that takes a drop and opens a file dialog when clicked. No dashed

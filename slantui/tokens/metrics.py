@@ -96,6 +96,12 @@ METRICS: tuple[Metric, ...] = (
     # ── the side panel ──────────────────────────────────────────────────────
     Metric("rp-w", "panel", "244px", "The width of the panel down the right."),
 
+    # ── what opens over the page ────────────────────────────────────────────
+    Metric("blur", "overlay", "14px",
+           "How far the page behind a veil goes out of focus."),
+    Metric("sheet-w", "overlay", "520px",
+           "The width of a sheet, the one surface that opens over the page."),
+
     # ── motion ──────────────────────────────────────────────────────────────
     Metric("t-in", "motion", "120ms",
            "A control answering the pointer.", kind="time"),
@@ -113,6 +119,7 @@ GROUPS: dict[str, str] = {
     "band": "the title band",
     "rail": "the step rail under it",
     "panel": "the side panel",
+    "overlay": "what opens over the page",
     "motion": "motion. One material, three durations",
 }
 
@@ -123,6 +130,13 @@ GROUP_NOTES: dict[str, str] = {
         "makes it feel like a thing and not a slide. The rule the components\n"
         "keep: everything transitions over --t-out, and the :hover state\n"
         "overrides the duration to --t-in."
+    ),
+    "overlay": (
+        "One veil, one blur, one width. The loading screen and a sheet put\n"
+        "the same page out of focus by the same amount, so the window has one\n"
+        "way of saying that what is behind is still there and is not the\n"
+        "thing to read: shell/splash.py takes --blur from here, and so does\n"
+        ".scrim-veil in components.css."
     ),
     "band": (
         "The band runs the whole width of the window. Its lower profile,\n"

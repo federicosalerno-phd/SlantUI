@@ -98,6 +98,12 @@ const POSES = {
     show: function () { $('job').classList.add('show'); },
     hide: function () { $('job').classList.remove('show'); },
   },
+  /* Two classes, because the veil is put up by one and faded in by the other:
+     a shot has no frames to wait for, so it gets both at once. */
+  'sheet': {
+    show: function () { $('sheet').classList.add('show'); $('sheet').classList.add('on'); },
+    hide: function () { $('sheet').classList.remove('on'); $('sheet').classList.remove('show'); },
+  },
 };
 
 function union(a, b) {
