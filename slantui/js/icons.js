@@ -20,7 +20,9 @@
    character out of the font has no stroke, no grid and no weight of its own:
    it is whatever the typeface happens to give. Naming it here does not fix
    that, but it puts it in the one place where fixing it is a one line change,
-   and `report()` counts how many are left.
+   and `iconReport()` counts how many are left. It does come back as an <svg>
+   like every other sign, with the character set inside it, so a page never
+   has to know which of its signs are finished.
 
    The set is drawn on a 24 by 24 grid, stroked, never filled, so one
    `stroke-width` in the stylesheet governs the lot. Six entries carry a `vb`
@@ -95,17 +97,43 @@ const ICONS = {
   jog: { g: '⇄' }
 };
 
+/* A sign that has not been drawn yet, as an <svg> all the same.
+
+   The stylesheet's contract is that a sign inside a button, a toolbar or a row
+   label IS an inline <svg>: that is what gets the size, the stroke and the
+   seven pixels of air next to the word, and what keeps it from being a stray
+   white dingbat out of a fallback font. A character handed back as a character
+   obeys none of that, and it showed: it came out glued to the word it sat
+   next to. So a character is set INSIDE the drawing instead, filled with the
+   text colour and not stroked, and it behaves like every other sign until the
+   day it is replaced by one. */
+function _glyphBox(c) {
+  const t = String(c).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return '<text x="12" y="17.5" text-anchor="middle" font-size="19"'
+    + ' fill="currentColor" stroke="none">' + t + '</text>';
+}
+
 /* The one place that turns an entry into markup. Returns a string and not an
    element on purpose: a string goes into innerHTML, into a template and into
    a test that has no DOM, and the three callers of this file all want one. */
+/* What a sign looks like where nothing has said. These are presentation
+   ATTRIBUTES, which any CSS rule beats, so `.btn svg`, `.ct svg` and
+   `.spin-b svg` still govern where they apply. They matter where they do not:
+   an <svg> with no width given takes its own intrinsic size, which is 300 by
+   150, and one with no stroke given paints itself black. Both have happened,
+   and the second is invisible on a dark surface. */
+const ICON_DEFAULTS = ' width="1em" height="1em" fill="none" stroke="currentColor"'
+  + ' stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"';
+
 function icon(name, attrs) {
   const e = ICONS[name];
   if (e === undefined) return '';
   const def = (typeof e === 'string') ? { s: '<path d="' + e + '"/>' } : e;
-  if (def.g) return def.g;
+  const inside = def.g ? _glyphBox(def.g) : def.s;
   let a = '';
   if (attrs) for (const k in attrs) a += ' ' + k + '="' + String(attrs[k]) + '"';
-  return '<svg viewBox="' + (def.vb || ICON_GRID) + '"' + a + '>' + def.s + '</svg>';
+  return '<svg viewBox="' + (def.vb || ICON_GRID) + '"' + ICON_DEFAULTS + a
+    + '>' + inside + '</svg>';
 }
 
 /* Put one into an element, and say whether there was one to put. */

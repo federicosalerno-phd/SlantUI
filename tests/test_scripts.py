@@ -333,11 +333,26 @@ def test_an_entry_comes_back_as_markup_whatever_shape_it_is(js):
     js.eval(_src("icons.js"))
     js.eval("ICONS['t-path']='M1 1h2'; ICONS['t-raw']={s:'<circle r=\"2\"/>'};"
             "ICONS['t-glyph']={g:'×'};")
-    assert J(js, "icon('t-path')") == '<svg viewBox="0 0 24 24"><path d="M1 1h2"/></svg>'
-    assert J(js, "icon('t-raw')") == '<svg viewBox="0 0 24 24"><circle r="2"/></svg>'
-    assert J(js, "icon('t-glyph')") == "×"
-    assert J(js, "icon('t-path',{class:'r'})").startswith('<svg viewBox="0 0 24 24" class="r"')
+    D = J(js, "ICON_DEFAULTS")
+    assert J(js, "icon('t-path')") == '<svg viewBox="0 0 24 24"%s><path d="M1 1h2"/></svg>' % D
+    assert J(js, "icon('t-raw')") == '<svg viewBox="0 0 24 24"%s><circle r="2"/></svg>' % D
+    # a character comes back INSIDE an <svg>, because the stylesheet wants one
+    assert J(js, "icon('t-glyph')") == ('<svg viewBox="0 0 24 24"%s><text x="12" y="17.5"'
+                                        ' text-anchor="middle" font-size="19"'
+                                        ' fill="currentColor" stroke="none">×</text></svg>' % D)
+    assert J(js, "icon('t-path',{class:'r'})").endswith(' class="r"><path d="M1 1h2"/></svg>')
     assert J(js, "icon('no-such-sign')") == ""
+
+
+def test_a_sign_knows_how_to_draw_itself_where_nothing_says(js):
+    """The defaults are ATTRIBUTES, which any rule beats, and they are there
+    for the places with no rule: an <svg> given no width takes 300 by 150, and
+    one given no stroke paints itself black, which on a dark surface is
+    invisible. Both had happened."""
+    js.eval(_src("icons.js"))
+    m = J(js, "icon('undo')")
+    for want in ('width="1em"', 'height="1em"', 'fill="none"', 'stroke="currentColor"'):
+        assert want in m, want
 
 
 def test_set_icon_says_whether_there_was_one_to_set(js):
