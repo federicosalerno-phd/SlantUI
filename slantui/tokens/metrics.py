@@ -63,6 +63,12 @@ METRICS: tuple[Metric, ...] = (
            "The application name in the title bar, and nothing else. A modern "
            "humanist sans if the machine has one, Segoe UI Variable next on "
            "Windows 11, plain Segoe UI last.", kind="font"),
+    Metric("font-credit", "type",
+           "'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif",
+           "The credit line the licence asks for, and nothing else. It is the "
+           "library speaking rather than the application, so it is set in the "
+           "text face of the platform rather than in the one the application "
+           "reads in.", kind="font"),
     Metric("mono", "type", "Consolas,'Courier New',monospace",
            "Numbers in a column, paths, anything measured.", kind="font"),
     Metric("fs", "type", "12.5px", "Body."),

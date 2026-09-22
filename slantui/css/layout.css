@@ -56,7 +56,7 @@
 .tbar-credit{
   position:absolute;left:50%;top:0;transform:translateX(-50%);
   height:var(--tbar-thin);display:flex;align-items:center;
-  font-family:'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif;
+  font-family:var(--font-credit);
   font-size:11px;font-weight:400;font-style:italic;letter-spacing:.25px;
   color:var(--text-4);white-space:nowrap;pointer-events:none;
 }

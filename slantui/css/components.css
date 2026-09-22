@@ -264,7 +264,16 @@ input[type=range]::-webkit-slider-thumb{
 .slrow>*+*{margin-left:9px}
 /* The value has a fixed width: a longer one ("20.3 mm") must never shorten
    the track, or the thumb would slide on its own. The labels are static. */
-.sl-l{font-size:var(--fs);color:var(--text-3);min-width:58px;flex-shrink:0}
+/* A row label may carry a small icon in front of its name, which is how a row
+   whose name alone would be ambiguous says what it moves. The icon is part of
+   the label: it is sized like one and it never pushes the name onto a second
+   line, which is what an <svg> with no width given does, since it is laid out
+   as a word and a word is what wraps. */
+.sl-l{font-size:var(--fs);color:var(--text-3);min-width:58px;flex-shrink:0;
+      display:flex;align-items:center;gap:6px}
+.sl-l svg{width:13px;height:13px;flex-shrink:0;
+          stroke:currentColor;fill:none;stroke-width:1.8;
+          stroke-linecap:round;stroke-linejoin:round}
 .sl-v{font-size:var(--fs);font-weight:600;width:56px;text-align:right;
       color:var(--text-1);flex-shrink:0;white-space:nowrap;font-variant-numeric:tabular-nums}
 

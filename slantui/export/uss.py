@@ -43,7 +43,8 @@ _HEADER = """\
 
    The fonts are not here. USS wants a font asset and not a family name, so a
    project sets -unity-font-definition on its own root from its own asset. The
-   names the design uses are in the metrics: font, font-brand and mono. */
+   names the design uses are in the metrics: font, font-brand, font-credit
+   and mono. */
 """
 
 

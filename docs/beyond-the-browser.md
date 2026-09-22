@@ -457,7 +457,7 @@ root.AddToClassList("slant-high-contrast");
 The fonts are left out. USS wants a font asset through `resource()` or
 `url()`, and a family name means nothing to it, so a property carrying one
 would silently do nothing. The names the design uses are in the metrics:
-`font`, `font-brand` and `mono`.
+`font`, `font-brand`, `font-credit` and `mono`.
 
 This target has not been opened in a Unity project. The syntax is USS and the
 values are the same ones every other target gets, and that is as far as the

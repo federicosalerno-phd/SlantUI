@@ -27,6 +27,10 @@
   /* The application name in the title bar, and nothing else. A modern humanist sans if */
   /* the machine has one, Segoe UI Variable next on Windows 11, plain Segoe UI last. */
   --font-brand:'Abadi','Abadi MT Std','Segoe UI Variable Display','Selawik','Segoe UI',system-ui,sans-serif;
+  /* The credit line the licence asks for, and nothing else. It is the library speaking */
+  /* rather than the application, so it is set in the text face of the platform rather */
+  /* than in the one the application reads in. */
+  --font-credit:'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif;
   /* Numbers in a column, paths, anything measured. */
   --mono:Consolas,'Courier New',monospace;
   --fs:12.5px;        /* Body. */
