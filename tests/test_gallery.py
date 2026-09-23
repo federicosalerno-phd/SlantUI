@@ -173,7 +173,8 @@ def test_the_name_printed_under_a_cell_is_the_name_of_the_shot():
 def test_every_pose_is_a_shot_and_every_posed_cell_has_a_button():
     """The five states a shot cannot hold by itself."""
     poses = set(_POSE_KEY.findall(GALLERY_JS))
-    assert poses == {"dropdown-open", "toast", "spinner", "progress", "sheet"}
+    assert poses == {"dropdown-open", "toast", "spinner", "progress", "sheet",
+                     "sheet-side"}
     assert poses <= set(_shots())
     assert set(_POSE_ATTR.findall(PAGE)) <= poses
 

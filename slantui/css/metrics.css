@@ -15,23 +15,23 @@
 
 :root{
   /* radii, on one scale: 4 inputs, 5 buttons, 6 cards, 7 panels */
-  --r-xs:4px;         /* A field you type or pick into. */
-  --r:5px;            /* Anything you press: buttons, tabs, chips, rows. */
-  --r-md:6px;         /* A raised card, or a plate over the stage. */
-  --r-lg:7px;         /* A framed pane, a dialog, an image. */
-  --r-pill:99px;      /* A pill: any height, fully round ends. */
+  --r-xs:4px;          /* A field you type or pick into. */
+  --r:5px;             /* Anything you press: buttons, tabs, chips, rows. */
+  --r-md:6px;          /* A raised card, or a plate over the stage. */
+  --r-lg:7px;          /* A framed pane, a dialog, an image. */
+  --r-pill:99px;       /* A pill: any height, fully round ends. */
 
   /* spacing, on one scale: 0, 4, 8, 12 */
   /* Four steps and no others, counting the zero: nothing, a sibling, a */
   /* neighbour, a new subject. A panel that needs a fifth is a panel whose */
   /* grouping is wrong, and the way to mend it is a section, not a number. */
   /* An application that reads these draws a panel spaced like every other */
-  /* panel by construction rather than by review. */
-  --sp-1:4px;         /* Between two controls of one section. */
+  /* panel by construction, and not by review. */
+  --sp-1:4px;          /* Between two controls of one section. */
   /* Between a control and something that is not one, and the gap inside a row of */
   /* controls. */
   --sp-2:8px;
-  --sp-3:12px;        /* Before a section that starts a new subject. */
+  --sp-3:12px;         /* Before a section that starts a new subject. */
 
   /* type */
   /* Every piece of text but the application name. */
@@ -40,15 +40,15 @@
   /* the machine has one, Segoe UI Variable next on Windows 11, plain Segoe UI last. */
   --font-brand:'Abadi','Abadi MT Std','Segoe UI Variable Display','Selawik','Segoe UI',system-ui,sans-serif;
   /* The credit line the licence asks for, and nothing else. It is the library speaking */
-  /* rather than the application, so it is set in the text face of the platform rather */
-  /* than in the one the application reads in. */
+  /* and not the application, so it is set in the text face of the platform and not in */
+  /* the one the application reads in. */
   --font-credit:'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif;
   /* Numbers in a column, paths, anything measured. */
   --mono:Consolas,'Courier New',monospace;
-  --fs:12.5px;        /* Body. */
-  --fs-sm:11.5px;     /* Captions. */
-  --fs-xs:10px;       /* Uppercase section labels. */
-  --fs-lg:13.5px;     /* Panel titles. */
+  --fs:12.5px;         /* Body. */
+  --fs-sm:11.5px;      /* Captions. */
+  --fs-xs:10px;        /* Uppercase section labels. */
+  --fs-lg:13.5px;      /* Panel titles. */
 
   /* the title band */
   /* The band runs the whole width of the window. Its lower profile, */
@@ -58,19 +58,19 @@
   /* the window buttons are). The two vertices of that run are rounded by */
   /* --tbar-join. slantui/geometry.py turns these four into the profile, */
   /* and js/titlebar.js cuts the band to it. */
-  --tbar-h:44px;      /* The thick end, on the left, under the logo and the name. */
-  --tbar-thin:28px;   /* The thin end, on the right, under the window buttons. */
-  --tbar-slant:38px;  /* The horizontal run of the oblique between the two. */
-  --tbar-join:8px;    /* The radius the oblique's two vertices are rounded by. */
+  --tbar-h:44px;       /* The thick end, on the left, under the logo and the name. */
+  --tbar-thin:28px;    /* The thin end, on the right, under the window buttons. */
+  --tbar-slant:38px;   /* The horizontal run of the oblique between the two. */
+  --tbar-join:8px;     /* The radius the oblique's two vertices are rounded by. */
 
   /* the step rail under it */
-  --tab-h:42px;       /* The height of the rail and of a step tab. */
+  --tab-h:42px;        /* The height of the rail and of a step tab. */
   /* Every step tab is this wide, so the numbers line up in one column and the initials */
   /* in another. They shrink together, never one at a time, when the window is narrow. */
   --tab-w:132px;
 
   /* the side panel */
-  --rp-w:244px;       /* The width of the panel down the right. */
+  --rp-w:244px;        /* The width of the panel down the right. */
 
   /* the comb the panel is laid on */
   /* A panel is a column of slots, and a control does not pick where it */
@@ -89,20 +89,27 @@
   --block:96px;
 
   /* what opens over the page */
-  /* One veil, one blur, one width. The loading screen and a sheet put */
-  /* the same page out of focus by the same amount, so the window has one */
-  /* way of saying that what is behind is still there and is not the */
-  /* thing to read: shell/splash.py takes --blur from here, and so does */
-  /* .scrim-veil in components.css. */
-  --blur:14px;        /* How far the page behind a veil goes out of focus. */
-  --sheet-w:520px;    /* The width of a sheet, the one surface that opens over the page. */
+  /* One blur and two widths. The blur is the loading screen's, which is */
+  /* the one thing that does put the page out of focus, because until it */
+  /* goes there is nothing behind it to look at: shell/splash.py takes */
+  /* --blur from here, and the screen drawn in WPF takes it from the same */
+  /* place. A sheet veils nothing and blurs nothing. It opens beside the */
+  /* control it is about, at --sheet-w, or docked down the side of the */
+  /* work area at --sheet-wide. */
+  --blur:14px;         /* How far the page behind a veil goes out of focus. */
+  /* The width of a sheet, the one surface that opens beside a control to say what that */
+  /* control is for. */
+  --sheet-w:520px;
+  /* The width of a sheet docked down the side of the work area, the one that holds a */
+  /* picture and the controls that work on it. */
+  --sheet-wide:660px;
 
   /* motion. One material, three durations */
   /* A control answers the pointer faster than it lets go, which is what */
   /* makes it feel like a thing and not a slide. The rule the components */
   /* keep: everything transitions over --t-out, and the :hover state */
   /* overrides the duration to --t-in. */
-  --t-in:120ms;       /* A control answering the pointer. */
-  --t-out:180ms;      /* The same control letting go. */
-  --t-chg:140ms;      /* A state changing on its own: a status dot, a step marked done. */
+  --t-in:120ms;        /* A control answering the pointer. */
+  --t-out:180ms;       /* The same control letting go. */
+  --t-chg:140ms;       /* A state changing on its own: a status dot, a step marked done. */
 }

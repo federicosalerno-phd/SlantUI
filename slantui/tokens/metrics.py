@@ -75,8 +75,8 @@ METRICS: tuple[Metric, ...] = (
     Metric("font-credit", "type",
            "'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif",
            "The credit line the licence asks for, and nothing else. It is the "
-           "library speaking rather than the application, so it is set in the "
-           "text face of the platform rather than in the one the application "
+           "library speaking and not the application, so it is set in the "
+           "text face of the platform and not in the one the application "
            "reads in.", kind="font"),
     Metric("mono", "type", "Consolas,'Courier New',monospace",
            "Numbers in a column, paths, anything measured.", kind="font"),
@@ -117,7 +117,11 @@ METRICS: tuple[Metric, ...] = (
     Metric("blur", "overlay", "14px",
            "How far the page behind a veil goes out of focus."),
     Metric("sheet-w", "overlay", "520px",
-           "The width of a sheet, the one surface that opens over the page."),
+           "The width of a sheet, the one surface that opens beside a control "
+           "to say what that control is for."),
+    Metric("sheet-wide", "overlay", "660px",
+           "The width of a sheet docked down the side of the work area, the "
+           "one that holds a picture and the controls that work on it."),
 
     # ── motion ──────────────────────────────────────────────────────────────
     Metric("t-in", "motion", "120ms",
@@ -149,7 +153,7 @@ GROUP_NOTES: dict[str, str] = {
         "neighbour, a new subject. A panel that needs a fifth is a panel whose\n"
         "grouping is wrong, and the way to mend it is a section, not a number.\n"
         "An application that reads these draws a panel spaced like every other\n"
-        "panel by construction rather than by review."
+        "panel by construction, and not by review."
     ),
     "motion": (
         "A control answers the pointer faster than it lets go, which is what\n"
@@ -158,11 +162,13 @@ GROUP_NOTES: dict[str, str] = {
         "overrides the duration to --t-in."
     ),
     "overlay": (
-        "One veil, one blur, one width. The loading screen and a sheet put\n"
-        "the same page out of focus by the same amount, so the window has one\n"
-        "way of saying that what is behind is still there and is not the\n"
-        "thing to read: shell/splash.py takes --blur from here, and so does\n"
-        ".scrim-veil in components.css."
+        "One blur and two widths. The blur is the loading screen's, which is\n"
+        "the one thing that does put the page out of focus, because until it\n"
+        "goes there is nothing behind it to look at: shell/splash.py takes\n"
+        "--blur from here, and the screen drawn in WPF takes it from the same\n"
+        "place. A sheet veils nothing and blurs nothing. It opens beside the\n"
+        "control it is about, at --sheet-w, or docked down the side of the\n"
+        "work area at --sheet-wide."
     ),
     "comb": (
         "A panel is a column of slots, and a control does not pick where it\n"

@@ -37,15 +37,18 @@
       if it is still too long does it drop the middle, keeping the start and
       the extension. The full text is always in the tooltip.
 
-   4. `openSheet`, the one surface that opens over the page to say what a
-      control is for. A page that explains its controls inside its own panels
-      ends up with panels that are mostly prose; this puts every explanation
-      in one place, opens it from the control that was asked about, and takes
-      Esc, a press outside and the keyboard with it. See the block over
-      `openSheet` below for the markup and the one function a page hands over.
+   4. `openSheet`, the one surface that says what a control is for. A page
+      that explains its controls inside its own panels ends up with panels
+      that are mostly prose; this puts every explanation in one place and
+      opens it BESIDE the control that was asked about, on the far side of
+      the band that control sits in. It veils nothing, blurs nothing and
+      takes no focus, so the page it is explaining stays usable while it is
+      open, and it closes on Esc, on a press outside, or on the same control
+      again. See the block over `openSheet` below for the markup and the one
+      function a page hands over.
 
    Leaves on the window: initSelects, setOptions, numStep, fitOneLine,
-   initSheets, openSheet, closeSheet, sheetIsOpen.
+   initSheets, openSheet, closeSheet, sheetIsOpen, showSheet, hideSheet.
    ========================================================================== */
 
 /* ── dropdown ─────────────────────────────────────────────────────────────── */
@@ -237,21 +240,19 @@ function fitOneLine(el, text, maxPx, minPx) {
 }
 
 /* ── the sheet ────────────────────────────────────────────────────────────── */
-/* One surface that opens over the page and says what a control is for. There
-   is one in the document and it is moved from control to control, so the page
-   never grows a second place keeping the same answer.
+/* One surface that says what a control is for. There is one in the document
+   and it is moved from control to control, so a page never grows a second
+   place keeping the same answer.
 
    The markup, once, anywhere in the body:
 
-     <div class="scrim scrim-veil" id="sheetVeil">
-       <div class="sheet" role="dialog" aria-modal="true" tabindex="-1"
-            aria-labelledby="sheetTitle">
-         <div class="sheet-hd">
-           <div class="sheet-title" id="sheetTitle"></div>
-           <button class="ct" data-sheet-close>...</button>
-         </div>
-         <div class="sheet-body"></div>
+     <div class="sheet sheet-at" id="sheet" role="note" aria-labelledby="sheetTitle">
+       <div class="sheet-hd">
+         <div class="sheet-title" id="sheetTitle"></div>
+         <button class="ct" data-sheet-close>...</button>
        </div>
+       <div class="sheet-fig"></div>
+       <div class="sheet-body"></div>
      </div>
 
    A control that has something to say carries a `.more` button beside it, and
@@ -259,25 +260,45 @@ function fitOneLine(el, text, maxPx, minPx) {
 
      initSheets(function (trigger) {
        const k = trigger.getAttribute('data-more');
-       return k ? { title: titleFor(k), html: bodyFor(k) } : null;
+       return k ? { title: titleFor(k), html: bodyFor(k), fig: figFor(k) } : null;
      });
+
+   `fig` is a drawing and is optional; it goes in `.sheet-fig`, which takes no
+   room at all while it is empty.
 
    The listener is delegated, so a `.more` written into the page an hour later
    works without wiring. `.more` has to be a <button>: Enter and Space then
-   reach it as a click, and the whole thing is on the keyboard for free. */
-let _shOpener = null;             // the .more that asked, and gets the focus back
+   reach it as a click, and the whole thing is on the keyboard for free.
+
+   It opens BESIDE the question and takes nothing away from the page. No veil,
+   no blur, and no focus: the reader was in the middle of something and is
+   still in the middle of it, what is under the sheet still answers a press,
+   and Esc reaches the sheet from wherever the focus happens to be. */
+
+/* The bands fixed to the window's edge. A sheet opened from a control inside
+   one of them clears the WHOLE band, and not just the control that asked: an
+   answer lying over the row under the question is an answer in the way. */
+const SHEET_BANDS = '.rp,.toolbar,.topbar,.titlebar';
+
+let _shOpener = null;             // the .more that asked, and wears the accent
 let _shProvider = null;
-let _shTimer = 0;
 
 function _shParts() {
-  const veil = document.querySelector('.scrim-veil');
-  if (!veil) return null;
+  const sheet = document.querySelector('.sheet-at');
+  if (!sheet) return null;
   return {
-    veil: veil,
-    sheet: veil.querySelector('.sheet'),
-    title: veil.querySelector('.sheet-title'),
-    body: veil.querySelector('.sheet-body'),
+    sheet: sheet,
+    title: sheet.querySelector('.sheet-title'),
+    fig: sheet.querySelector('.sheet-fig'),
+    body: sheet.querySelector('.sheet-body'),
   };
+}
+
+/* A metric in pixels, read off the page, so a gap here is the library's own
+   spacing and not a number written a second time. */
+function _shPx(name, fallback) {
+  const n = parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name));
+  return (isFinite(n) && n > 0) ? n : fallback;
 }
 
 /* --t-out in milliseconds, so the layer comes down when the fade has run and
@@ -288,77 +309,150 @@ function _shOutMs() {
   return (isFinite(n) && n > 0) ? (v.indexOf('ms') >= 0 ? n : n * 1000) : 180;
 }
 
-function _shFocusable(root) {
-  return [].slice.call(root.querySelectorAll(
-    'button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])'))
-    .filter(function (el) { return !el.disabled && el.offsetParent !== null; });
+/* Where a sheet is allowed to lie: the stage, which is the part of the window
+   that is not a band. A sheet is about the work, so it belongs over the work,
+   and a sheet lying half across a toolbar reads as a sheet that missed.
+
+   A page with no stage, or with one too small to be the work area, gets the
+   window with the bands along its top taken off it. */
+function _shField(gap) {
+  const W = window.innerWidth, H = window.innerHeight;
+  const st = document.querySelector('.stage');
+  if (st) {
+    const r = st.getBoundingClientRect();
+    if (r.width > W / 2 && r.height > H / 2)
+      return { l: r.left + gap, t: r.top + gap, r: r.right - gap, b: r.bottom - gap };
+  }
+  const f = { l: gap, t: gap, r: W - gap, b: H - gap };
+  const bars = document.querySelectorAll('.titlebar,.topbar');
+  for (let i = 0; i < bars.length; i++) {
+    const r = bars[i].getBoundingClientRect();
+    if (r.height > 0 && r.width > W / 2 && r.top < H / 2) f.t = Math.max(f.t, r.bottom + gap);
+  }
+  return f;
+}
+
+/* Put `el` beside `trigger`, outside the band the trigger sits in.
+
+   The sheet leaves by whichever of that band's four sides has the most room
+   inside the field, which puts it over the work area when the question came
+   from a side panel and under the rail when it came from a toolbar, without
+   either being written down here. It is capped to the room there is BEFORE
+   it is measured, so what opens can never reach back over the band it came
+   out of, whatever the window size. Everything is read once, on opening. */
+function _shPlace(el, trigger) {
+  const gap = _shPx('--sp-3', 12);
+  const t = trigger.getBoundingClientRect();
+  const host = (trigger.closest && trigger.closest(SHEET_BANDS)) || trigger;
+  const h = host.getBoundingClientRect();
+  const f = _shField(gap);
+
+  const sides = [
+    { name: 'left', room: h.left - f.l },
+    { name: 'right', room: f.r - h.right },
+    { name: 'up', room: h.top - f.t },
+    { name: 'down', room: f.b - h.bottom },
+  ];
+  let pick = sides[0];
+  for (let i = 1; i < sides.length; i++) if (sides[i].room > pick.room) pick = sides[i];
+  const across = (pick.name === 'left' || pick.name === 'right');
+
+  /* One gap between the band and the sheet, and the sheet inside the field on
+     the other axis. */
+  el.style.maxWidth = (across ? Math.max(0, pick.room - gap) : Math.max(0, f.r - f.l)) + 'px';
+  el.style.maxHeight = (across ? Math.max(0, f.b - f.t) : Math.max(0, pick.room - gap)) + 'px';
+
+  /* offsetWidth is the layout box, which a transform does not move, so the
+     sheet is measured while it is still scaled down: there is nothing to
+     switch off and switch back on. */
+  const w = el.offsetWidth, ht = el.offsetHeight;
+  let x, y;
+  if (across) {
+    x = (pick.name === 'left') ? h.left - gap - w : h.right + gap;
+    y = (t.top + t.bottom) / 2 - ht / 2;
+  } else {
+    y = (pick.name === 'up') ? h.top - gap - ht : h.bottom + gap;
+    x = (t.left + t.right) / 2 - w / 2;
+  }
+  /* Beside the question where there is room for it, and inside the field
+     where there is not: a sheet asked for from the bottom of a tall panel
+     stops at the bottom of the work area. */
+  x = Math.min(Math.max(x, f.l), Math.max(f.l, f.r - w));
+  y = Math.min(Math.max(y, f.t), Math.max(f.t, f.b - ht));
+
+  el.style.left = Math.round(x) + 'px';
+  el.style.top = Math.round(y) + 'px';
+  /* It grows out of the question: the origin is the middle of the control
+     that asked, in the sheet's own coordinates. */
+  el.style.transformOrigin = Math.round((t.left + t.right) / 2 - x) + 'px '
+                           + Math.round((t.top + t.bottom) / 2 - y) + 'px';
+}
+
+/* Up, and in on the next frame. Hidden is display:none, so the two steps are
+   what lets a transition run at all: the layer has to be in the layout for a
+   frame before anything about it can change. Any .sheet goes up this way,
+   which is how a page drives one it placed itself. */
+function showSheet(el) {
+  if (!el) return;
+  clearTimeout(el._shTimer);
+  el.classList.add('show');
+  const arrive = function () { el.classList.add('on'); };
+  if (typeof requestAnimationFrame === 'function') requestAnimationFrame(arrive);
+  else arrive();
+}
+
+/* Out, and down once the fade has run. */
+function hideSheet(el) {
+  if (!el || !el.classList.contains('show')) return;
+  el.classList.remove('on');
+  clearTimeout(el._shTimer);
+  el._shTimer = setTimeout(function () { el.classList.remove('show'); }, _shOutMs());
+}
+
+/* The trigger wears the accent while its own sheet is the one open, and says
+   so to a reader who cannot see the accent. */
+function _shMark(el, open) {
+  if (!el || !el.classList) return;
+  el.classList.toggle('on', !!open);
+  if (el.setAttribute) el.setAttribute('aria-expanded', open ? 'true' : 'false');
 }
 
 /* Open it for `trigger`. The same trigger pressed again closes it, the way
    the dropdown behaves, so the control is a switch and not a one way door. */
-function openSheet(trigger, title, html) {
+function openSheet(trigger, title, html, fig) {
   const p = _shParts();
-  if (!p || !p.sheet) return;
+  if (!p || !p.body) return;
   if (_shOpener && _shOpener === trigger) { closeSheet(); return; }
-  if (_shOpener) _shOpener.classList.remove('on');
-  clearTimeout(_shTimer);
+  if (_shOpener) _shMark(_shOpener, false);
+  clearTimeout(p.sheet._shTimer);
 
-  p.title.textContent = (title == null) ? '' : String(title);
+  if (p.title) p.title.textContent = (title == null) ? '' : String(title);
   p.body.innerHTML = (html == null) ? '' : String(html);
+  if (p.fig) p.fig.innerHTML = (fig == null) ? '' : String(fig);
   p.body.scrollTop = 0;
-  p.veil.classList.add('show');
 
-  /* Where it grows from. The sheet is scaled down while it is closed, so its
-     rectangle is measured with the transform off: once, on opening, never per
-     frame. Reading offsetWidth in between is what stops the browser from
-     animating away from `none`. */
-  let origin = '50% 50%';
-  if (trigger && trigger.getBoundingClientRect) {
-    const before = p.sheet.style.transition;
-    p.sheet.style.transition = 'none';
-    p.sheet.style.transform = 'none';
-    const a = trigger.getBoundingClientRect();
-    const c = p.sheet.getBoundingClientRect();
-    if (c.width > 0 && c.height > 0) {
-      origin = Math.round(a.left + a.width / 2 - c.left) + 'px '
-             + Math.round(a.top + a.height / 2 - c.top) + 'px';
-    }
-    p.sheet.style.transform = '';
-    void p.sheet.offsetWidth;
-    p.sheet.style.transition = before;
-  }
-  p.sheet.style.transformOrigin = origin;
-
-  const show = function () { p.veil.classList.add('on'); };
-  if (typeof requestAnimationFrame === 'function') requestAnimationFrame(show);
-  else show();
+  p.sheet.classList.add('show');
+  if (trigger && trigger.getBoundingClientRect) _shPlace(p.sheet, trigger);
+  showSheet(p.sheet);
 
   _shOpener = trigger || null;
-  if (trigger && trigger.classList) trigger.classList.add('on');
-  if (p.sheet.focus) p.sheet.focus();
+  _shMark(_shOpener, true);
 }
 
-/* Esc, a press outside, or the same trigger again. The focus goes back to
-   whatever asked, because a reader who opened this with the keyboard has to
-   get the keyboard back where they left it. */
+/* Esc, a press outside, or the same trigger again. Nothing is handed back,
+   because nothing was taken: the focus never left the page. */
 function closeSheet() {
   const p = _shParts();
-  if (!p || !p.veil.classList.contains('show')) return;
-  p.veil.classList.remove('on');
+  if (!p || !p.sheet.classList.contains('show')) return;
   const back = _shOpener;
   _shOpener = null;
-  if (back && back.classList) back.classList.remove('on');
-  clearTimeout(_shTimer);
-  _shTimer = setTimeout(function () {
-    p.veil.classList.remove('show');
-    p.body.innerHTML = '';
-  }, _shOutMs());
-  if (back && back.focus) back.focus();
+  _shMark(back, false);
+  hideSheet(p.sheet);
 }
 
 function sheetIsOpen() {
   const p = _shParts();
-  return !!(p && p.veil.classList.contains('show'));
+  return !!(p && p.sheet.classList.contains('show'));
 }
 
 /* Hand over the one function that turns a trigger into its content. Call it
@@ -375,15 +469,17 @@ function initSheets(provider) {
       e.preventDefault();
       e.stopPropagation();
       const c = _shProvider ? _shProvider(more) : null;
-      if (c) openSheet(more, c.title, c.html);
+      if (c) openSheet(more, c.title, c.html, c.fig);
       return;
     }
     if (t && t.closest && t.closest('[data-sheet-close]')) closeSheet();
   });
 
   /* Capture, so a press outside closes before that press does anything else.
-     A press on the trigger is its own business: letting it through is what
-     makes the same trigger close what it opened. */
+     It is not swallowed: the control under it still gets the press, which is
+     the whole difference between this and something modal. A press on the
+     trigger is its own business, and letting it through is what makes the
+     same trigger close what it opened. */
   window.addEventListener('mousedown', function (e) {
     if (!sheetIsOpen()) return;
     const p = _shParts();
@@ -393,24 +489,16 @@ function initSheets(provider) {
   }, true);
 
   window.addEventListener('keydown', function (e) {
-    if (!sheetIsOpen()) return;
-    if (e.key === 'Escape') { e.preventDefault(); closeSheet(); return; }
-    if (e.key !== 'Tab') return;
-    /* The focus stays inside while it is open: the sheet itself is the first
-       stop, and the ends of the list wrap onto each other. */
-    const p = _shParts();
-    const f = _shFocusable(p.sheet);
-    if (!f.length) { e.preventDefault(); return; }
-    const here = document.activeElement;
-    if (here === p.sheet) {
-      e.preventDefault();
-      (e.shiftKey ? f[f.length - 1] : f[0]).focus();
-    } else if (!e.shiftKey && here === f[f.length - 1]) {
-      e.preventDefault(); f[0].focus();
-    } else if (e.shiftKey && here === f[0]) {
-      e.preventDefault(); f[f.length - 1].focus();
-    } else if (!p.sheet.contains(here)) {
-      e.preventDefault(); f[0].focus();
-    }
+    if (e.key !== 'Escape' || !sheetIsOpen()) return;
+    e.preventDefault();
+    closeSheet();
   }, true);
+
+  /* A window being resized moves the band the sheet came out of, and a sheet
+     that stayed where it was would end up over it. */
+  window.addEventListener('resize', function () {
+    if (!sheetIsOpen() || !_shOpener) return;
+    const p = _shParts();
+    if (p) _shPlace(p.sheet, _shOpener);
+  });
 }

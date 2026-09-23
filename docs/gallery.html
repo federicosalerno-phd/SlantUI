@@ -725,28 +725,64 @@ meshing: 1 of 3
 
 <!-- Qt serves the channel's own script out of its resources, and it has to be
      there before bridge.js. Then SlantUI's four scripts, then this page. -->
-<div class="scrim scrim-veil" id="sheet">
-  <div class="sheet" data-shot="sheet" role="dialog" aria-modal="true" tabindex="-1"
-       aria-labelledby="sheetTitle">
-    <div class="sheet-hd">
-      <div class="sheet-title" id="sheetTitle">Rotation</div>
-      <button class="ct" type="button" data-sheet-close aria-label="Close">
-        <svg viewBox="0 0 24 24"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
-      </button>
+<!-- The sheet, anchored. It is put beside the control that asked by openSheet
+     in slantui.js, which is also what the pose below calls, so the shot is the
+     real thing and not a card parked in the middle of the page. The figure
+     stays above the words and outside the scroll; empty, it takes no room. -->
+<div class="sheet sheet-at" id="sheet" data-shot="sheet" role="note"
+     aria-labelledby="sheetTitle">
+  <div class="sheet-hd">
+    <div class="sheet-title" id="sheetTitle">Rotation</div>
+    <button class="ct" type="button" data-sheet-close aria-label="Close">
+      <svg viewBox="0 0 24 24"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
+    </button>
+  </div>
+  <div class="sheet-fig">
+    <svg viewBox="0 0 24 24">
+      <path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v4h-4"/>
+      <circle cx="12" cy="12" r="1.6"/>
+    </svg>
+  </div>
+  <div class="sheet-body">
+    <div class="sec-lbl">What it does</div>
+    <p>Turns the model's own reference frame. Everything placed after it is
+      placed in the frame you leave here, so the view you set is the view the
+      next step measures in.</p>
+    <div class="sec-lbl">How to use it</div>
+    <p>Drag the strip for a gentle turn, hold an arrow to go faster the longer
+      you hold, or type the angle. <b>Reset</b> puts the frame back where the
+      file had it.</p>
+    <div class="sec-lbl">Keys</div>
+    <p><span class="chip">R</span> turn, then grab the ring</p>
+    <p><span class="chip">1</span> to <span class="chip">4</span> the four set views</p>
+  </div>
+</div>
+
+<!-- The other placement: a sheet docked down the side of the work area, which
+     is the frame a page puts an editor in. Same header and same body, and the
+     page fills it with whatever the work needs. -->
+<div class="sheet sheet-side" id="sheetSide" data-shot="sheet-side" role="dialog"
+     aria-labelledby="sheetSideTitle">
+  <div class="sheet-hd">
+    <div class="sheet-title" id="sheetSideTitle">Draw on the slices</div>
+    <button class="ct" type="button" id="sheetSideClose" aria-label="Close">
+      <svg viewBox="0 0 24 24"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
+    </button>
+  </div>
+  <div class="sheet-body">
+    <div class="sec-lbl">Slice</div>
+    <div class="slrow">
+      <input type="range" min="0" max="100" value="46"/>
+      <span class="sl-v">46</span>
     </div>
-    <div class="sheet-body">
-      <div class="sec-lbl">What it does</div>
-      <p>Turns the model's own reference frame. Everything placed after it is
-        placed in the frame you leave here, so the view you set is the view the
-        next step measures in.</p>
-      <div class="sec-lbl">How to use it</div>
-      <p>Drag the strip for a gentle turn, hold an arrow to go faster the longer
-        you hold, or type the angle. <b>Reset</b> puts the frame back where the
-        file had it.</p>
-      <div class="sec-lbl">Keys</div>
-      <p><span class="chip">R</span> turn, then grab the ring</p>
-      <p><span class="chip">1</span> to <span class="chip">4</span> the four set views</p>
+    <div class="sec-lbl">Tool</div>
+    <div class="row">
+      <button class="btn btn-2 btn-wide" type="button">Brush</button>
+      <button class="btn btn-2 btn-wide" type="button">Grow</button>
     </div>
+    <p>A pane this size is a window inside the window: it holds the picture
+      being worked on and the controls that work on it, and the window behind
+      it keeps its band, its rail and its panel.</p>
   </div>
 </div>
 

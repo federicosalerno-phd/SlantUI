@@ -89,7 +89,7 @@
    feels like a slide. */
 .btn:hover,.wbtn:hover,.ct:hover,.tab:hover,.combo:hover,.combo.open,
 .combo-opt:hover,.mitem:hover,.mrow:hover,.dz:hover,.spin-b:hover,.more:hover,
-.toast.show,.scrim-veil.on,.scrim-veil.on .sheet{transition-duration:var(--t-in)}
+.toast.show,.sheet.show.on{transition-duration:var(--t-in)}
 
 /* -- window buttons -------------------------------------------------------- */
 .wbtn{
@@ -502,49 +502,77 @@ input[type=range]::-webkit-slider-thumb{
 @keyframes sweep{from{transform:translateX(-100%)}to{transform:translateX(286%)}}
 .progress-stage{font-size:var(--fs-sm);color:var(--text-4);margin-top:14px;min-height:16px;letter-spacing:.2px}
 
-/* -- the sheet, and the veil it opens on ----------------------------------- */
-/* The one surface that opens over the page to say what a control is for: what
-   it does, how it is driven, and the keys that drive it. One of them in the
-   document, moved from control to control, because two would be two places
-   keeping the same answer.
+/* -- the sheet: a window inside the window --------------------------------- */
+/* One surface that says what a control is for: what it does, how it is
+   driven, and the keys that drive it. There is one in the document and it is
+   moved from control to control, so a page never grows a second place keeping
+   the same answer.
 
-   Under it the page goes out of focus by --blur, which is the amount the
-   loading screen uses, so the window has ONE way of saying that what is
-   behind is still there and is not the thing to read.
+   It opens BESIDE the control that asked, and it veils nothing. A surface
+   that covers the control it is explaining explains it to nobody, and a page
+   under a veil is a page where the reader has to finish reading before
+   touching anything at all. So the work stays where it was, what is under the
+   sheet still answers a press, and the keyboard is left where the reader had
+   it.
 
-   The scrim above is shown and hidden instantly on purpose, so the fade lives
-   here and not on it: .show puts the layer up, .on fades it in on the next
-   frame, and the layer only comes down once the fade out has run. Hidden
-   still means display:none, and nothing is left composing frames. */
-.scrim-veil{
-  opacity:0;transition:opacity var(--t-out);
-  backdrop-filter:blur(var(--blur));
-}
-.scrim-veil.on{opacity:1}
+   Two placements, and a page picks one. `.sheet-at` is put beside a trigger
+   by openSheet in js/widgets.js, which writes two offsets on it and nothing
+   else, because where the answer goes depends on where the question was
+   asked. `.sheet-side` is docked down the side of the work area, for a pane
+   that holds a picture and the controls that work on it.
 
-/* It grows from the control that asked for it: a script puts the origin on
-   that control, so the answer opens out of the question and not out of the
-   middle of the screen. Two composited properties and no layout per frame. */
+   Hidden means display:none in both, never opacity 0: a layer nobody can see
+   is a layer the compositor still carries. `.show` puts it up, `.on` brings
+   it in on the next frame, and it comes down once the transition has run. */
 .sheet{
-  width:min(var(--sheet-w),calc(100vw - 96px));
-  max-height:calc(100vh - var(--tbar-h) - var(--tab-h) - 96px);
-  display:flex;flex-direction:column;
+  display:flex;flex-direction:column;min-height:0;
   background:var(--surface-2);border-radius:var(--r-lg);
+}
+/* Grown out of the question: a script puts the origin on the control that
+   asked, so the answer opens from that control and not out of the middle of
+   the screen. Two composited properties and no layout per frame. */
+.sheet-at{
+  position:fixed;z-index:9990;display:none;
+  width:min(var(--sheet-w),calc(100vw - var(--sp-3) * 2));
+  max-height:calc(100vh - var(--tbar-h) - var(--tab-h) - var(--sp-3) * 2);
   transform:scale(.62);opacity:0;
   transition:transform var(--t-out),opacity var(--t-out);
 }
-.scrim-veil.on .sheet{transform:none;opacity:1}
-/* The sheet takes the focus when it opens, so that Esc and Tab have somewhere
-   to arrive and a reader is not left on the control underneath. It is a
-   surface and not a control, though, so it does not wear the ring: that
-   belongs to the thing inside it that the Tab reaches next. */
-.sheet:focus,.sheet:focus-visible{box-shadow:none}
+.sheet-at.show{display:flex}
+.sheet-at.show.on{transform:none;opacity:1}
+/* Docked down the side of the work area, under the band and the rail, and no
+   wider than the room left beside the side panel, so the panel it was opened
+   from is never underneath it. It does not grow out of anything: a pane this
+   size arriving by scale reads as a lurch. */
+.sheet-side{
+  position:fixed;z-index:9980;display:none;
+  left:var(--sp-2);top:calc(var(--tbar-h) + var(--tab-h) + var(--sp-2));
+  bottom:var(--sp-2);
+  width:min(var(--sheet-wide),calc(100vw - var(--rp-w) - var(--sp-2) * 3));
+  opacity:0;transition:opacity var(--t-out);
+}
+.sheet-side.show{display:flex}
+.sheet-side.show.on{opacity:1}
+
 .sheet-hd{
   flex-shrink:0;display:flex;align-items:center;gap:10px;
   padding:13px 13px 11px 16px;background:var(--surface-3);
   border-radius:var(--r-lg) var(--r-lg) 0 0;
 }
 .sheet-title{flex:1;font-size:var(--fs-lg);font-weight:600;color:var(--text-1)}
+/* The place a figure goes, above what is said and outside the scroll, so it
+   stays in view while the words under it move. Empty it takes no room at all:
+   an entry with nothing to show is not a box with nothing in it. */
+.sheet-fig{
+  flex-shrink:0;margin:0 16px 12px;padding:14px;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--surface-3);border-radius:var(--r-md);color:var(--text-3);
+}
+.sheet-fig:empty{display:none}
+.sheet-fig svg{
+  width:64px;height:64px;stroke:currentColor;fill:none;stroke-width:1.5;
+  stroke-linecap:round;stroke-linejoin:round;
+}
 .sheet-body{
   flex:1;min-height:0;overflow-y:auto;
   padding:4px 16px 16px;

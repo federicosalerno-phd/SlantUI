@@ -98,11 +98,29 @@ const POSES = {
     show: function () { $('job').classList.add('show'); },
     hide: function () { $('job').classList.remove('show'); },
   },
-  /* Two classes, because the veil is put up by one and faded in by the other:
-     a shot has no frames to wait for, so it gets both at once. */
+  /* The library places it, from the first of the two question marks in the
+     catalogue, and what it says is the markup's own. Then `on` goes on by
+     hand: openSheet waits a frame for it and a shot has no frames to wait. */
   'sheet': {
-    show: function () { $('sheet').classList.add('show'); $('sheet').classList.add('on'); },
-    hide: function () { $('sheet').classList.remove('on'); $('sheet').classList.remove('show'); },
+    show: function () {
+      const s = $('sheet');
+      const more = document.querySelectorAll('.more')[0];
+      more.scrollIntoView({ block: 'center' });
+      openSheet(more, $('sheetTitle').textContent,
+                s.querySelector('.sheet-body').innerHTML,
+                s.querySelector('.sheet-fig').innerHTML);
+      s.classList.add('on');
+    },
+    hide: function () {
+      closeSheet();
+      $('sheet').classList.remove('on');
+      $('sheet').classList.remove('show');
+    },
+  },
+  /* The docked one has nowhere to be put: it takes its place from the shell. */
+  'sheet-side': {
+    show: function () { $('sheetSide').classList.add('show'); $('sheetSide').classList.add('on'); },
+    hide: function () { $('sheetSide').classList.remove('on'); $('sheetSide').classList.remove('show'); },
   },
 };
 
@@ -505,6 +523,7 @@ function wire() {
   $('ctTwin').onclick = otherScheme;
   $('ctTop').onclick = function () { goSection(0); };
   $('ctClear').onclick = unpose;
+  $('sheetSideClose').onclick = unpose;
   $('btnDefault').onclick = function () { setPalette('gold-dark'); };
   $('btnPrev').onclick = function () { stepPalette(-1); };
   $('btnNext').onclick = function () { stepPalette(1); };
