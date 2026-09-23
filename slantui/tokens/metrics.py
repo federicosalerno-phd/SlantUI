@@ -178,8 +178,11 @@ GROUP_NOTES: dict[str, str] = {
         "and it is four times --sp-2. A block is three slots because that is\n"
         "what the sections of a real application asked for: six in ten fit in\n"
         "one, and the rest fit in exactly two or three. The top of every block\n"
-        "falls on a multiple of --block, so two steps of one module have their\n"
-        "blocks in the same places and only what is written in them changes."
+        "falls on a multiple of --block FROM THE TOP OF THE COLUMN, which is at\n"
+        "the same height on every page because the head above it is always one\n"
+        "block tall. So the teeth are in the same places on every page, and a\n"
+        "block taken off one page and dropped on another lands exactly on a\n"
+        "block; only what is written in them changes."
     ),
     "band": (
         "The band runs the whole width of the window. Its lower profile,\n"

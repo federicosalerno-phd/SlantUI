@@ -80,8 +80,11 @@
   /* and it is four times --sp-2. A block is three slots because that is */
   /* what the sections of a real application asked for: six in ten fit in */
   /* one, and the rest fit in exactly two or three. The top of every block */
-  /* falls on a multiple of --block, so two steps of one module have their */
-  /* blocks in the same places and only what is written in them changes. */
+  /* falls on a multiple of --block FROM THE TOP OF THE COLUMN, which is at */
+  /* the same height on every page because the head above it is always one */
+  /* block tall. So the teeth are in the same places on every page, and a */
+  /* block taken off one page and dropped on another lands exactly on a */
+  /* block; only what is written in them changes. */
   /* The step a panel's controls sit on: one control takes one slot, or as many whole */
   /* slots as its ink needs. */
   --slot:32px;

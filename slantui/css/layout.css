@@ -109,13 +109,29 @@
 /* One page per step; the current one carries .show. */
 .rp-page{display:none;flex-direction:column;flex:1;overflow:hidden}
 .rp-page.show{display:flex}
-.rp-hd{padding:11px 14px 11px;background:var(--surface-3);flex-shrink:0}
+/* The head is ONE BLOCK tall, on every page, whatever is written in it. That
+   is not a rounding: it is what puts every page's column on the same comb.
+   A subtitle is a sentence, so on one page it takes one line and on the next
+   two, and a head that grew with it moved everything under it down by that
+   much. The pages then sat on two combs a line apart, and which pages were on
+   which one CHANGED WITH THE LANGUAGE, since a sentence does not wrap in the
+   same place in two languages. Fixed, it holds three lines of subtitle with
+   room to spare, and what is left over is air at the bottom, the way it is
+   in every block. */
+.rp-hd{height:var(--block);flex-shrink:0;padding:11px 14px;background:var(--surface-3)}
 .rp-title{font-size:var(--fs-lg);font-weight:600;color:var(--text-1)}
 .rp-sub{font-size:var(--fs-sm);color:var(--text-3);margin-top:2px}
 
 /* The block's card runs wider than the column it is in, so the sideways
-   overflow is clipped instead of scrolled. */
-.rp-scroll{flex:1;min-height:0;overflow-x:hidden;overflow-y:auto;padding:9px 13px 12px}
+   overflow is clipped instead of scrolled.
+
+   The inset at the top is a metric and not a number, because it is a term of
+   the comb's first tooth: the column starts at
+   --tbar-h + --tab-h + --block + --sp-2, and that has to be readable as a
+   sum. With the card's own --sp-1 inset inside its block, what shows between
+   the head and the first card is --sp-3. */
+.rp-scroll{flex:1;min-height:0;overflow-x:hidden;overflow-y:auto;
+           padding:var(--sp-2) 13px var(--sp-3)}
 /* 5px of the track are given away so the thumb never ends up under the
    window's right resize strip. */
 .rp-scroll::-webkit-scrollbar{width:11px}
@@ -131,6 +147,13 @@
    in them. Nothing inside a slot keeps a margin of its own, which is why two
    steps of one module read as the same step instead of as two panels somebody
    spaced by eye.
+
+   And it is ONE comb for the whole application, not one per page. Every page's
+   column starts at the same height, because the head above it is always one
+   block tall, so the teeth are at the same screen positions on every page: a
+   block taken off one page and dropped on another lands exactly on a block.
+   That is the whole point of the two measures, and it is worth nothing if each
+   page counts from its own top.
 
    --k is how many slots the control asked for and --bk how many sizes the block
    grew to. Both are counts the page writes, so the only lengths involved are
@@ -149,10 +172,26 @@
 /* A block is one of the things to do inside a step, and it can be seen: the
    card is painted behind its slots, inset --sp-1 top and bottom so two
    neighbours show a strip of panel between them without breaking the comb, and
-   a little wider than the column so the controls sit ON it. A block is always
-   a whole number of --block tall, and the air it has over sits at the bottom,
-   so the heading and the controls read from the top down. */
-.block{position:relative;height:calc(var(--block) * var(--bk,1))}
+   a little wider than the column so the controls sit ON it.
+
+   A block is a whole number of --block tall and what it holds is a whole
+   number of --slot, so the two almost never come out the same: in a real
+   application 42 blocks out of 52 have air left over, a slot of it or two.
+   That air sits IN TWO, half over what it holds and half under. It used to sit
+   all at the bottom, and a card with a hole under it reads as a card that lost
+   something, not as a card.
+
+   Where the slots sit inside the block is the block's own business, and it has
+   to be, because two blocks holding different things hold different heights.
+   What lines the pages up is the top of the block, which is on the comb, and
+   nothing in here touches that. */
+.block{
+  position:relative;height:calc(var(--block) * var(--bk,1));
+  display:flex;flex-direction:column;justify-content:center;
+}
+/* A slot is never squeezed to make room, in here as anywhere else: if what a
+   block holds does not fit, it has to show, not be compressed until it does. */
+.block>.slot{flex:0 0 auto}
 .block::before{
   content:"";position:absolute;z-index:0;
   top:var(--sp-1);bottom:var(--sp-1);
