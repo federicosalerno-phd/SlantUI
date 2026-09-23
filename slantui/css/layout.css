@@ -57,12 +57,34 @@
   display:flex;align-items:center;justify-content:center;flex-shrink:0;
   width:30px;height:30px;margin:-4px 7px -4px -4px;
   border-radius:50%;background:transparent;
-  transition:background var(--t-out);
+  transition:background var(--t-out),color var(--t-out);
 }
 .tbar-logo-btn>.tbar-logo{margin-right:0}
-/* The band's fill is control, so the ring is the same step up the window
-   buttons take, for the same reason: below it nothing would show. */
-.tbar-logo-btn:hover{background:var(--control-hover);transition-duration:var(--t-in)}
+/* Under the pointer the disc takes the ACCENT tint, not the next grey up, and
+   the mark takes the accent text shade with it. It is the same pair the rest
+   of the window uses to say "this is the live one" (.tab.active, .mitem.sel,
+   .combo-opt.combo-on, .btn-2.on), and it is the answer to the question a
+   round hole in a band has to answer without an outline: not "something is
+   here" but "this does something". A step in grey only says the first, and on
+   a band already filled with control it says it quietly.
+
+   A mark drawn with currentColor turns accent whole; one drawn as an image
+   keeps its own colours and gets the disc. Both come out of the library, so
+   an application gets it without writing a rule.
+
+   Pressed, the disc settles to the resting tint, which is a darker gold on a
+   dark palette and a paler one on a light one: the pair is made so that the
+   hover is the one that stands out on both.
+
+   `.on` is the same lit state without a pointer, which is what lets a picture
+   be taken of it and what an application uses to keep the way back lit while
+   it is showing where it leads. One rule for both, so the catalogue can never
+   show a state the pointer does not produce. */
+.tbar-logo-btn:hover,.tbar-logo-btn.on{
+  background:var(--accent-surface-hover);color:var(--accent-text);
+  transition-duration:var(--t-in);
+}
+.tbar-logo-btn:active{background:var(--accent-surface)}
 .tbar-name{
   font-family:var(--font-brand);
   font-size:14.5px;font-weight:400;letter-spacing:.15px;

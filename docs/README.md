@@ -59,7 +59,7 @@ button in their cell, so a person browsing the page can see them too.
 ## What comes out
 
 ```
-docs/shots/<palette>/<name>.png     34 shots, 8 palettes
+docs/shots/<palette>/<name>.png     40 shots, 8 palettes
 docs/shots/tour/<palette>-<n>.png   the example's window, with --tour
 docs/shots/shots.json               what was written, and how big
 ```

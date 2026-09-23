@@ -49,15 +49,24 @@ name, runs obliquely down over 38 px, and stays 28 px to the right edge: it
 never stops, it only gets thinner. `titlebar.js` cuts it from those three
 metrics and the measured width of the brand block, so the taper starts where
 the name ends whatever the name is. The credit line the licence asks for sits
-in the middle of it. The mark on the left can be a way back to wherever an
-application starts: `setBrandAction()` puts a round button around it, dark
-until the pointer is on it, and gives back exactly the room it takes so the
-mark does not move and the taper does not either. What pressing it means is
-the application's, and a page that registers nothing keeps the plain mark,
-because a ring that answers the pointer and then does nothing is worse than
-no ring. Under the band the HWND carries a real Windows frame, so the window
-animates, snaps and casts a shadow like any other, and no caption is ever
-drawn.
+in the middle of it. Under the band the HWND carries a real Windows frame, so
+the window animates, snaps and casts a shadow like any other, and no caption is
+ever drawn.
+
+The mark on the left can be a way back to wherever the application starts.
+`setBrandAction()` puts a round button around it: nothing at all at rest, and
+under the pointer a disc in the accent tint with the mark turned accent inside
+it, which is the pair the window uses everywhere else to say which thing is
+live. No outline anywhere, because nothing here is told apart by a contour. The
+button gives back exactly the room it takes, so the mark does not move and nor
+does the taper. What pressing it means is the application's, and a page that
+registers nothing keeps the plain mark, because a ring that answers the pointer
+and then does nothing is worse than no ring.
+
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/federicosalerno-phd/SlantUI/main/docs/img/gold-dark/titlebar-mark.png">
+<img src="https://raw.githubusercontent.com/federicosalerno-phd/SlantUI/main/docs/img/gold-light/titlebar-mark.png" width="276" alt="The mark on the band inside a round disc in the accent tint, with the mark itself turned accent: how it looks under the pointer">
+</picture>
 
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/federicosalerno-phd/SlantUI/main/docs/img/gold-dark/steps.png">
@@ -313,7 +322,7 @@ nobody looks at again, so the test suite fails when one is.
 <td align="center" valign="middle">
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/federicosalerno-phd/SlantUI/main/docs/img/gold-dark/more.png">
-<img src="https://raw.githubusercontent.com/federicosalerno-phd/SlantUI/main/docs/img/gold-light/more.png" width="176" alt="Two panel rows, each with a small round question mark beside the label; the second one is lit in the accent because its sheet is the one open">
+<img src="https://raw.githubusercontent.com/federicosalerno-phd/SlantUI/main/docs/img/gold-light/more.png" width="91" alt="Two panel rows, each with a small round question mark beside the label; the second one is lit in the accent because its sheet is the one open">
 </picture>
 </td>
 <td align="center" valign="middle">
@@ -717,7 +726,7 @@ way is under [Outside a browser](#outside-a-browser).*
 
 `docs/gallery.html` is a window holding a catalogue of the widget set, one
 cell per component, and `docs/capture.py` opens it and saves a picture of
-every cell in every palette: thirty nine shots, eight palettes, and the four parts
+every cell in every palette: forty shots, eight palettes, and the four parts
 of the shell shot where they are. There is no screenshot tool in it. The
 window renders the page, `grabWindow()` hands the frame back as an image, and
 the page itself says which rectangle to keep, so a picture is of the real
@@ -731,7 +740,7 @@ the radius Windows cuts the window to. They are drawn at four times the size
 they are shown at, with grey antialiasing, so that zooming into one finds
 more of it and no coloured fringe on any edge.
 
-A full run is 286 files and twelve megabytes, and `docs/shots/` is ignored by
+A full run is 334 files and twelve megabytes, and `docs/shots/` is ignored by
 git. `docs/publish.py` is what puts the handful this page shows into
 `docs/img/`, which is tracked: it reads the markdown, copies every picture a
 page points at, and deletes the ones nobody points at any more. So a picture

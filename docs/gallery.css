@@ -36,6 +36,11 @@
 /* The name the shot is saved under, off until the toolbar toggle is on. */
 .gal-name{font-family:var(--mono);font-size:var(--fs-xs);color:var(--text-4)}
 
+/* A patch of band, so the mark and its ring are shown on the fill they live
+   on. The disc is a step off the band, and on any other surface it would be a
+   step off the wrong thing. */
+.gal-band{background:var(--control);border-radius:var(--r-md);padding-right:10px}
+
 /* A patch of stage, for the two boxes that are drawn over whatever the
    application shows. They are positioned against the stage, so the cell has
    to be a stage for them. */

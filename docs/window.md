@@ -194,6 +194,11 @@ Almost every application has a place it starts from, and the place to go back
 to it is the same in all of them: the mark at the top left. The library draws
 the ring and takes the press; where it leads is not its business.
 
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="img/gold-dark/titlebar-mark.png">
+<img src="img/gold-light/titlebar-mark.png" width="276" alt="The mark on the band inside a round disc in the accent tint, with the mark itself turned accent: how it looks under the pointer">
+</picture>
+
 ```javascript
 function backToTheStart() { /* the application's own, whatever that means */ }
 
@@ -213,6 +218,17 @@ give back exactly the room its own size takes. So the mark does not move, and
 `.tbar-brand` keeps the width the taper starts from. Nothing about the band's
 shape changes when the ring comes and goes. A press on it is a press on a
 control, so it starts no window move and a double press does not maximise.
+
+At rest it draws nothing: what the eye sees is the mark the application always
+had. Under the pointer the disc takes `accent-surface-hover` and the mark
+takes `accent-text` with it, which is the pair the rest of the window uses for
+the tab you are on, the row you picked and the option that is set. A step up
+in grey would only say that something is there; the accent says that it does
+something, and it says it without an outline, because nothing in a SlantUI
+window is told apart by a contour. Pressed, the disc settles to
+`accent-surface`. A mark drawn with `currentColor` turns accent whole; one
+drawn as an image keeps its own colours and gets the disc. Both come out of
+the library, so an application gets this without writing a rule.
 
 ## The title bar's shape
 

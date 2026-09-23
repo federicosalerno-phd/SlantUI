@@ -117,12 +117,24 @@ const POSES = {
       $('sheet').classList.remove('show');
     },
   },
+  /* The lit mark. `on` is the library's own rule, the same one :hover uses,
+     so the catalogue cannot show a state the pointer does not produce. */
+  'titlebar-mark': {
+    show: function () { markInCell().classList.add('on'); },
+    hide: function () { markInCell().classList.remove('on'); },
+  },
   /* The docked one has nowhere to be put: it takes its place from the shell. */
   'sheet-side': {
     show: function () { $('sheetSide').classList.add('show'); $('sheetSide').classList.add('on'); },
     hide: function () { $('sheetSide').classList.remove('on'); $('sheetSide').classList.remove('show'); },
   },
 };
+
+/* The mark in the catalogue's cell, not the one on the real band above it:
+   the page carries two, and the shot is the cell. */
+function markInCell() {
+  return shotEl('titlebar-mark').querySelector('.tbar-logo-btn');
+}
 
 function union(a, b) {
   if (!b) return a;
