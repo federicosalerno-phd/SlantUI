@@ -351,12 +351,23 @@ input[type=range]::-webkit-slider-thumb{
 .fit{white-space:nowrap;overflow:hidden}
 
 /* -- a list to choose from ------------------------------------------------- */
-/* One row per item, a name on the left and a badge on the right, one of them
-   selected. Rest is a card, hover is the control fill, selected is the accent
-   tint, and an item that cannot be chosen is faded. */
+/* A LIST, and then an item of it. One row per item, a name on the left and a
+   badge on the right, one of them selected. Rest is a card, hover is the
+   control fill, selected is the accent tint, and an item that cannot be
+   chosen is faded.
+
+   EVERY ITEM IS AS TALL AS THE TALLEST, and that is why the list is a class
+   and not just the items. A name is a phrase, and a phrase that fits on one
+   line in English takes two in German: measured one by one the rows come out
+   ragged, and four rows of the same list read as four different things. A
+   grid whose rows are all 1fr, in a box with no height of its own, gives
+   every row the height of the tallest, so the list keeps one rhythm whatever
+   the words do. The air between rows belongs to the list, not to the item:
+   an item carries no margin of its own, like everything else here. */
+.mlist{display:grid;grid-auto-rows:1fr;gap:5px}
 .mitem{
-  display:flex;align-items:center;justify-content:space-between;
-  padding:9px 11px;margin-bottom:5px;
+  display:flex;align-items:center;justify-content:space-between;gap:9px;
+  padding:9px 11px;
   background:var(--surface-3);border-radius:var(--r-md);
   cursor:pointer;transition:background var(--t-out);
 }
@@ -364,10 +375,21 @@ input[type=range]::-webkit-slider-thumb{
 .mitem.sel{background:var(--accent-surface)}
 .mitem.sel:hover{background:var(--accent-surface-hover)}
 .mitem.off{opacity:.45;cursor:not-allowed}
-.mitem-name{font-size:var(--fs);font-weight:500;color:var(--text-2)}
+/* The name is the part that gives way. A flex item will not go below its own
+   content unless it is told it may, and without that the badge is the one
+   pushed out of the row. */
+.mitem-name{font-size:var(--fs);font-weight:500;color:var(--text-2);min-width:0}
 .mitem.sel .mitem-name{color:var(--accent-text)}
+/* What the name is qualified by, said quieter: a role, a coordinate, a
+   length. Same size, lighter weight, a shade back, and the shade is audited
+   over the selected fill as well as the rest. */
+.mitem-det{font-weight:400;color:var(--text-3)}
+/* A VALUE IS NEVER ON TWO LINES. A badge is one thing read at a glance, and a
+   thing read at a glance is on one line: it keeps its width and never
+   shrinks. If it does not fit, the phrase in it is the wrong phrase. */
 .mbadge{font-size:10.5px;font-weight:600;padding:2px 8px;border-radius:var(--r-pill);
-        letter-spacing:.3px;background:var(--control);color:var(--text-4)}
+        letter-spacing:.3px;background:var(--control);color:var(--text-4);
+        white-space:nowrap;flex-shrink:0}
 .mitem.sel .mbadge{background:var(--accent);color:var(--on-accent)}
 
 /* -- metric rows ----------------------------------------------------------- */
