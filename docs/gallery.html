@@ -22,9 +22,15 @@
   <div class="titlebar" data-shot="titlebar" data-pad="0">
     <div class="tbar-band"></div>
     <div class="tbar-brand">
-      <svg class="tbar-logo" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M2 4h20v5.6h-6.1L9.6 16.4H2z"/>
-      </svg>
+      <!-- The mark, as an application that gave it something to do ends up
+           with it: setBrandAction() wraps it in a round button of its own,
+           dark until the pointer is on it. Written out here because this page
+           is the catalogue and has no bridge to register an action with. -->
+      <button class="tbar-logo-btn" type="button" title="Back to the start">
+        <svg class="tbar-logo" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M2 4h20v5.6h-6.1L9.6 16.4H2z"/>
+        </svg>
+      </button>
       <span class="tbar-name"><b>SlantUI</b>&nbsp;&nbsp;Gallery</span>
     </div>
     <div class="tbar-drag"></div>

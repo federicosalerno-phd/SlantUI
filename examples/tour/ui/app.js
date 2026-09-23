@@ -2,7 +2,7 @@
    The tour's own script. Everything it calls that is not in this file comes
    from SlantUI: Bridge and be() and beJson() from bridge.js, Theme from
    theme.js, initSelects() numStep() fitOneLine() from widgets.js, and
-   initTitlebar() roundedPolyPath() from titlebar.js.
+   initTitlebar() setBrandAction() roundedPolyPath() from titlebar.js.
 
    The page is a classic script, like the library's four, because the window
    serves it from file:// and a file:// page gets no module loading.
@@ -62,6 +62,12 @@ function go(i) {
   document.querySelectorAll('.rp-page').forEach(function (p) {
     p.classList.toggle('show', Number(p.dataset.step) === i);
   });
+
+  /* The mark on the band is a way back, and only while there is one to take.
+     The library makes the ring the moment an application says what pressing
+     it does, and takes it away again when it is told nothing, so no ring ever
+     lights up under the pointer with nowhere to go. */
+  setBrandAction(i > 0 ? function () { go(0); } : null, 'Back to the first step');
 
   /* The card is step one's; the drawing belongs to the three after it. */
   const drawing = i > 0;

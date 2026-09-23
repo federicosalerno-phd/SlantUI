@@ -42,6 +42,27 @@
   padding:0 16px 0 14px;
 }
 .tbar-logo{width:22px;height:22px;flex-shrink:0;margin-right:11px;border-radius:5px}
+/* The mark can be pressed. Then it is a round button around it, a little
+   larger, with the mark still exactly in the middle, and at rest nothing at
+   all is drawn: what the eye sees is the mark it already knew. titlebar.js
+   makes this element only once the application has said what pressing it
+   does, so a ring never lights up under the pointer and then does nothing.
+
+   The negative margins give back exactly what the button's own size takes, so
+   the mark does not move and .tbar-brand keeps the width it had. That width
+   is what shapeTitleBar() starts the taper from, so a button that widened the
+   block would move the shape of the band. The arithmetic: the button is
+   22 + 4 + 4, and -4 + 30 + 7 is the 22 + 11 the mark occupied by itself. */
+.tbar-logo-btn{
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  width:30px;height:30px;margin:-4px 7px -4px -4px;
+  border-radius:50%;background:transparent;
+  transition:background var(--t-out);
+}
+.tbar-logo-btn>.tbar-logo{margin-right:0}
+/* The band's fill is control, so the ring is the same step up the window
+   buttons take, for the same reason: below it nothing would show. */
+.tbar-logo-btn:hover{background:var(--control-hover);transition-duration:var(--t-in)}
 .tbar-name{
   font-family:var(--font-brand);
   font-size:14.5px;font-weight:400;letter-spacing:.15px;

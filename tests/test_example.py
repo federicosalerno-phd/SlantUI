@@ -54,8 +54,24 @@ SCRIPT_ONLY = {
     "dzover",                                      # a file is over the card
     "maximized",                                   # the window state, on body
     "tbar-credit",                                 # titlebar.js writes it
+    "tbar-logo-btn",                               # setBrandAction() makes it
     "busy", "ok", "warn", "err", "on", "done",     # states of a pill, a tab, a toggle
 }
+
+
+# A string literal first, then a comment: so that a quote inside a comment is
+# never taken for the start of one, and `//` inside a literal is never taken
+# for the start of a comment.
+_JS_TOKEN = re.compile(r"""'(?:[^'\\\n]|\\.)*'|"(?:[^"\\\n]|\\.)*"|/\*.*?\*/|//[^\n]*""",
+                       re.DOTALL)
+
+
+def _js_code(src: str) -> str:
+    """A script with its comments taken out and its string literals left as
+    they are. The class names below are read out of the literals, and a prose
+    apostrophe ("the page's") pairs with the next quote in the file and
+    swallows every name in between, so the comments go first."""
+    return _JS_TOKEN.sub(lambda m: "" if m.group(0)[0] == "/" else m.group(0), src)
 
 
 def _css(name: str) -> str:
@@ -78,7 +94,7 @@ def _script_hooks() -> set[str]:
 
     out: set[str] = set()
     for name in SCRIPTS:
-        src = js_path(name).read_text(encoding="utf-8")
+        src = _js_code(js_path(name).read_text(encoding="utf-8"))
         for literal in re.findall(r"'([^']*)'", src):
             out |= set(re.findall(r"\.([a-zA-Z][\w-]*)", literal))
     return out

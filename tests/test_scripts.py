@@ -410,6 +410,8 @@ TITLEBAR_PAGE = """
   const band = bar.appendChild(new El('div', 'tbar-band'));
   const brand = bar.appendChild(new El('div', 'tbar-brand'));
   brand.rect.width = 120;
+  const logo = brand.appendChild(new El('div', 'tbar-logo'));
+  brand.appendChild(new El('span', 'tbar-name'));
   bar.appendChild(new El('div', 'tbar-drag'));
   const btns = bar.appendChild(new El('div', 'tbar-btns'));
   const bMin = btns.appendChild(new El('div', 'wbtn wbtn-min'));
@@ -511,6 +513,68 @@ def test_the_title_bar_writes_the_credit_and_wires_the_window(js):
     assert J(js, "document.body.classList.contains('maximized')") is False
     assert J(js, "bMax.title") == "Maximise"
     assert J(js, "bMax.innerHTML") == J(js, "icon('win-maximise')")
+
+
+def test_the_mark_is_a_button_only_when_it_has_been_given_something_to_do(js):
+    """A ring that lights up under the pointer and then does nothing is worse
+    than no ring, so the element does not exist until an action is registered.
+    What the action means, and the hint, are the application's."""
+    js.eval(TITLEBAR_PAGE)
+    js.eval(_runnable("titlebar.js"))
+    js.eval("initTitlebar()")
+
+    # nothing registered, nothing made: the mark is where the page put it
+    assert J(js, "brand.querySelectorAll('.tbar-logo-btn').length") == 0
+    assert J(js, "logo.parentNode.className") == "tbar-brand"
+
+    js.eval("let went = 0; setBrandAction(function () { went++; }, 'Back to the start')")
+    btn = "brand.querySelector('.tbar-logo-btn')"
+    assert J(js, f"{btn}.tagName") == "BUTTON"
+    assert J(js, f"{btn}.attrs.type") == "button"
+    # the mark is inside it, and in the same place in the block as before
+    assert J(js, "logo.parentNode.className") == "tbar-logo-btn"
+    assert J(js, "brand.children.map(function (c) { return c.className; })") == \
+        ["tbar-logo-btn", "tbar-name"]
+    # the hint is the application's words, on both the pointer and the reader
+    assert J(js, f"{btn}.title") == "Back to the start"
+    assert J(js, f"{btn}.attrs['aria-label']") == "Back to the start"
+
+    # it does what was registered, and it is called with nothing
+    js.eval(f"{btn}.onclick()")
+    assert J(js, "went") == 1
+
+    # and a press on it neither moves the window nor maximises it
+    js.eval(f"CALLS.length = 0; fire({btn}, 'mousedown', {{ button: 0 }})")
+    js.eval(f"fire({btn}, 'dblclick', {{}})")
+    assert J(js, "CALLS") == []
+    js.eval("CALLS.length = 0; fire(bar, 'mousedown', { button: 0 })")
+    assert J(js, "CALLS") == [["winDrag", None]]
+
+    # a second registration swaps the action instead of nesting a button
+    js.eval("let other = 0; setBrandAction(function () { other++; })")
+    assert J(js, "brand.querySelectorAll('.tbar-logo-btn').length") == 1
+    assert J(js, f"{btn}.title") == ""
+    assert J(js, f"'aria-label' in {btn}.attrs") is False
+    js.eval(f"{btn}.onclick()")
+    assert J(js, "went") == 1 and J(js, "other") == 1
+
+    # taken back: the mark is a mark again, in the place it started in
+    js.eval("setBrandAction(null)")
+    assert J(js, "brand.querySelectorAll('.tbar-logo-btn').length") == 0
+    assert J(js, "logo.parentNode.className") == "tbar-brand"
+    assert J(js, "brand.children.map(function (c) { return c.className; })") == \
+        ["tbar-logo", "tbar-name"]
+
+
+def test_a_page_with_no_mark_gets_no_button(js):
+    """The button is made around the mark. A band carrying only a name has
+    nothing to put a ring around, and says so instead of inventing one."""
+    js.eval(TITLEBAR_PAGE)
+    js.eval("brand.removeChild(logo)")
+    js.eval(_runnable("titlebar.js"))
+    js.eval("initTitlebar()")
+    assert J(js, "setBrandAction(function () {}) === null") is True
+    assert J(js, "brand.querySelectorAll('.tbar-logo-btn').length") == 0
 
 
 def test_a_credit_the_page_wrote_is_replaced_not_doubled(js):

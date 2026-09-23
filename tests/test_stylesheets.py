@@ -172,6 +172,34 @@ def test_the_credit_line_has_a_size_and_takes_no_pointer():
     assert "pointer-events:none" in m.group(1)
 
 
+def test_the_ring_round_the_mark_gives_back_the_room_it_takes():
+    """The width of .tbar-brand is where the taper starts, so a button put
+    around the mark may not widen the block, and may not move the mark inside
+    it either. The rule is read and the arithmetic done here, so the day
+    someone writes 32 where it says 30 the shape of the band does not move
+    quietly behind them."""
+    code = _code("layout.css")
+    logo = re.search(r"\.tbar-logo\{([^}]*)\}", code)
+    button = re.search(r"\.tbar-logo-btn\{([^}]*)\}", code)
+    assert logo and button
+
+    def px(rule: str, prop: str) -> float:
+        m = re.search(rf"(?:^|;)\s*{prop}:\s*(-?[\d.]+)px", rule)
+        assert m, f"{prop} is not a plain length: {rule!r}"
+        return float(m.group(1))
+
+    sides = re.search(r"margin:\s*(-?[\d.]+)px\s+(-?[\d.]+)px\s+(-?[\d.]+)px\s+(-?[\d.]+)px",
+                      button.group(1))
+    assert sides, "the button does not write its four margins out"
+    top, right, bottom, left = (float(v) for v in sides.groups())
+
+    assert left + px(button.group(1), "width") + right == \
+        px(logo.group(1), "width") + px(logo.group(1), "margin-right")
+    assert top + px(button.group(1), "height") + bottom == px(logo.group(1), "height")
+    # and the mark stops holding the name away from itself once it is inside
+    assert re.search(r"\.tbar-logo-btn>\.tbar-logo\{[^}]*margin-right:0", code)
+
+
 def test_hidden_scrim_means_display_none():
     """Not opacity 0: an invisible spinner keeps the compositor busy."""
     m = re.search(r"\.scrim\{([^}]*)\}", _code("components.css"))

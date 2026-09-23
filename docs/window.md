@@ -188,6 +188,32 @@ bridge.
 <img src="img/gold-light/window-buttons.png" width="253" alt="The three window buttons: minimise, maximise and close, the close one red under the pointer">
 </picture>
 
+## The mark, when it is a way back
+
+Almost every application has a place it starts from, and the place to go back
+to it is the same in all of them: the mark at the top left. The library draws
+the ring and takes the press; where it leads is not its business.
+
+```javascript
+function backToTheStart() { /* the application's own, whatever that means */ }
+
+setBrandAction(backToTheStart, 'Back to the start');
+setBrandAction(null);       // taken back: the mark is a mark again
+```
+
+Registering an action is what makes the button. A page that registers nothing
+keeps the plain mark it always had, because a ring that lights up under the
+pointer and then does nothing is worse than no ring at all, and an application
+that has nowhere to go back to right now says so by taking the action back.
+The hint is the application's words, in the application's language, and it
+lands on both `title` and `aria-label`.
+
+The button is round, a little larger than the mark, and its negative margins
+give back exactly the room its own size takes. So the mark does not move, and
+`.tbar-brand` keeps the width the taper starts from. Nothing about the band's
+shape changes when the ring comes and goes. A press on it is a press on a
+control, so it starts no window move and a double press does not maximise.
+
 ## The title bar's shape
 
 The band is clipped by `titlebar.js` and not by CSS, because its profile

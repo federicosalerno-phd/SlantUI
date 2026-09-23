@@ -49,9 +49,15 @@ name, runs obliquely down over 38 px, and stays 28 px to the right edge: it
 never stops, it only gets thinner. `titlebar.js` cuts it from those three
 metrics and the measured width of the brand block, so the taper starts where
 the name ends whatever the name is. The credit line the licence asks for sits
-in the middle of it. Under the band the HWND carries a real Windows frame, so
-the window animates, snaps and casts a shadow like any other, and no caption
-is ever drawn.
+in the middle of it. The mark on the left can be a way back to wherever an
+application starts: `setBrandAction()` puts a round button around it, dark
+until the pointer is on it, and gives back exactly the room it takes so the
+mark does not move and the taper does not either. What pressing it means is
+the application's, and a page that registers nothing keeps the plain mark,
+because a ring that answers the pointer and then does nothing is worse than
+no ring. Under the band the HWND carries a real Windows frame, so the window
+animates, snaps and casts a shadow like any other, and no caption is ever
+drawn.
 
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="docs/img/gold-dark/steps.png">
@@ -506,7 +512,8 @@ icons.js         the named signs a window is made of, as markup
 theme.js         the roles read back off :root for a canvas, plus colour maths
 bridge.js        the QWebChannel transport, with a queue for calls made too early
 widgets.js       the dropdown, the number stepper, text that has to fit on one line
-titlebar.js      the oblique band, the window buttons, the resize strips, the credit
+titlebar.js      the oblique band, the window buttons, the resize strips, the credit,
+                 the mark as a button
 ```
 
 ```python
@@ -515,8 +522,9 @@ from slantui.js import SCRIPTS, path, bundle
 
 `titlebar.js` cuts the band to the four metrics and the measured width of the
 brand block, so the taper starts where the name ends whatever the name is. It
-also writes the credit line the licence asks for. The tests run all five files
-in a bare V8 against a small fake DOM.
+also writes the credit line the licence asks for, and makes the mark a button
+when an application has told it what pressing it does. The tests run all five
+files in a bare V8 against a small fake DOM.
 
 ### Icons
 
