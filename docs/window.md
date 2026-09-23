@@ -219,16 +219,27 @@ give back exactly the room its own size takes. So the mark does not move, and
 shape changes when the ring comes and goes. A press on it is a press on a
 control, so it starts no window move and a double press does not maximise.
 
-At rest it draws nothing: what the eye sees is the mark the application always
-had. Under the pointer the disc takes `accent-surface-hover` and the mark
-takes `accent-text` with it, which is the pair the rest of the window uses for
-the tab you are on, the row you picked and the option that is set. A step up
-in grey would only say that something is there; the accent says that it does
-something, and it says it without an outline, because nothing in a SlantUI
-window is told apart by a contour. Pressed, the disc settles to
-`accent-surface`. A mark drawn with `currentColor` turns accent whole; one
-drawn as an image keeps its own colours and gets the disc. Both come out of
-the library, so an application gets this without writing a rule.
+Three states, three fills, and between them they say the whole thing:
+
+| State | Fill | What it says |
+|---|---|---|
+| resting | `control-hover`, with `0 1px 3px shadow` | a thing, raised off the band |
+| under the pointer, or `.on` | `accent-surface-hover`, mark in `accent-text` | the live thing |
+| pressed | `accent-surface`, no shadow | down into the band |
+
+The disc is there to see before anybody points at it, because a control that
+cannot be found until it is hovered is a control most people never find.
+`control-hover` is one step off the band in whichever direction the palette
+goes, lighter on a dark one and darker on a light one, so the disc reads as
+raised on all eight. The accent pair is the one the rest of the window uses
+for the tab you are on, the row you picked and the option that is set. Nothing
+is told apart by a contour, here or anywhere else in a SlantUI window: the
+three states are fills, and the relief is the library's own shadow, which the
+press takes away.
+
+A mark drawn with `currentColor` turns accent whole; one drawn as an image
+keeps its own colours and gets the disc. Both come out of the library, so an
+application gets this without writing a rule.
 
 ## The title bar's shape
 

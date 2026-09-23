@@ -43,10 +43,15 @@
 }
 .tbar-logo{width:22px;height:22px;flex-shrink:0;margin-right:11px;border-radius:5px}
 /* The mark can be pressed. Then it is a round button around it, a little
-   larger, with the mark still exactly in the middle, and at rest nothing at
-   all is drawn: what the eye sees is the mark it already knew. titlebar.js
-   makes this element only once the application has said what pressing it
-   does, so a ring never lights up under the pointer and then does nothing.
+   larger, with the mark still exactly in the middle. titlebar.js makes this
+   element only once the application has said what pressing it does, so a disc
+   never sits there offering something nothing answers.
+
+   IT IS ALWAYS THERE TO SEE, because a control nobody can find before they
+   point at it is a control most people never find. At rest it is one step off
+   the band, which is lighter than the band on a dark palette and darker on a
+   light one, and it casts the library's shadow: raised, and told apart by its
+   fill, never by a line. Nothing in a SlantUI window has a contour.
 
    The negative margins give back exactly what the button's own size takes, so
    the mark does not move and .tbar-brand keeps the width it had. That width
@@ -56,25 +61,20 @@
 .tbar-logo-btn{
   display:flex;align-items:center;justify-content:center;flex-shrink:0;
   width:30px;height:30px;margin:-4px 7px -4px -4px;
-  border-radius:50%;background:transparent;
-  transition:background var(--t-out),color var(--t-out);
+  border-radius:50%;background:var(--control-hover);
+  box-shadow:0 1px 3px var(--shadow);
+  transition:background var(--t-out),color var(--t-out),box-shadow var(--t-out);
 }
 .tbar-logo-btn>.tbar-logo{margin-right:0}
-/* Under the pointer the disc takes the ACCENT tint, not the next grey up, and
-   the mark takes the accent text shade with it. It is the same pair the rest
-   of the window uses to say "this is the live one" (.tab.active, .mitem.sel,
-   .combo-opt.combo-on, .btn-2.on), and it is the answer to the question a
-   round hole in a band has to answer without an outline: not "something is
-   here" but "this does something". A step in grey only says the first, and on
-   a band already filled with control it says it quietly.
+/* Three states, three fills, and the whole story is told by them. Raised and
+   grey: this is a thing. Accent tinted, with the mark taking the accent text
+   shade: this is the live thing, which is the same pair the rest of the
+   window uses (.tab.active, .mitem.sel, .combo-opt.combo-on, .btn-2.on).
+   Settled, with the shadow gone: pressed, down into the band.
 
    A mark drawn with currentColor turns accent whole; one drawn as an image
    keeps its own colours and gets the disc. Both come out of the library, so
    an application gets it without writing a rule.
-
-   Pressed, the disc settles to the resting tint, which is a darker gold on a
-   dark palette and a paler one on a light one: the pair is made so that the
-   hover is the one that stands out on both.
 
    `.on` is the same lit state without a pointer, which is what lets a picture
    be taken of it and what an application uses to keep the way back lit while
@@ -84,7 +84,7 @@
   background:var(--accent-surface-hover);color:var(--accent-text);
   transition-duration:var(--t-in);
 }
-.tbar-logo-btn:active{background:var(--accent-surface)}
+.tbar-logo-btn:active{background:var(--accent-surface);box-shadow:none}
 .tbar-name{
   font-family:var(--font-brand);
   font-size:14.5px;font-weight:400;letter-spacing:.15px;

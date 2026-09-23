@@ -54,14 +54,17 @@ the window animates, snaps and casts a shadow like any other, and no caption is
 ever drawn.
 
 The mark on the left can be a way back to wherever the application starts.
-`setBrandAction()` puts a round button around it: nothing at all at rest, and
-under the pointer a disc in the accent tint with the mark turned accent inside
-it, which is the pair the window uses everywhere else to say which thing is
-live. No outline anywhere, because nothing here is told apart by a contour. The
-button gives back exactly the room it takes, so the mark does not move and nor
-does the taper. What pressing it means is the application's, and a page that
-registers nothing keeps the plain mark, because a ring that answers the pointer
-and then does nothing is worse than no ring.
+`setBrandAction()` puts a round disc around it, and the disc is always there to
+see: one step off the band, which is lighter than the band on a dark palette
+and darker on a light one, casting the library's shadow, so it reads as a
+raised control before anybody points at it. Under the pointer it takes the
+accent tint and the mark takes the accent text shade with it, which is the pair
+the window uses everywhere else to say which thing is live; pressed, it settles
+and the shadow goes. Three fills and no outline anywhere, because nothing here
+is told apart by a contour. The disc gives back exactly the room it takes, so
+the mark does not move and nor does the taper. What pressing it means is the
+application's, and a page that registers nothing keeps the plain mark, because
+a control that answers a press nothing listens for is worse than none.
 
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="docs/img/gold-dark/titlebar-mark.png">
