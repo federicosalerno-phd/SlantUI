@@ -87,6 +87,10 @@ const ICONS = {
   warning: { g: '⚠' },
   info: { g: '?' },
 
+  /* ── going back to the start ────────────────────────────────── */
+  home: { s: '<path d="M3 11l9-7 9 7"/><path d="M6 10v9h12v-9"/>'
+    + '<path d="M10 19v-5h4v5"/>' },
+
   /* ── the stage ─────────────────────────────────────────────────────── */
   /* TODO `zoom-in` and `add` are the same character, and so are `zoom-out`
      and `remove`. Four ideas, two signs. */

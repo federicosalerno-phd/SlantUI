@@ -35,6 +35,14 @@ Rectangle {
 
     readonly property real ring: ringSize
     readonly property real thick: ringThickness
+    // The air AROUND the ring, which two things need and neither used to get.
+    // The arc's head is a radial glow of 2.3 thicknesses centred ON the stroke,
+    // so it reaches nearly two thicknesses past the ring; the closing circle
+    // starts at the ring and grows by 26% of the radius before it fades. Both
+    // were cut off, because the canvas was exactly the size of the ring and the
+    // ring fills it. It showed at the top and to the right, where the head is
+    // while it spins, and it looked like a crop box, which is what it was.
+    readonly property real halo: Math.max(thick * 1.9, ring * 0.16)
 
     color: veil ? scrimColour : surfaceColour
     radius: veil ? 0 : cornerRadius
@@ -65,7 +73,12 @@ Rectangle {
 
             Canvas {
                 id: ringCanvas
-                anchors.fill: parent
+                // Bigger than the ring and centred on it, so what leaves
+                // the ring has somewhere to go. With anchors.fill the sheet
+                // ended where the stroke ends, and everything past it was cut.
+                anchors.centerIn: parent
+                width: parent.width + 2 * root.halo
+                height: parent.height + 2 * root.halo
                 antialiasing: true
 
                 // an arc from twelve o'clock, clockwise, sweep as a fraction
@@ -103,8 +116,10 @@ Rectangle {
 
                 onPaint: {
                     var ctx = getContext("2d")
-                    var s = width, t = root.thick
-                    var r = (s - t) / 2, cx = s / 2, cy = s / 2
+                    // the sheet is larger than the ring: the ring is what is
+                    // left once the air around it is taken off
+                    var s = width - 2 * root.halo, t = root.thick
+                    var r = (s - t) / 2, cx = width / 2, cy = height / 2
                     ctx.reset()
 
                     // the track: thinner than the arc, since the measure is
@@ -116,7 +131,8 @@ Rectangle {
                     ctx.strokeStyle = root.track(0.38)
                     ctx.stroke()
 
-                    var grad = ctx.createLinearGradient(s * 0.10, 0, s * 0.90, s)
+                    var grad = ctx.createLinearGradient(cx - s * 0.40, cy - s * 0.50,
+                                                        cx + s * 0.40, cy + s * 0.50)
                     grad.addColorStop(0, root.lifted(0.38, 1))
                     grad.addColorStop(0.65, root.accent(1))
 
