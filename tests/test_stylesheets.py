@@ -27,8 +27,10 @@ ROLE_READERS = ("base.css", "layout.css", "components.css")
 GENERATED = ("palettes.css", "metrics.css")
 
 # Properties a page sets on an element for a rule to pick up, always with a
-# fallback in the rule. --gc is the group colour a metric row carries.
-LOCAL = {"gc"}
+# fallback in the rule. --gc is the group colour a metric row carries; --k and
+# --bk are counts, how many slots a control asked for and how many sizes its
+# block grew to, which is how the comb keeps every length in the metrics.
+LOCAL = {"gc", "k", "bk"}
 
 # Borders that are not dividers: the spinner's ring, and the transparent
 # border that insets the side panel's scrollbar thumb.

@@ -117,6 +117,20 @@ def test_as_dict_is_in_order():
     assert tuple(as_dict()) == METRIC_NAMES
 
 
+# ── the comb ────────────────────────────────────────────────────────────────
+def test_a_block_is_a_whole_number_of_slots():
+    """A block that were 2.5 slots tall would put the block under it half a
+    slot off the comb, and the comb is the whole point of both numbers."""
+    assert px("block") % px("slot") == 0
+    assert px("block") > px("slot")
+
+
+def test_the_slot_is_a_whole_number_of_the_spacing_scale():
+    """The step is in the same family as the four spacings, so half a slot and
+    a quarter of one are both on the scale."""
+    assert px("slot") % px("sp-2") == 0
+
+
 # ── the band ────────────────────────────────────────────────────────────────
 def test_the_band_metrics_exist_and_are_lengths():
     for name in BAND_METRICS:

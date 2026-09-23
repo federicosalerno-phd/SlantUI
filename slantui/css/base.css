@@ -77,9 +77,8 @@ select{border:none}
 .sec-lbl{
   display:flex;align-items:center;gap:6px;
   font-size:var(--fs-xs);font-weight:600;letter-spacing:.8px;text-transform:uppercase;
-  color:var(--text-4);padding:9px 0 4px;
+  color:var(--text-4);
 }
-.sec-lbl:first-child{padding-top:2px}
 
 /* A line of state under a control: what was picked, what is still missing,
    what the last action did. NOT an explanation. Prose belongs in a sheet, and

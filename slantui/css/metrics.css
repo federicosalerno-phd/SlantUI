@@ -72,6 +72,22 @@
   /* the side panel */
   --rp-w:244px;       /* The width of the panel down the right. */
 
+  /* the comb the panel is laid on */
+  /* A panel is a column of slots, and a control does not pick where it */
+  /* sits: it sits in a slot, centred, and it is never made shorter to fit. */
+  /* The tallest control that cannot be shortened is 28.68px, so 32 is the */
+  /* smallest step that holds every one of them with air left around it, */
+  /* and it is four times --sp-2. A block is three slots because that is */
+  /* what the sections of a real application asked for: six in ten fit in */
+  /* one, and the rest fit in exactly two or three. The top of every block */
+  /* falls on a multiple of --block, so two steps of one module have their */
+  /* blocks in the same places and only what is written in them changes. */
+  /* The step a panel's controls sit on: one control takes one slot, or as many whole */
+  /* slots as its ink needs. */
+  --slot:32px;
+  /* How tall a block of controls is. A block that needs more is two of these, or three. */
+  --block:96px;
+
   /* what opens over the page */
   /* One veil, one blur, one width. The loading screen and a sheet put */
   /* the same page out of focus by the same amount, so the window has one */

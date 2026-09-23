@@ -105,6 +105,14 @@ METRICS: tuple[Metric, ...] = (
     # ── the side panel ──────────────────────────────────────────────────────
     Metric("rp-w", "panel", "244px", "The width of the panel down the right."),
 
+    # ── the comb the panel is laid on ───────────────────────────────────────
+    Metric("slot", "comb", "32px",
+           "The step a panel's controls sit on: one control takes one slot, "
+           "or as many whole slots as its ink needs."),
+    Metric("block", "comb", "96px",
+           "How tall a block of controls is. A block that needs more is two "
+           "of these, or three."),
+
     # ── what opens over the page ────────────────────────────────────────────
     Metric("blur", "overlay", "14px",
            "How far the page behind a veil goes out of focus."),
@@ -129,6 +137,7 @@ GROUPS: dict[str, str] = {
     "band": "the title band",
     "rail": "the step rail under it",
     "panel": "the side panel",
+    "comb": "the comb the panel is laid on",
     "overlay": "what opens over the page",
     "motion": "motion. One material, three durations",
 }
@@ -154,6 +163,17 @@ GROUP_NOTES: dict[str, str] = {
         "way of saying that what is behind is still there and is not the\n"
         "thing to read: shell/splash.py takes --blur from here, and so does\n"
         ".scrim-veil in components.css."
+    ),
+    "comb": (
+        "A panel is a column of slots, and a control does not pick where it\n"
+        "sits: it sits in a slot, centred, and it is never made shorter to fit.\n"
+        "The tallest control that cannot be shortened is 28.68px, so 32 is the\n"
+        "smallest step that holds every one of them with air left around it,\n"
+        "and it is four times --sp-2. A block is three slots because that is\n"
+        "what the sections of a real application asked for: six in ten fit in\n"
+        "one, and the rest fit in exactly two or three. The top of every block\n"
+        "falls on a multiple of --block, so two steps of one module have their\n"
+        "blocks in the same places and only what is written in them changes."
     ),
     "band": (
         "The band runs the whole width of the window. Its lower profile,\n"

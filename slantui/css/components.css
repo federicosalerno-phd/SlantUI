@@ -280,7 +280,7 @@ input[type=range]::-webkit-slider-thumb{
   -webkit-appearance:none;width:12px;height:12px;border-radius:50%;
   background:var(--accent);cursor:pointer;
 }
-.slrow{display:flex;align-items:center;padding:4px 0}
+.slrow{display:flex;align-items:center}
 .slrow>*+*{margin-left:9px}
 /* The value has a fixed width: a longer one ("20.3 mm") must never shorten
    the track, or the thumb would slide on its own. The labels are static. */
@@ -314,7 +314,7 @@ input[type=range]::-webkit-slider-thumb{
    like everything else that can be pressed, because a fill is how this window
    tells a control from the surface behind it. */
 .toggle{display:flex;align-items:center;cursor:pointer;
-        padding:6px 9px;margin-bottom:4px;
+        padding:6px 9px;
         background:var(--surface-3);border-radius:var(--r);
         font-size:var(--fs-sm);color:var(--text-1);
         transition:background var(--t-out)}
@@ -395,10 +395,11 @@ input[type=range]::-webkit-slider-thumb{
     font-variant-numeric:tabular-nums;letter-spacing:.2px}
 
 /* -- key and value rows ---------------------------------------------------- */
-/* Separated by their own fill and a 3px gap instead of a rule. */
+/* Told apart by their own fill instead of by a rule. What sits between two of
+   them is the slot each one is in, not a margin either one carries. */
 .pi-row{
   display:flex;justify-content:space-between;
-  padding:5px 9px;margin-bottom:3px;
+  padding:5px 9px;
   background:var(--surface-3);border-radius:var(--r-xs);
   font-size:var(--fs);
 }

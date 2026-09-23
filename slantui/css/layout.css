@@ -113,7 +113,9 @@
 .rp-title{font-size:var(--fs-lg);font-weight:600;color:var(--text-1)}
 .rp-sub{font-size:var(--fs-sm);color:var(--text-3);margin-top:2px}
 
-.rp-scroll{flex:1;min-height:0;overflow-y:auto;padding:9px 13px 12px}
+/* The block's card runs wider than the column it is in, so the sideways
+   overflow is clipped instead of scrolled. */
+.rp-scroll{flex:1;min-height:0;overflow-x:hidden;overflow-y:auto;padding:9px 13px 12px}
 /* 5px of the track are given away so the thumb never ends up under the
    window's right resize strip. */
 .rp-scroll::-webkit-scrollbar{width:11px}
@@ -122,6 +124,55 @@
   border:3px solid transparent;border-right-width:6px;background-clip:content-box;
 }
 .rp-scroll::-webkit-scrollbar-thumb:hover{background:var(--control-hover);background-clip:content-box}
+
+/* ── the comb inside the panel ─────────────────────────────────────────────── */
+/* A panel is a column of slots. A control does not pick where it sits: it sits
+   in a slot, --slot tall, or in as many whole slots as its ink needs, centred
+   in them. Nothing inside a slot keeps a margin of its own, which is why two
+   steps of one module read as the same step instead of as two panels somebody
+   spaced by eye.
+
+   --k is how many slots the control asked for and --bk how many sizes the block
+   grew to. Both are counts the page writes, so the only lengths involved are
+   the two metrics. */
+.slot{
+  display:flex;flex-direction:column;justify-content:center;
+  height:calc(var(--slot) * var(--k,1));
+  position:relative;z-index:1;
+}
+/* A height is defended, never stretched to fill: a button is 26px tall inside
+   a 32px slot and the other six are air. And nothing in here keeps a margin,
+   whoever wrote it: a margin inside a slot is spacing the slot has already
+   given, and it would push everything under it off the comb. */
+.slot>*{flex:0 0 auto;margin:0}
+
+/* A block is one of the things to do inside a step, and it can be seen: the
+   card is painted behind its slots, inset --sp-1 top and bottom so two
+   neighbours show a strip of panel between them without breaking the comb, and
+   a little wider than the column so the controls sit ON it. A block is always
+   a whole number of --block tall, and the air it has over sits at the bottom,
+   so the heading and the controls read from the top down. */
+.block{position:relative;height:calc(var(--block) * var(--bk,1))}
+.block::before{
+  content:"";position:absolute;z-index:0;
+  top:var(--sp-1);bottom:var(--sp-1);
+  left:calc(0px - var(--sp-2));right:calc(0px - var(--sp-2));
+  background:var(--surface-3);border-radius:var(--r-md);
+}
+/* Anything with a fill of its own goes up one step inside a block, or it would
+   disappear into the card behind it. A chosen item keeps the accent, which is
+   the next rule in components.css and wins on the same weight. */
+.block .toggle,.block .pi-row,.block .mitem,.block .log{background:var(--control)}
+.block .toggle:hover,.block .mitem:hover{background:var(--control-hover)}
+
+/* The block's number, taken from the order it was declared in the way the rail
+   takes its own: blocks are things to do, one after another. */
+.blk-n{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-width:15px;height:15px;border-radius:var(--r-xs);
+  background:var(--control);color:var(--text-2);
+  font-size:var(--fs-xs);font-weight:600;letter-spacing:0;
+}
 
 .rp-foot{
   flex-shrink:0;padding:11px 13px;
