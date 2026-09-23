@@ -17,13 +17,33 @@
    ========================================================================== */
 
 /* -- buttons --------------------------------------------------------------- */
-/* Fixed heights, so a taller glyph in a label can never move a row. */
+/* One height, fixed, so a taller glyph in a label can never move a row.
+
+   And the label CANNOT PAINT OUTSIDE IT. A fixed height with `nowrap` and
+   nothing else has nowhere to put a label wider than its button, so the word
+   carries on over whatever sits beside it: measured on a real page, two
+   buttons of an application built on this did exactly that. A word a reader
+   reads crooked, or reads over something else, is not a matter of taste.
+
+   The guarantee here is the hard one, spilling is impossible, and it is worth
+   more than the height it protects: a row of controls whose heights depend on
+   how long somebody's label turned out is a row that moves in every language.
+   So the button clips, and says so with an ellipsis.
+
+   Clipping loses words, which is why it is only half the answer. The other
+   half belongs to whoever writes the label: a button's face is a LABEL, and a
+   sentence goes in the sheet that opens from it. A checker that measures the
+   page can see a clipped label (scrollWidth past clientWidth) and fail on it,
+   which turns the sentence back into a label instead of hiding it. */
 .btn{
   display:flex;align-items:center;justify-content:center;
   height:31px;border-radius:var(--r);font-size:var(--fs);font-weight:500;
   padding:0 12px;transition:background var(--t-out),color var(--t-chg);
-  white-space:nowrap;
+  white-space:nowrap;overflow:hidden;
 }
+/* the label is a flex item, and a flex item does not shrink below its own
+   content unless it is told that it may */
+.btn > span{min-width:0;overflow:hidden;text-overflow:ellipsis}
 .btn svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:1.8;
          stroke-linecap:round;stroke-linejoin:round;margin-right:7px;flex-shrink:0}
 /* Trailing glyph (the chevron on Next): same icon set, other side. Every glyph

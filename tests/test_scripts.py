@@ -334,12 +334,22 @@ def test_an_entry_comes_back_as_markup_whatever_shape_it_is(js):
     js.eval("ICONS['t-path']='M1 1h2'; ICONS['t-raw']={s:'<circle r=\"2\"/>'};"
             "ICONS['t-glyph']={g:'×'};")
     D = J(js, "ICON_DEFAULTS")
-    assert J(js, "icon('t-path')") == '<svg viewBox="0 0 24 24"%s><path d="M1 1h2"/></svg>' % D
-    assert J(js, "icon('t-raw')") == '<svg viewBox="0 0 24 24"%s><circle r="2"/></svg>' % D
+    # A sign says that it is one, and says whether it is still a character. That
+    # is not decoration: a page holds <svg> elements that are NOT signs (a chart,
+    # a diagram built from data), and anything measuring the set has to be able
+    # to tell them apart. The character flag is there because a drawing's ink box
+    # is the same at every size and a character's is not, so the two cannot be
+    # held to the same measure.
+    def seg(name, glyph=False):
+        return '<svg viewBox="0 0 24 24" data-segno="%s"%s%s' % (
+            name, ' data-carattere=""' if glyph else '', D)
+
+    assert J(js, "icon('t-path')") == seg('t-path') + '><path d="M1 1h2"/></svg>'
+    assert J(js, "icon('t-raw')") == seg('t-raw') + '><circle r="2"/></svg>'
     # a character comes back INSIDE an <svg>, because the stylesheet wants one
-    assert J(js, "icon('t-glyph')") == ('<svg viewBox="0 0 24 24"%s><text x="12" y="17.5"'
+    assert J(js, "icon('t-glyph')") == (seg('t-glyph', True) + '><text x="12" y="17.5"'
                                         ' text-anchor="middle" font-size="19"'
-                                        ' fill="currentColor" stroke="none">×</text></svg>' % D)
+                                        ' fill="currentColor" stroke="none">×</text></svg>')
     assert J(js, "icon('t-path',{class:'r'})").endswith(' class="r"><path d="M1 1h2"/></svg>')
     assert J(js, "icon('no-such-sign')") == ""
 

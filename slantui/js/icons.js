@@ -125,6 +125,80 @@ function _glyphBox(c) {
 const ICON_DEFAULTS = ' width="1em" height="1em" fill="none" stroke="currentColor"'
   + ' stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"';
 
+/* THE MIDDLE OF A SIGN IS THE MIDDLE OF ITS INK.
+
+   A drawing sits inside a 24 by 24 box and almost never fills it evenly: a
+   tick hangs low and left, an arrow leans right, a letter carries its own
+   shoulders. Leave each one where it was drawn and a row of them reads
+   crooked, one half a pixel high, the next one low. Nobody can see which sign
+   is at fault; everybody can see the row.
+
+   So the middle is not up to whoever draws. The registry measures, once per
+   name, where the ink actually is, and moves it to the middle of the box. A
+   sign is centred BY CONSTRUCTION. That holds for the drawings that are here,
+   for the ones still set in a character, and for the ones that replace them
+   later: they will not have to be centred, they will only have to exist.
+
+   The GEOMETRIC box is measured, not the painted one. A uniform stroke grows
+   a shape evenly on every side, so it does not move the middle, and the
+   geometric box is the only one that does not depend on how thick the nib is.
+
+   Measuring needs a rendered element, so it happens against a ruler kept off
+   screen, once per name, and then it is remembered. Before there is a document
+   to hang the ruler on, the sign comes back as drawn and is NOT remembered, so
+   the next call measures it for real. */
+const _inkShift = {};
+let _ruler = null;
+
+function _iconRuler() {
+  if (_ruler) return _ruler;
+  /* Not "is there a document" but "can this one draw": a test harness hands the
+     scripts a stand-in document with a handful of methods on it, and asking it
+     for an element it cannot make is how a library breaks a page it never sees.
+     Where nothing can be drawn there is nothing to measure, and a sign comes
+     back as it was drawn. */
+  if (typeof document === 'undefined' || !document.body
+      || typeof document.createElementNS !== 'function') return null;
+  const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  s.setAttribute('style', 'position:absolute;left:-9999px;top:0;width:24px;height:24px');
+  s.setAttribute('aria-hidden', 'true');
+  document.body.appendChild(s);
+  _ruler = s;
+  return s;
+}
+
+/* How far the ink has to move to sit in the middle, as an SVG translate, or ''
+   when it is already there or cannot yet be measured. Exported because an
+   application keeps its own registry of its own signs (a cutting plane, a
+   guide, a bone) and must centre them by the same measure, not by a second
+   copy of this. */
+function iconInkShift(key, inside, viewBox) {
+  if (_inkShift[key] !== undefined) return _inkShift[key];
+  const r = _iconRuler();
+  if (!r) return '';
+  const vb = String(viewBox || ICON_GRID).split(/[\s,]+/).map(Number);
+  if (vb.length !== 4 || vb.some(isNaN)) return '';
+  r.setAttribute('viewBox', String(viewBox || ICON_GRID));
+  r.innerHTML = inside;
+  let b;
+  try { b = r.getBBox(); } catch (_) { r.innerHTML = ''; return ''; }
+  r.innerHTML = '';
+  if (!b || (!b.width && !b.height)) { _inkShift[key] = ''; return ''; }
+  const dx = (vb[0] + vb[2] / 2) - (b.x + b.width / 2);
+  const dy = (vb[1] + vb[3] / 2) - (b.y + b.height / 2);
+  /* under a hundredth of a unit is not an offset, it is measurement noise */
+  const v = (Math.abs(dx) < 0.01 && Math.abs(dy) < 0.01) ? ''
+          : (Math.round(dx * 1000) / 1000) + ' ' + (Math.round(dy * 1000) / 1000);
+  _inkShift[key] = v;
+  return v;
+}
+
+/* The drawing, wrapped in that move when there is one. */
+function iconCentred(key, inside, viewBox) {
+  const t = iconInkShift(key, inside, viewBox);
+  return t ? '<g transform="translate(' + t + ')">' + inside + '</g>' : inside;
+}
+
 function icon(name, attrs) {
   const e = ICONS[name];
   if (e === undefined) return '';
@@ -132,8 +206,16 @@ function icon(name, attrs) {
   const inside = def.g ? _glyphBox(def.g) : def.s;
   let a = '';
   if (attrs) for (const k in attrs) a += ' ' + k + '="' + String(attrs[k]) + '"';
-  return '<svg viewBox="' + (def.vb || ICON_GRID) + '"' + ICON_DEFAULTS + a
-    + '>' + inside + '</svg>';
+  /* The sign says it is one, and says whether it is still a character. A
+     drawing's ink box is the same at every size, so it can be centred exactly
+     and measured exactly; a character's is not, because the engine shapes and
+     hints it at the size it is drawn, so the same letter is 10.40 units wide
+     in a 24px box and 10.97 in a 16px one. A checker that measures centring
+     therefore measures the drawings, and counts the characters as what they
+     are: the part of the set that has not been drawn yet. */
+  return '<svg viewBox="' + (def.vb || ICON_GRID) + '" data-segno="' + name + '"'
+    + (def.g ? ' data-carattere=""' : '') + ICON_DEFAULTS + a
+    + '>' + iconCentred(name, inside, def.vb) + '</svg>';
 }
 
 /* Put one into an element, and say whether there was one to put. */
