@@ -21,15 +21,6 @@
    so the band never stops: it only gets thinner. x1 is wherever the name ends,
    which is why this is computed from the real layout instead of guessed.
 
-   The window's own top left corner is the band's, and it is round about the
-   mark: a true arc of radius --tbar-h / 2, whose centre is the centre of the
-   mark's disc, so the band shows the same margin between the disc and the
-   edge of the window all the way round. Only a window that can cut its
-   corner gets one, and it says so by putting data-corner on <html>: the
-   SlantUI shell does, a window whose compositor rounds every corner alike
-   does not, and the page then keeps the square corner it always had.
-   Maximised, the corner is square again, because it sits on the screen's.
-
    Under the thin half, between the oblique and the right edge, the title
    bar's box shows below the band. That strip has no colour of its own: it is
    painted with whatever is under the title bar, measured along the line just
@@ -65,36 +56,20 @@ const CREDIT_TEXT = 'Layout by Federico Salerno';
 
 
 /* An SVG path through the points, with each corner rounded by its own `r`
-   (a quadratic through the vertex, trimmed to half the shorter side) or cut
-   by its own `a` (a circular arc tangent to both sides, trimmed the same
-   way). slantui/geometry.py is the same construction, and a test runs this
-   one against it. */
+   (a quadratic through the vertex, trimmed to half the shorter side). */
 function roundedPolyPath(pts) {
   const n = pts.length;
   let d = '';
   for (let i = 0; i < n; i++) {
     const prev = pts[(i - 1 + n) % n], cur = pts[i], next = pts[(i + 1) % n];
-    const r = cur.r || 0, arc = cur.a || 0;
-    if (r <= 0 && arc <= 0) {
+    const r = cur.r || 0;
+    if (r <= 0) {
       d += (i === 0 ? 'M' : 'L') + cur.x.toFixed(2) + ',' + cur.y.toFixed(2) + ' ';
       continue;
     }
     const v1x = prev.x - cur.x, v1y = prev.y - cur.y;
     const v2x = next.x - cur.x, v2y = next.y - cur.y;
     const l1 = Math.hypot(v1x, v1y) || 1, l2 = Math.hypot(v2x, v2y) || 1;
-    if (arc > 0) {
-      // The two tangent points sit a / tan(half the angle) from the vertex;
-      // clockwise on screen, where y grows down, is sweep 1.
-      const cos = Math.max(-1, Math.min(1, (v1x * v2x + v1y * v2y) / (l1 * l2)));
-      const t = Math.tan(Math.acos(cos) / 2) || 1;
-      const k = Math.min(arc / t, l1 / 2, l2 / 2);
-      const sweep = v1y * v2x - v1x * v2y > 0 ? 1 : 0;
-      d += (i === 0 ? 'M' : 'L') + (cur.x + v1x / l1 * k).toFixed(2) + ',' +
-           (cur.y + v1y / l1 * k).toFixed(2) + ' ';
-      d += 'A' + (k * t).toFixed(2) + ',' + (k * t).toFixed(2) + ' 0 0 ' + sweep + ' ' +
-           (cur.x + v2x / l2 * k).toFixed(2) + ',' + (cur.y + v2y / l2 * k).toFixed(2) + ' ';
-      continue;
-    }
     const a = Math.min(r, l1 / 2), b = Math.min(r, l2 / 2);
     const p1x = cur.x + v1x / l1 * a, p1y = cur.y + v1y / l1 * a;
     const p2x = cur.x + v2x / l2 * b, p2y = cur.y + v2y / l2 * b;
@@ -127,13 +102,9 @@ function shapeTitleBar() {
 
   const x1 = Math.round(brand.getBoundingClientRect().width);
   const x2 = Math.min(W, x1 + slant);
-  // The window's own corner: cut when the window can cut it, square when it
-  // cannot or when it is maximised (see the note at the top).
-  const cut = document.documentElement.getAttribute('data-corner') !== null &&
-              !document.body.classList.contains('maximized');
 
   const pts = [
-    { x: 0, y: 0, a: cut ? h1 / 2 : 0 },   // window corner, round about the mark
+    { x: 0, y: 0 },                 // window corner
     { x: W, y: 0 },                 // window corner
     { x: W, y: h2 },                // the thin end, flush with the right edge
     { x: x2, y: h2, r: join },      // top of the taper
@@ -352,8 +323,8 @@ function initTitlebar() {
 
 /* What is under the band changes without the window changing size: a row is
    shown or hidden, a class moves the page from one screen to the next, the
-   palette changes, a fill fades in, the shell says it can cut the corner.
-   Each of those asks for the shape again, at most once a frame. Nothing here
+   palette changes, a fill fades in. Each of those asks for the shape again,
+   at most once a frame. Nothing here
    watches inline styles, so the page can animate what it likes under the
    band without the strip being measured on every frame of it. */
 function _watchUnder(bar) {
@@ -373,7 +344,7 @@ function _watchUnder(bar) {
     mo.observe(rows, { subtree: true, childList: true, attributes: true,
                        attributeFilter: ['class', 'hidden'] });
     mo.observe(document.documentElement, { attributes: true,
-                                           attributeFilter: ['data-palette', 'data-corner'] });
+                                           attributeFilter: ['data-palette'] });
   }
   if (typeof ResizeObserver === 'function' && rows) {
     const ro = new ResizeObserver(again);

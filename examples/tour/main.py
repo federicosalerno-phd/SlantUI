@@ -51,7 +51,7 @@ def write_library_files() -> None:
     # here, out of the palette, like everything else this example draws.
     (UI / "brand.svg").write_text(
         '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" '
-        'fill="%s"><path d="M2 4h20v5.6h-6.1L9.6 16.4H2z"/></svg>'
+        'fill="%s"><path d="M2 5.8h20v5.6h-6.1L9.6 18.2H2z"/></svg>'
         % PALETTES[DEFAULT.slug]["accent"], encoding="utf-8")
 
 

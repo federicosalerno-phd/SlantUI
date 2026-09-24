@@ -54,7 +54,7 @@ CORNER = 8
 # written out as an SVG and read back by the library's reader, so the brand in
 # the middle of the ring is drawn at the size the ring gives it.
 MARK = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-  <path d="M2 4h20v5.6h-6.1L9.6 16.4H2z" fill="{accent}"/>
+  <path d="M2 5.8h20v5.6h-6.1L9.6 18.2H2z" fill="{accent}"/>
 </svg>
 """
 

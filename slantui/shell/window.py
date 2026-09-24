@@ -26,20 +26,11 @@ are covered: Win+Up and the taskbar menu arrive as a system command and are
 routed to the window's own maximise; a drag to the top edge zooms without
 asking, and that zoom is undone the moment Qt reports it. Dragging the band
 of a maximised window restores it under the cursor first, as Windows does.
-
-The top left corner is the page's to draw. Windows 11 rounds all four corners
-of a window by the same 8 pixels and has no way to round one of them further,
-so the window is clear (``setColor`` with no alpha) and ``shell.qml`` draws
-the backdrop under the page with that one corner cut to the page's own
-radius, half its band. The other three keep what the compositor gives them.
-Maximised, the page and the backdrop both square the corner off, and this
-class is what tells the backdrop so.
 """
 from __future__ import annotations
 
 from pathlib import Path
 
-from ..geometry import band_shape
 from ..tokens import DEFAULT, PALETTES
 from . import win32
 from .bridge import Bridge
@@ -76,10 +67,8 @@ class Window(QQuickView):
     window chrome.
 
     ``background`` is the colour behind the page while it loads and while the
-    window is resized. It is drawn by ``shell.qml`` and not by the window,
-    which stays clear so that the corner cut out of it is a hole. It defaults
-    to ``surface-0`` of ``palette``, or of the default palette, so nothing
-    flashes a different shade. Give it the same
+    window is resized. It defaults to ``surface-0`` of ``palette``, or of the
+    default palette, so nothing flashes a different shade. Give it the same
     palette the page sets in ``data-palette``, and call :meth:`set_palette`
     when the page moves to another one.
 
@@ -110,8 +99,7 @@ class Window(QQuickView):
         if background is None:
             background = PALETTES[self.palette_slug]["surface-0"]
         self.background = background
-        # Clear, so the corner shell.qml cuts out of the backdrop is a hole.
-        self.setColor(QColor(0, 0, 0, 0))
+        self.setColor(QColor(background))
         self._default_size = QSize(*size)
         self._min_size = QSize(*min_size)
         self.resize(self._default_size)
@@ -142,8 +130,6 @@ class Window(QQuickView):
         ctx = self.rootContext()
         ctx.setContextProperty("uiUrl", url)
         ctx.setContextProperty("uiBackground", self.background)
-        # The corner's radius until the page has loaded and said its own.
-        ctx.setContextProperty("uiCorner", band_shape().corner)
         # The loading screen's vocabulary, whether or not this window ever
         # shows one: the shell reads these names, so they have to be there
         # before it is loaded, and a Splash raised later needs nothing more.
@@ -191,8 +177,9 @@ class Window(QQuickView):
                            f"Known: {', '.join(PALETTES)}")
         self.palette_slug = palette
         self.background = PALETTES[palette]["surface-0"]
-        # The QML view reads this as a binding, so the backdrop under the
-        # page follows the assignment. The window itself stays clear.
+        self.setColor(QColor(self.background))
+        # The QML view reads this as a binding, so the web view's own
+        # background follows the assignment.
         self.rootContext().setContextProperty("uiBackground", self.background)
         # and so does the loading screen, which is drawn by the window and not
         # by the page: on the old palette it would come up in the old accent.
@@ -259,9 +246,6 @@ class Window(QQuickView):
     def _set_maximized(self, on: bool) -> None:
         if self._maximized != on:
             self._maximized = on
-            root = self.rootObject()
-            if root is not None:
-                root.setProperty("maximized", on)     # the backdrop squares its corner
             self.bridge.windowMaximized.emit(on)
 
     def _track_normal(self) -> None:

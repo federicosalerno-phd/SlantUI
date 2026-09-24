@@ -59,7 +59,7 @@ button in their cell, so a person browsing the page can see them too.
 ## What comes out
 
 ```
-docs/shots/<palette>/<name>.png     41 shots, 8 palettes
+docs/shots/<palette>/<name>.png     40 shots, 8 palettes
 docs/shots/tour/<palette>-<n>.png   the example's window, with --tour
 docs/shots/shots.json               what was written, and how big
 ```
@@ -89,7 +89,7 @@ file and leaves the manifest as it was.
 
 ## shots/ is not in the repository, img/ is
 
-`docs/shots/` is generated and ignored by git: 342 files and twenty five
+`docs/shots/` is generated and ignored by git: 334 files and twenty four
 megabytes with `--tour`, and all but a few of them illustrate nothing. GitHub
 draws what is in the repository and nothing else, so the ones the pages do
 show are copied into `docs/img/`, which is tracked.

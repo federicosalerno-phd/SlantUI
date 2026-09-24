@@ -67,31 +67,11 @@ def test_the_window_never_calls_the_base_native_event():
 def test_the_qml_takes_its_page_and_background_from_the_window():
     qml = (SHELL / "shell.qml").read_text(encoding="utf-8")
     assert "url: uiUrl" in qml
-    assert "color: uiBackground" in qml
+    assert "backgroundColor: uiBackground" in qml
     assert 'objectName: "channel"' in qml
     assert "signal jsResult(int token, var value)" in qml
     assert 'setContextProperty("uiUrl"' in WINDOW_PY
     assert 'setContextProperty("uiBackground"' in WINDOW_PY
-
-
-def test_the_window_is_clear_so_the_corner_can_be_a_hole():
-    """Windows 11 rounds every corner of a window by the same 8 px and cannot
-    round one of them further. So the window paints nothing itself, the web
-    view paints nothing behind the page, and the colour behind the page is a
-    backdrop in the QML with the top left corner cut out of it, to the radius
-    the page reports once it has loaded. Maximised, the backdrop is square."""
-    qml = (SHELL / "shell.qml").read_text(encoding="utf-8")
-    code = re.sub(r"/\*.*?\*/", "", qml, flags=re.S)
-    assert 'backgroundColor: "transparent"' in code
-    assert "property real corner: uiCorner" in code
-    assert "root.maximized ? 0 : root.corner" in code
-    assert "setAttribute('data-corner', '')" in code
-    assert "self.setColor(QColor(0, 0, 0, 0))" in WINDOW_PY
-    assert 'setContextProperty("uiCorner", band_shape().corner)' in WINDOW_PY
-    assert 'root.setProperty("maximized", on)' in WINDOW_PY
-    # set_palette moves the backdrop, never the window's own colour
-    body = WINDOW_PY[WINDOW_PY.index("def set_palette"):WINDOW_PY.index("def set_min_width")]
-    assert "setColor" not in re.sub(r'""".*?"""', "", body, flags=re.S)
 
 
 # ── win32 constants, no window needed ───────────────────────────────────────

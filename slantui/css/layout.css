@@ -21,28 +21,11 @@
    ========================================================================== */
 .app{display:flex;flex-direction:column;width:100vw;height:100vh;overflow:hidden}
 
-/* ── the window's corner ──────────────────────────────────────────────────── */
-/* The top left corner of the window is round about the mark: an arc of radius
-   --tbar-h / 2, whose centre is the centre of the mark's disc, so between the
-   disc and the edge of the window there is the same margin all the way round.
-   A window only has that corner when it can cut it, and the SlantUI shell
-   says it can by putting data-corner on <html>. Then the page gives up its
-   own backdrop, .app carries it instead with the corner cut out of it, and
-   the shell's window is clear behind the cut. A page in a browser, or in a
-   window whose compositor rounds every corner the same, never gets the
-   attribute and keeps its square corner. Maximised, the corner is on the
-   screen's corner and is square again. */
-[data-corner],[data-corner]>body{background:none}
-[data-corner] .app{background:var(--surface-0);border-top-left-radius:calc(var(--tbar-h) / 2)}
-[data-corner] .titlebar{border-top-left-radius:calc(var(--tbar-h) / 2)}
-[data-corner] .maximized .app,[data-corner] .maximized .titlebar{border-top-left-radius:0}
-
 /* ── title bar ────────────────────────────────────────────────────────────── */
 /* The window is frameless, so this is the title bar. One band across the whole
    window: thick on the left under the name, then a straight taper, then thin to
    the right edge under the window buttons. The shape itself is clipped onto
-   .tbar-band by js/titlebar.js, which is also what rounds the two joints and
-   cuts the window's corner.
+   .tbar-band by js/titlebar.js, which is also what rounds the two joints.
 
    Under the thin half the bar's own box shows, and it has no colour of its
    own there: js/titlebar.js paints it with whatever is under the bar, so the
@@ -60,11 +43,9 @@
    never a gradient. */
 .tbar-band{position:absolute;inset:0;background:var(--control);pointer-events:none}
 
-/* The mark's centre is half the band in from the left and half the band down,
-   which is the centre of the window's corner: the padding is --tbar-h / 2 less
-   half the mark's 22 px. The margin after it is what keeps the name where it
-   always was, 47 px in, so the block, and the band cut from it, are as wide as
-   they were before the mark moved onto the corner. */
+/* The mark's centre is half the band in and half the band down, so it sits as
+   far from the left edge as from the top and the bottom of the band. The
+   margin after it keeps the name 47 px in, where the taper is measured from. */
 .tbar-brand{
   position:relative;flex-shrink:0;
   height:var(--tbar-h);display:flex;align-items:center;
@@ -87,10 +68,8 @@
    is what shapeTitleBar() starts the taper from, so a button that widened the
    block would move the shape of the band. The arithmetic: the button is
    22 + 4 + 4, and -4 + 30 + 10 is the 22 + 14 the mark occupied by itself.
-
-   The disc and the window's corner share a centre, so with the band 44 tall
-   the corner is 22 round, the disc 15, and the band shows 7 px between them
-   the whole way round the arc. */
+   With the band 44 tall the disc is 7 px from the left, the top and the
+   bottom. */
 .tbar-logo-btn{
   display:flex;align-items:center;justify-content:center;flex-shrink:0;
   width:30px;height:30px;margin:-4px 10px -4px -4px;

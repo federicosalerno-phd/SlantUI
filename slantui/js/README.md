@@ -6,7 +6,7 @@ The browser side scripts, in load order:
 | `theme.js` | the roles read back off `:root` for a canvas, and four pieces of colour maths | `Theme`, `THEME_ROLES` |
 | `bridge.js` | the QWebChannel transport, with a queue for calls made too early | `Bridge`, `be`, `beJson` |
 | `widgets.js` | the dropdown, the number stepper, text that has to fit on one line | `initSelects`, `numStep`, `fitOneLine` |
-| `titlebar.js` | the oblique band, the window's corner round the mark, the strip under the band, the window buttons, the resize strips, the credit line, the mark as a button | `initTitlebar`, `shapeTitleBar`, `setBrandAction`, `onWindowMaximized`, `roundedPolyPath`, `CREDIT_TEXT` |
+| `titlebar.js` | the oblique band, the strip under it, the window buttons, the resize strips, the credit line, the mark as a button | `initTitlebar`, `shapeTitleBar`, `setBrandAction`, `onWindowMaximized`, `roundedPolyPath`, `CREDIT_TEXT` |
 
 Classic scripts, not modules, because the embedded browser serves the page
 from `file://`. `slantui.js` (the Python package in this folder) knows the

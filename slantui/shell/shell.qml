@@ -14,47 +14,14 @@ import QtWebChannel 1.15
    under the band, which stays sharp, so the window can still be moved and
    closed while it loads. It is the same file a screen of its own draws, so
    an application that puts one up before its window exists and this one are
-   one screen, not two.
-
-   The window's top left corner is round about the page's mark, and this file
-   is what makes the window able to show it. The window itself is clear, the
-   backdrop below is drawn with the corner cut out, the web view is clear too,
-   and once a page with a title bar has loaded it is told so: data-corner on
-   its <html>, which is what the stylesheet and titlebar.js cut their own
-   corner on. The radius is read back off that page, so a page that redefines
-   --tbar-h gets a backdrop cut to its own band. */
+   one screen, not two. */
 Item {
     id: root
 
     signal jsResult(int token, var value)
 
-    // Set by window.py: maximised, the corner is on the screen's and square.
-    property bool maximized: false
-    // The radius of the corner. The library's own until the page has said.
-    property real corner: uiCorner
-
     function run(script, token) {
         web.runJavaScript(script, function (result) { root.jsResult(token, result) })
-    }
-
-    /* What the window shows where the page has not painted: while it loads,
-       and in the strip a live resize uncovers before the page catches up.
-       Three rectangles, because a Rectangle rounds all four corners or none:
-       the first is rounded everywhere, and the other two square off the
-       three corners that are not this one. */
-    Item {
-        id: backdrop
-        anchors.fill: parent
-        readonly property real r: root.maximized ? 0 : root.corner
-        Rectangle { anchors.fill: parent; color: uiBackground; radius: backdrop.r }
-        Rectangle {
-            x: backdrop.r; width: parent.width - backdrop.r; height: parent.height
-            color: uiBackground
-        }
-        Rectangle {
-            y: backdrop.r; width: parent.width; height: parent.height - backdrop.r
-            color: uiBackground
-        }
     }
 
     WebChannel { id: channel; objectName: "channel" }
@@ -64,7 +31,7 @@ Item {
         objectName: "web"
         anchors.fill: parent
         focus: true
-        backgroundColor: "transparent"
+        backgroundColor: uiBackground
         url: uiUrl
         webChannel: channel
         settings.javascriptEnabled: true
@@ -73,20 +40,6 @@ Item {
         // The page draws its own controls and never navigates: Chromium's
         // context menu (Back, Reload, ...) would only offer ways to lose the session.
         onContextMenuRequested: function (request) { request.accepted = true }
-        // A page with a title bar is told the window can cut its corner, and
-        // says back how round: half its band. A page without one keeps a
-        // square window, since there is no mark for a corner to be round about.
-        onLoadingChanged: function (info) {
-            if (info.status !== WebEngineView.LoadSucceededStatus) return
-            web.runJavaScript(
-                "(function () {" +
-                "  var bar = document.querySelector('.app>.titlebar');" +
-                "  if (!bar) return 0;" +
-                "  document.documentElement.setAttribute('data-corner', '');" +
-                "  return bar.getBoundingClientRect().height / 2;" +
-                "})()",
-                function (r) { root.corner = r > 0 ? r : 0 })
-        }
     }
 
     /* The page goes out of focus under the screen, the way it does on the WPF

@@ -84,47 +84,6 @@ def test_the_radius_never_eats_more_than_half_a_side():
     assert max(xs) <= 2.0
 
 
-# ── the window's corner ─────────────────────────────────────────────────────
-def test_the_corner_is_half_the_band():
-    """Not a fifth number: half the thick end is where the mark's disc has its
-    centre, in both directions, so it is the one radius concentric with it."""
-    s = band_shape()
-    assert s.corner == s.height / 2 == px("tbar-h") / 2 == 22.0
-    assert band_shape(height=60).corner == 30.0
-
-
-def test_the_corner_is_left_square_unless_it_is_asked_for():
-    """Whether the corner is cut is the window's, so the default is the band
-    every target drew before, down to the character."""
-    assert band_path(1280, 210).startswith("M0.00,0.00 L1280.00,0.00 ")
-    assert band_path(1280, 210, corner=0) == band_path(1280, 210)
-
-
-def test_the_corner_is_a_true_arc_round_the_mark():
-    """A quadratic through the vertex drifts almost a pixel off the circle at
-    45 degrees, and the margin round the mark would show it, so the corner is
-    an arc: into it from the left edge, out of it along the top."""
-    s = band_shape()
-    d = band_path(1280, 210, corner=s.corner)
-    assert d.startswith("M0.00,22.00 A22.00,22.00 0 0 1 22.00,0.00 L1280.00,0.00 ")
-    # the rest of the band is untouched
-    assert d.split(" L1280.00,0.00 ")[1] == band_path(1280, 210).split(" L1280.00,0.00 ")[1]
-
-
-def test_an_arc_needs_no_more_than_half_a_side():
-    """A window narrower than the corner keeps a corner, a smaller one."""
-    d = band_path(30, 10, corner=22)
-    assert d.startswith("M0.00,15.00 A15.00,15.00 0 0 1 15.00,0.00 ")
-
-
-def test_an_arc_turns_the_way_the_corner_does():
-    """Clockwise round the shape is sweep 1, and a corner turning the other
-    way is 0, so the arc always bulges out of the shape and never into it."""
-    cw = rounded_poly_path([Point(0, 0, a=4), Point(10, 0), Point(10, 10), Point(0, 10)])
-    ccw = rounded_poly_path([Point(0, 0, a=4), Point(0, 10), Point(10, 10), Point(10, 0)])
-    assert " 0 0 1 " in cw and " 0 0 0 " in ccw
-
-
 def test_coordinates_carry_two_places():
     assert fmt(0) == "0.00"
     assert fmt(-0.0) == "0.00"           # never -0.00
@@ -176,14 +135,13 @@ def _js_rounded_poly_path():
     return ctx
 
 
-@pytest.mark.parametrize("corner", (0.0, 22.0, 30.0))
 @pytest.mark.parametrize("width,brand", CASES)
-def test_the_browser_draws_the_same_path(width, brand, corner):
+def test_the_browser_draws_the_same_path(width, brand):
     ctx = _js_rounded_poly_path()
-    pts = band_points(width, brand, band_shape(), corner)
+    pts = band_points(width, brand, band_shape())
     js = ctx.call("roundedPolyPath",
-                  [{"x": p.x, "y": p.y, "r": p.r, "a": p.a} for p in pts])
-    assert js == band_path(width, brand, corner=corner), (
+                  [{"x": p.x, "y": p.y, "r": p.r} for p in pts])
+    assert js == band_path(width, brand), (
         "slantui/geometry.py and js/titlebar.js no longer draw the same band")
 
 

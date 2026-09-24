@@ -218,14 +218,10 @@ def test_the_page_asked_for_the_state_and_got_the_answer(app, win):
 
 
 def test_the_background_is_the_palette_surface(win):
-    """The colour behind the page is the palette's surface, drawn by the
-    backdrop in shell.qml. The window itself is clear, so the corner cut out
-    of that backdrop is a hole and not a square of window colour."""
     from slantui.tokens import DEFAULT
 
     assert win.background == DEFAULT["surface-0"]
-    assert win.rootContext().contextProperty("uiBackground") == DEFAULT["surface-0"]
-    assert win.color().alpha() == 0
+    assert win.color().name().upper() == DEFAULT["surface-0"].upper()
 
 
 def test_the_page_can_raise_the_minimum_width(app, win):

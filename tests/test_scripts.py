@@ -458,30 +458,6 @@ def test_the_band_is_cut_to_the_metrics(js):
     assert "Q238.00,28.00" in J(js, "band.style.clipPath")
 
 
-def test_the_corner_is_cut_only_by_a_window_that_can_cut_it(js):
-    """The shell puts data-corner on <html> when its window is clear behind
-    the corner. Then the band's first vertex is an arc of half the band,
-    round about the mark; maximised, the corner is the screen's and square."""
-    js.eval(TITLEBAR_PAGE)
-    js.eval(_runnable("titlebar.js"))
-    js.eval("shapeTitleBar()")
-    assert J(js, "band.style.clipPath").startswith('path("M0.00,0.00 L800.00,0.00 ')
-
-    js.eval("document.documentElement.setAttribute('data-corner', ''); shapeTitleBar()")
-    assert J(js, "band.style.clipPath").startswith(
-        'path("M0.00,22.00 A22.00,22.00 0 0 1 22.00,0.00 L800.00,0.00 ')
-
-    js.eval("document.body.classList.add('maximized'); shapeTitleBar()")
-    assert J(js, "band.style.clipPath").startswith('path("M0.00,0.00 L800.00,0.00 ')
-    js.eval("document.body.classList.remove('maximized'); shapeTitleBar()")
-    assert J(js, "band.style.clipPath").startswith('path("M0.00,22.00 A22.00')
-
-    # a taller band, a rounder corner: still half of it
-    js.eval("bar.clientHeight = 60; shapeTitleBar()")
-    assert J(js, "band.style.clipPath").startswith(
-        'path("M0.00,30.00 A30.00,30.00 0 0 1 30.00,0.00 ')
-
-
 # What is under the bar, for the strip: a column and a panel side by side, in
 # an app with no fill of its own. elementsFromPoint answers front first, the
 # way the engine does, and knows nothing about pointer events or visibility.

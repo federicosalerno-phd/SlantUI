@@ -350,22 +350,6 @@ def test_the_example_comes_up(win):
 
 
 @show_window
-def test_the_corner_is_round_about_the_mark(win):
-    """The shell marks the page, the page cuts its corner to half its band, the
-    mark's centre is the corner's, and the backdrop under the page is cut to
-    the radius the page reported."""
-    assert js(win, "document.documentElement.getAttribute('data-corner')") == ""
-    assert js(win, "getComputedStyle(document.querySelector('.app')).borderTopLeftRadius") \
-        == "22px"
-    assert js(win, "document.querySelector('.tbar-band').style.clipPath").startswith(
-        'path("M 0 22 A 22 22 0 0 1 22 0 ')
-    assert js(win, "(function () { var r = document.querySelector('.tbar-logo')"
-                   ".getBoundingClientRect(); return [r.left + r.width / 2,"
-                   " r.top + r.height / 2]; })()") == [22, 22]
-    assert win.rootObject().property("corner") == 22
-
-
-@show_window
 def test_the_strip_under_the_band_is_what_is_under_it(win):
     """Over the step rail the strip is the rail. With the rail gone, it is the
     column and the panel that are under the band now, each over its own width."""
