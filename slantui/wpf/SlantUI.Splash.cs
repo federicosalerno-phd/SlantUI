@@ -381,6 +381,23 @@ public class SlantPulse : FrameworkElement
     }
 }
 
+// A step with no corner at either end, 3t^2 - 2t^3: the curve the Qt half's
+// splash.qml calls smooth(), so the two halves hand over on the same curve
+// and not on two that look alike.
+public sealed class SlantSmoothEase : EasingFunctionBase
+{
+    public SlantSmoothEase() { EasingMode = EasingMode.EaseIn; }
+
+    protected override double EaseInCore(double t)
+    {
+        if (t <= 0) return 0;
+        if (t >= 1) return 1;
+        return t * t * (3 - 2 * t);
+    }
+
+    protected override Freezable CreateInstanceCore() { return new SlantSmoothEase(); }
+}
+
 // The thread that draws, and the orders it takes from outside.
 public sealed class SlantSplashCore
 {
@@ -397,9 +414,9 @@ public sealed class SlantSplashCore
     private SlantPulse _pulse;
     private TextBlock _percentText;
     private TextBlock _lineText;
-    private Border _scrim;
+    private Border _ground;
 
-    private readonly Color _accent, _track, _scrimColor, _textColor;
+    private readonly Color _accent, _track, _groundColor, _textColor;
     private readonly double _size, _thickness;
     private readonly string _logoPath;
     private readonly string _fontFamily;
@@ -436,13 +453,17 @@ public sealed class SlantSplashCore
         }
     }
 
-    public SlantSplashCore(string accent, string track, string scrim, string text,
+    // ground is what is behind the ring: the window's own surface, opaque,
+    // while an application loads, so the window is seen empty and not the
+    // application assembling itself under a veil; or the scrim, for a wait in
+    // the middle of work, where the page stays in sight.
+    public SlantSplashCore(string accent, string track, string ground, string text,
                            double size, string logoPath, string fontFamily)
     {
         _uiDispatcher = Dispatcher.CurrentDispatcher;
         _accent = Parse(accent, Colors.Gold);
         _track = Parse(track, Colors.Gray);
-        _scrimColor = Parse(scrim, Color.FromArgb(184, 13, 13, 15));
+        _groundColor = Parse(ground, Color.FromArgb(255, 13, 13, 15));
         _textColor = Parse(text, Colors.Gainsboro);
         _size = size > 0 ? size : 132;
         _thickness = Math.Max(3.0, Math.Round(_size / 34.0));
@@ -519,11 +540,11 @@ public sealed class SlantSplashCore
         _root.HorizontalAlignment = HorizontalAlignment.Stretch;
         _root.VerticalAlignment = VerticalAlignment.Stretch;
 
-        _scrim = new Border();
-        SolidColorBrush sb = new SolidColorBrush(_scrimColor);
+        _ground = new Border();
+        SolidColorBrush sb = new SolidColorBrush(_groundColor);
         sb.Freeze();
-        _scrim.Background = sb;
-        _root.Children.Add(_scrim);
+        _ground.Background = sb;
+        _root.Children.Add(_ground);
 
         StackPanel centre = new StackPanel();
         centre.HorizontalAlignment = HorizontalAlignment.Center;
@@ -864,10 +885,20 @@ public sealed class SlantSplashCore
         });
     }
 
-    // The fade is done by this thread, so it is smooth whatever the
+    // The handover is done by this thread, so it is smooth whatever the
     // application is doing; when it is over it tells the caller, on the
     // caller's thread, to take the host out of the tree and the blur off the
     // page.
+    //
+    // It is the movement the Qt half draws (splash.qml), on the same curves
+    // and at the same fractions of the same length, so an application in one
+    // half and an application in the other hand over the same way. The ring
+    // goes first, over the first forty-five hundredths, fading as it grows a
+    // little, the way the circle it let go at the end went outwards. The
+    // ground thins out behind it between a tenth and six tenths, uncovering
+    // the page. And the page comes into focus through it over the whole
+    // length: that part is the caller's, because the page lives on the
+    // caller's thread (Hide, in SlantUI.psm1).
     public void FadeOut(int ms, Action done)
     {
         if (_dispatcher == null)
@@ -880,37 +911,40 @@ public sealed class SlantSplashCore
             try
             {
                 Halt();
-                // The handover. The veil fades, and while it fades the ring
-                // opens outwards a little: the screen gets out of the way
-                // instead of being switched off, and the page underneath, which
-                // is coming in from a slightly larger scale of its own, reads as
-                // arriving. The two movements are the same length and the same
-                // curve, so they are one movement seen twice.
+                double total = Math.Max(1, ms);
                 ScaleTransform grow = new ScaleTransform(1.0, 1.0);
                 _centre.RenderTransformOrigin = new Point(0.5, 0.5);
                 _centre.RenderTransform = grow;
 
-                CubicEase soft = new CubicEase();
-                soft.EasingMode = EasingMode.EaseIn;
-                DoubleAnimation a = new DoubleAnimation(1.0, 0.0, TimeSpan.FromMilliseconds(ms));
-                a.EasingFunction = soft;
-                a.Completed += delegate (object s, EventArgs ev)
-                {
-                    if (done != null && _uiDispatcher != null)
-                        _uiDispatcher.BeginInvoke(DispatcherPriority.Send, done);
-                    Shutdown();
-                };
+                DoubleAnimation ring = new DoubleAnimation(1.0, 0.0, TimeSpan.FromMilliseconds(total * 0.45));
+                ring.EasingFunction = new SlantSmoothEase();
+                _centre.BeginAnimation(UIElement.OpacityProperty, ring);
 
                 CubicEase out_ = new CubicEase();
                 out_.EasingMode = EasingMode.EaseOut;
                 foreach (DependencyProperty pr in new DependencyProperty[] {
                              ScaleTransform.ScaleXProperty, ScaleTransform.ScaleYProperty })
                 {
-                    DoubleAnimation g = new DoubleAnimation(1.0, 1.06, TimeSpan.FromMilliseconds(ms));
+                    DoubleAnimation g = new DoubleAnimation(1.0, 1.08, TimeSpan.FromMilliseconds(total * 0.45));
                     g.EasingFunction = out_;
                     grow.BeginAnimation(pr, g);
                 }
-                _root.BeginAnimation(UIElement.OpacityProperty, a);
+
+                DoubleAnimation ground = new DoubleAnimation(1.0, 0.0, TimeSpan.FromMilliseconds(total * 0.50));
+                ground.BeginTime = TimeSpan.FromMilliseconds(total * 0.10);
+                ground.EasingFunction = new SlantSmoothEase();
+                _ground.BeginAnimation(UIElement.OpacityProperty, ground);
+
+                // the clock of the whole movement: nothing to see, and it says
+                // when the movement is over
+                DoubleAnimation clock = new DoubleAnimation(1.0, 1.0, TimeSpan.FromMilliseconds(total));
+                clock.Completed += delegate (object s, EventArgs ev)
+                {
+                    if (done != null && _uiDispatcher != null)
+                        _uiDispatcher.BeginInvoke(DispatcherPriority.Send, done);
+                    Shutdown();
+                };
+                _root.BeginAnimation(UIElement.OpacityProperty, clock);
             }
             catch
             {

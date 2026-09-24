@@ -60,8 +60,12 @@
         'r-md'                   = '6px'
         'r-lg'                   = '7px'
         'r-pill'                 = '99px'
+        'sp-1'                   = '4px'
+        'sp-2'                   = '8px'
+        'sp-3'                   = '12px'
         'font'                   = '''Segoe UI'',system-ui,-apple-system,sans-serif'
         'font-brand'             = '''Abadi'',''Abadi MT Std'',''Segoe UI Variable Display'',''Selawik'',''Segoe UI'',system-ui,sans-serif'
+        'font-credit'            = '''Segoe UI Variable Text'',''Segoe UI'',system-ui,sans-serif'
         'mono'                   = 'Consolas,''Courier New'',monospace'
         'fs'                     = '12.5px'
         'fs-sm'                  = '11.5px'
@@ -74,9 +78,15 @@
         'tab-h'                  = '42px'
         'tab-w'                  = '132px'
         'rp-w'                   = '244px'
+        'slot'                   = '32px'
+        'block'                  = '96px'
+        'blur'                   = '14px'
+        'sheet-w'                = '520px'
+        'sheet-wide'             = '660px'
         't-in'                   = '120ms'
         't-out'                  = '180ms'
         't-chg'                  = '140ms'
+        't-reveal'               = '1600ms'
     }
     MetricNumbers = @{
         'r-xs'                   = 4
@@ -84,6 +94,9 @@
         'r-md'                   = 6
         'r-lg'                   = 7
         'r-pill'                 = 99
+        'sp-1'                   = 4
+        'sp-2'                   = 8
+        'sp-3'                   = 12
         'fs'                     = 12.5
         'fs-sm'                  = 11.5
         'fs-xs'                  = 10
@@ -95,16 +108,23 @@
         'tab-h'                  = 42
         'tab-w'                  = 132
         'rp-w'                   = 244
+        'slot'                   = 32
+        'block'                  = 96
+        'blur'                   = 14
+        'sheet-w'                = 520
+        'sheet-wide'             = 660
     }
     # Durations in milliseconds, for a storyboard or a timer.
     Times = @{
         't-in'                   = 120
         't-out'                  = 180
         't-chg'                  = 140
+        't-reveal'               = 1600
     }
     Fonts = @{
         'font'                   = 'Segoe UI'
         'font-brand'             = 'Abadi, Abadi MT Std, Segoe UI Variable Display, Selawik, Segoe UI'
+        'font-credit'            = 'Segoe UI Variable Text, Segoe UI'
         'mono'                   = 'Consolas, Courier New'
     }
 

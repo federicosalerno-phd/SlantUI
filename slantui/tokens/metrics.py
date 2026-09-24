@@ -131,6 +131,9 @@ METRICS: tuple[Metric, ...] = (
     Metric("t-chg", "motion", "140ms",
            "A state changing on its own: a status dot, a step marked done.",
            kind="time"),
+    Metric("t-reveal", "motion", "1600ms",
+           "The loading screen handing the window over: the ring leaves and "
+           "the page comes into focus.", kind="time"),
 )
 
 # What each group is, for the comment the stylesheet carries over it.
@@ -143,7 +146,7 @@ GROUPS: dict[str, str] = {
     "panel": "the side panel",
     "comb": "the comb the panel is laid on",
     "overlay": "what opens over the page",
-    "motion": "motion. One material, three durations",
+    "motion": "motion. One material, three durations and one handover",
 }
 
 # A note printed above a group where the numbers need the picture.
@@ -159,7 +162,10 @@ GROUP_NOTES: dict[str, str] = {
         "A control answers the pointer faster than it lets go, which is what\n"
         "makes it feel like a thing and not a slide. The rule the components\n"
         "keep: everything transitions over --t-out, and the :hover state\n"
-        "overrides the duration to --t-in."
+        "overrides the duration to --t-in. --t-reveal is ten times longer on\n"
+        "purpose: it is the one moment the whole window changes at once, the\n"
+        "loading screen going and the page arriving in focus, and a change\n"
+        "that large read in two hundred milliseconds reads as a cut."
     ),
     "overlay": (
         "One blur and two widths. The blur is the loading screen's, which is\n"

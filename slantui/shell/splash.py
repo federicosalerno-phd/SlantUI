@@ -7,7 +7,7 @@ gets ready.
     ...
     splash.set_progress(0.4, "reading the folders")
     ...
-    splash.hide(190)
+    splash.hide()
 
 It is the screen the WPF half of the library draws through
 ``Show-SlantSplash``: the brand in the middle of a ring, a figure, a line
@@ -20,13 +20,28 @@ It comes in the same two forms, and they draw the same file:
 
 * ``window=`` lays it over the body of a :class:`~slantui.shell.Window`, with
   the band left sharp above it, so the window can still be moved and closed
-  while it loads, and the page out of focus under the veil. **This is the
-  form an application uses**: the loading screen is the application's own
-  window, a second before the application is in it, and not a separate little
-  window that disappears and leaves the desktop empty for a moment.
+  while it loads. **This is the form an application uses**: the loading
+  screen is the application's own window, a second before the application is
+  in it, and not a separate little window that disappears and leaves the
+  desktop empty for a moment. Under the band the window is EMPTY, in the
+  palette's own surface: the page is not shown while it is being put
+  together, because what someone waiting should see is the window, and then
+  the application in it, and not the application assembling itself.
 * ``palette=`` and no window is a screen of its own, for the seconds before
   there is a window to dress at all. Paired with ``busy`` the two hand over
   without a seam.
+
+``veil=True`` is for the other kind of wait, the one in the middle of work: a
+language being changed, a folder being read again. There the page is the
+person's work, so it stays in sight, out of focus under the scrim, because a
+page that vanished for a second would look lost.
+
+**The handover is one long movement**, ``--t-reveal``: when the circle has
+closed and let its ring go, the ring follows it outwards and fades, the empty
+window thins out behind it, and through it the page comes into focus, sharp
+exactly as the movement ends. The page is found by focusing it, not switched
+on. A wait over a page in sight hands back in a fifth of a second instead,
+since there nothing arrives: the page was there all along.
 
 **The ring measures and nothing else.** One arc, which moves when the work
 moves. **The bar carries the other half** of what a load has to say, that it
@@ -56,30 +71,32 @@ from __future__ import annotations
 
 import os
 import tempfile
+import time
 from pathlib import Path
 
 from ..tokens import DEFAULT, PALETTES
-from ..tokens.metrics import px, value
+from ..tokens.metrics import ms, px, value
 from .qt import QColor, QImage, QObject, QQuickView, QSize, QTimer, QUrl, Qt
 
-__all__ = ["Splash", "SPLASH_QML", "HAZE_QML", "RING", "BLUR", "thickness",
-           "screen_context"]
+__all__ = ["Splash", "SPLASH_QML", "PAGEMARK_QML", "RING", "REVEAL_MS",
+           "thickness", "screen_context"]
 
 SPLASH_QML = Path(__file__).resolve().parent / "splash.qml"
-HAZE_QML = Path(__file__).resolve().parent / "haze.qml"
+PAGEMARK_QML = Path(__file__).resolve().parent / "pagemark.qml"
 
 # The ring the WPF screen draws, so the two are one screen. Its thickness
 # follows its size, which is what keeps a ring asked for larger from coming
 # out as a hoop of wire.
 RING = 132.0
 
-# How far the page behind the veil goes out of focus, as on the WPF side.
-# It is a metric, not a number kept here: the two screens are one screen, and
-# one blur read from one place is what stops them from drifting apart. This is
-# the only veil in the library. A sheet opens beside the control it is about
-# and leaves the page alone, because the page is what the reader is working on;
-# here there is nothing behind yet to work on.
-BLUR = px("blur")
+# How far out of focus the page is, when the handover uncovers it and under a
+# veil, is the metric --blur, and it is the PAGE that blurs itself: layout.css
+# lays a pane over the body while data-splash is on its root. The window used
+# to do it, by drawing the page a second time into a layer of its own and
+# blurring that, and reading the page's picture twice a frame raced Chromium
+# for it: one start in two, a frame of the handover came out white. The page
+# blurring its own body is one picture, read once. It also cannot blur the
+# band, which the layer did, since the band is above the pane.
 
 # The bar's band crosses its track in this, whatever else is happening.
 SWEEP_MS = 1750.0
@@ -105,6 +122,17 @@ PAGE_FROM, PAGE_TO = 0.15, 0.95
 # finished and a screen that was taken away.
 BURST_S = 0.5
 
+# How much of the flourish is seen before the handover begins. Not all of it:
+# the ring follows the circle it let go, and it follows it while that circle
+# is still travelling, so the end and the handover are one movement.
+HANDOVER_AT = 0.35
+
+# The handover of an empty window to the page it was loading, and of a veil
+# to the page it was over. The first is the library's one long movement; the
+# second gives back a page that was there all along, so it is short.
+REVEAL_MS = ms("t-reveal")
+VEIL_MS = 190
+
 # The longest the circle is given to close before the screen goes. An arc
 # still climbing when the screen is taken away looks like something was
 # skipped, so hiding closes it first; a load that ends at four per cent must
@@ -122,8 +150,25 @@ def _components(colour: str) -> tuple[float, float, float]:
     return tuple(int(value[i:i + 2], 16) / 255.0 for i in (0, 2, 4))
 
 
-def screen_context(ctx, palette: str | None = None, ring: float = RING,
-                   blur: float = BLUR) -> None:
+def _qml_colour(colour: str) -> QColor:
+    """A palette colour as QML has to be given it.
+
+    The palette writes colours the way CSS reads them, and a colour with an
+    alpha is ``#rrggbbaa`` there. QML reads the same eight digits the other
+    way round, as ``#aarrggbb``, and says nothing. The scrim, ``#0D0D0FB8``,
+    went to the screen as a blue, ``#0D0FB8``, at five per cent: the window
+    took a faint violet cast while it loaded and lost it the moment the screen
+    went, and it looked like the colour of the mark in the ring, which it was
+    not. So every colour crosses as a QColor, built here from four numbers
+    that cannot be read in the wrong order.
+    """
+    value = colour.lstrip("#")
+    red, green, blue = (int(value[i:i + 2], 16) for i in (0, 2, 4))
+    alpha = int(value[6:8], 16) if len(value) == 8 else 255
+    return QColor(red, green, blue, alpha)
+
+
+def screen_context(ctx, palette: str | None = None, ring: float = RING) -> None:
     """Put the screen's vocabulary on a QML context.
 
     Both forms read the same names, and a window carries them whether or not
@@ -144,14 +189,15 @@ def screen_context(ctx, palette: str | None = None, ring: float = RING,
         ctx.setContextProperty(name + "G", green)
         ctx.setContextProperty(name + "B", blue)
     ctx.setContextProperty("splashSource", QUrl.fromLocalFile(str(SPLASH_QML)))
-    ctx.setContextProperty("hazeSource", QUrl.fromLocalFile(str(HAZE_QML)))
-    ctx.setContextProperty("splashBlur", float(blur))
+    ctx.setContextProperty("pagemarkSource", QUrl.fromLocalFile(str(PAGEMARK_QML)))
     ctx.setContextProperty("splashBandHeight", px("tbar-h"))
-    ctx.setContextProperty("surfaceColour", colours["surface-0"])
-    ctx.setContextProperty("scrimColour", colours["scrim"])
-    ctx.setContextProperty("accentColour", colours["accent"])
-    ctx.setContextProperty("trackColour", colours["control"])
-    ctx.setContextProperty("textColour", colours["text-3"])
+    # The empty window is surface-0, the colour the window itself is behind
+    # the page: the screen is the application's window with nothing in it yet,
+    # in the application's palette, and in no colour of its own.
+    for name, role in (("surfaceColour", "surface-0"), ("scrimColour", "scrim"),
+                       ("accentColour", "accent"), ("trackColour", "control"),
+                       ("textColour", "text-3")):
+        ctx.setContextProperty(name, _qml_colour(colours[role]))
     ctx.setContextProperty("fontFamily", value("font").split(",")[0].strip("'\""))
     ctx.setContextProperty("ringSize", float(ring))
     ctx.setContextProperty("ringThickness", thickness(ring))
@@ -173,15 +219,21 @@ class Splash(QObject):
 
     ``logo`` is what goes in the middle of the ring: a path to an ``.svg`` or
     a picture, or a ``QIcon`` / ``QPixmap`` / ``QImage`` an application drew
-    for itself out of the palette. ``text`` is the first line under it, and
-    ``busy`` starts in the waiting mode, where the arc turns instead of
-    filling.
+    for itself out of the palette. The mark is the only thing on the screen in
+    the application's own colours; everything around it is the palette's.
+    ``text`` is the first line under it, and ``busy`` starts in the waiting
+    mode, where the arc turns instead of filling. ``veil`` keeps the page in
+    sight under the screen, for a wait in the middle of work.
     """
+
+    # the handover: (how far, how long in seconds), or None before it starts
+    _leaving = None
+    _last = None
 
     def __init__(self, *, window=None, palette: str | None = None, logo=None,
                  text: str = "", busy: bool = False, ring: float = RING,
-                 blur: float = BLUR, follow_page: bool = True,
-                 page_text: str = "loading the interface"):
+                 follow_page: bool = True,
+                 page_text: str = "loading the interface", veil: bool = False):
         super().__init__(window)
         self.window = window
         self._own: QQuickView | None = None
@@ -195,11 +247,13 @@ class Splash(QObject):
         self._visible = False
         self._closing = None
         self._burst = None
+        self._veil = bool(veil) and window is not None
 
         if window is not None:
             self._root = self._over_window(window)
+            self._root.setProperty("veil", self._veil)
         else:
-            self._root = self._own_window(palette, ring, blur)
+            self._root = self._own_window(palette, ring)
 
         self._root.setProperty("busy", self._busy)
         self._root.setProperty("line", text)
@@ -239,14 +293,14 @@ class Splash(QObject):
         item.setProperty("opacity", 0.0)      # put up by show(), not by loading
         return item
 
-    def _own_window(self, palette, ring, blur):
+    def _own_window(self, palette, ring):
         """The screen as a window of its own, for before there is one."""
         view = QQuickView()
         view.setFlag(Qt.WindowType.FramelessWindowHint, True)
         view.setFlag(Qt.WindowType.Tool, True)        # no taskbar button of its own
         view.setColor(QColor(0, 0, 0, 0))             # the rounded corner needs the hole
         view.setResizeMode(QQuickView.ResizeMode.SizeRootObjectToView)
-        screen_context(view.rootContext(), palette, ring, blur)
+        screen_context(view.rootContext(), palette, ring)
         if not SPLASH_QML.is_file():
             raise FileNotFoundError(f"loading screen not found: {SPLASH_QML}")
         view.setSource(QUrl.fromLocalFile(str(SPLASH_QML)))
@@ -302,6 +356,7 @@ class Splash(QObject):
         if self._own is not None:
             self._own.show()
         self._visible = True
+        self._last = None
         self._motor.start()
 
     def set_progress(self, fraction: float, text: str | None = None) -> None:
@@ -339,8 +394,8 @@ class Splash(QObject):
         """Where the arc is now, which is not where it was told to go."""
         return self._pos
 
-    def hide(self, ms: int = 190, close: bool = True) -> None:
-        """Take the screen away, over ``ms``.
+    def hide(self, ms: int | None = None, close: bool = True) -> None:
+        """Hand the window over to what it was loading, over ``ms``.
 
         The circle is closed first. Work ends where it ends, usually with the
         arc some way short of the top, and a screen that vanishes from there
@@ -350,44 +405,40 @@ class Splash(QObject):
         animation. ``close=False`` skips it, for a screen being taken down
         because something failed.
 
-        About two hundred milliseconds of fade is what hands over to a window
-        already drawn underneath. Zero takes it away at once, which is what a
-        screen with nothing behind it should do.
+        Left to itself the length is the library's: ``--t-reveal`` over a
+        window, the long handover in which the page comes into focus, and a
+        fifth of a second under a veil or on a screen of its own. An
+        application does not pick it, for the same reason it does not pick the
+        colour of the ring. Zero takes it away at once.
         """
         if not self._visible:
             return
+        if ms is None:
+            ms = REVEAL_MS if self.window is not None and not self._veil else VEIL_MS
         if close and self._pos < 0.995:
             self.set_progress(1.0)
-            self._closing = (ms, self._elapsed + CLOSE_MAX + BURST_S * 0.62)
-            return                     # the motor fades it once the circle is closed
+            self._closing = (ms, self._elapsed + CLOSE_MAX + BURST_S * HANDOVER_AT)
+            return                     # the motor hands over once the circle is closed
         self._fade(ms)
 
-    def _fade(self, ms: int) -> None:
-        self._motor.stop()
+    def _fade(self, ms: float) -> None:
+        """Start the handover. The motor carries it: the ring keeps its
+        movement while it goes, and the handover is one number more for the
+        same frames to move."""
         if ms <= 0:
+            self._motor.stop()
             self._gone()
             return
-        steps = max(1, int(ms / FRAME_MS))
-        left = {"n": steps}
-        fade = QTimer(self)
-
-        def dim():
-            left["n"] -= 1
-            share = max(0.0, left["n"] / steps)
-            self._root.setProperty("opacity", share)
-            if self._own is not None:
-                self._own.setOpacity(share)
-            if left["n"] <= 0:
-                fade.stop()
-                self._gone()
-
-        fade.timeout.connect(dim)
-        fade.setInterval(FRAME_MS)
-        fade.start()
+        self._leaving = (0.0, ms / 1000.0)
+        if not self._motor.isActive():
+            self._last = None
+            self._motor.start()
 
     def _gone(self) -> None:
         """Nothing is showing the screen any more: put it all down."""
         self._visible = False
+        self._leaving = None
+        self._motor.stop()
         if self._page is not None:
             self._page.stop()
         if self._own is not None:
@@ -421,7 +472,14 @@ class Splash(QObject):
 
     # ── the movement ─────────────────────────────────────────────────────
     def _step(self) -> None:
-        self._advance(FRAME_MS / 1000.0)
+        """One tick of the motor, as long as it really was. A timer asked for
+        sixteen milliseconds is handed anything from fifteen to thirty, and
+        counting ticks instead of time made every movement on the screen run
+        slow by whatever the timer lost."""
+        now = time.perf_counter()
+        dt = FRAME_MS / 1000.0 if self._last is None else now - self._last
+        self._last = now
+        self._advance(dt)
 
     def _advance(self, dt: float) -> None:
         """One frame of the arc and of the bar. Arithmetic on three numbers,
@@ -472,9 +530,17 @@ class Splash(QObject):
 
         if self._closing is not None:
             ms, deadline = self._closing
-            # the flourish is half the reason the end reads as an end, so it
-            # is given most of its half second before the screen fades
-            flourished = self._burst is not None and self._burst >= 0.62
+            # the flourish is half the reason the end reads as an end, so the
+            # handover waits for it to be on its way, and then goes with it
+            flourished = self._burst is not None and self._burst >= HANDOVER_AT
             if (self._pos >= 0.995 and flourished) or self._elapsed >= deadline:
                 self._closing = None
                 self._fade(ms)
+
+        if self._leaving is not None:
+            done, length = self._leaving
+            done = min(1.0, done + dt / length)
+            self._leaving = (done, length)
+            self._root.setProperty("leave", done)
+            if done >= 1.0:
+                self._gone()

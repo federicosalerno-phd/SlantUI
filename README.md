@@ -635,8 +635,13 @@ splash.hide()
 ```
 
 It goes over the application's own window, under the band, which stays sharp
-so the window can still be moved and closed while it loads, and the page goes
-out of focus under the veil. That is the form to use: the loading screen is
+so the window can still be moved and closed while it loads, and under the band
+the window is empty: the palette's own surface, and nothing of the page being
+put together behind it. When the work is done `hide()` hands the window over in
+one long movement, `--t-reveal`: the ring grows a little and fades, the empty
+window thins out, and the page arrives out of focus and comes into focus.
+`veil=True` is the other kind of wait, the one in the middle of work, where the
+page stays in sight under a scrim. That is the form to use: the loading screen is
 the application's window a second before the application is in it, never a
 separate little window that disappears and leaves the desktop empty for a
 moment. Passing no window opens a screen of its own instead, for the seconds
@@ -719,7 +724,7 @@ an application wearing this:
 
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="docs/img/gold-dark/splash.png">
-<img src="docs/img/gold-light/splash.png" width="1240" alt="The loading screen: the oblique band still sharp across the top, the page behind it blurred under a dark veil, the brand in the middle of a ring filled to 62 per cent, a line of text and a thin bar under it">
+<img src="docs/img/gold-light/splash.png" width="1240" alt="The loading screen: the oblique band still sharp across the top, under it the window empty in its own surface, the brand in the middle of a ring filled to 62 per cent, a line of text and a thin bar under it">
 </picture>
 
 *The loading screen, and the one picture no browser can take. It is drawn on a
@@ -776,8 +781,10 @@ $splash.SetProgress(0.4, 'reading the folders')
 $splash.Hide()
 ```
 
-The page it is about to show, blurred and darkened, with the brand in the
-middle of a ring. The ring measures and nothing else: one arc, which moves
+The window itself, empty, in the palette's own surface, with the brand in the
+middle of a ring; `Hide()` then hands it over to the page in the same long
+movement the Qt half makes, and `-Veil` keeps the page in sight instead, for a
+wait in the middle of work. The ring measures and nothing else: one arc, which moves
 when the work moves. A thin bar under the line carries the other half of what
 a load has to say, that it is still going, and it has no scale precisely so
 that it cannot be read as a quantity. Between one announced step and the next
@@ -804,7 +811,7 @@ drawn by the same code.
 
 ```powershell
 $splash = Show-SlantSplash -Window $window -Logo .\brand.png -Busy -Text 'starting'
-$splash.Hide(190)
+$splash.Hide()
 ```
 
 The brand is read as vector art when there is any: pass an `.svg`, or a

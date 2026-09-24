@@ -11,15 +11,16 @@ the library, it draws on a thread of its own through a ``HostVisual``, and a
 it taken the ordinary way is a window with a hole where the screen should be.
 
 So this takes two pictures and lays one on the other. The window renders
-itself, band and blurred page and all, and the drawing thread hands over what
+itself, band and all, and the drawing thread hands over what
 it has on screen through ``Snapshot``. Both come back at the same scale and
 the two are composited into one frame, which is then cut to the corner radius
 Windows cuts a window to, the way ``capture.py`` cuts its own.
 
-What is under the veil is the gallery's own window shot with its band cropped
-off, put back into a real window as its page. Under fourteen pixels of blur
-nobody is reading it; what it is there for is that the light and the shapes
-behind the scrim are a real page's and not a flat fill.
+Under the screen is the gallery's own window shot with its band cropped off,
+put back into a real window as its page, and the screen hides it: while an
+application loads, its window is seen empty, which is what the picture has to
+show. The page is there so that the picture is of a real window and not of a
+screen laid over nothing.
 
 The output lands in ``docs/shots/<palette>/splash.png``, next to everything
 ``capture.py`` writes, and ``docs/publish.py`` carries it into ``docs/img``

@@ -39,6 +39,51 @@
   display:flex;align-items:flex-start;
   background:var(--surface-1);
 }
+/* ── under the loading screen ─────────────────────────────────────────────
+   The loading screen is drawn by the window, over the body, and it tells the
+   page it is there with data-splash on the root, before the page draws its
+   first frame (shell/pagemark.qml):
+
+     up        the window is empty: the screen covers the body, opaque
+     leaving   the screen is going and the page is arriving, over --t-reveal
+     veil      a wait in the middle of work, the page in sight under a scrim
+     lifting   that wait handing the page back
+
+   Two things are the page's to do about it, because they are the page's
+   pixels. The strip under the thin half of the band is part of the empty
+   window, so it is the window's colour while the window is empty, and it
+   crosses to its own colour on the curve the empty window thins out on. And
+   the body is out of focus under the screen, and comes into focus as the
+   screen goes: a pane over everything below the band, blurring what is
+   behind it and taking no pointer. Nothing moves in the page's own layout,
+   and the band is above the pane, so the band is never out of focus.
+
+   The page is told a frame or two after the window starts to move, so both
+   of its curves end a little before --t-reveal does: what arrives late must
+   not be cut off by the attribute going. And the blur is timed against the
+   empty window, which the screen uncovers between a tenth and six tenths of
+   the movement: half uncovered, the page is still plainly out of focus (six
+   or seven pixels); uncovered, it is nearly there (under two); and it spends
+   the last third of the movement settling into focus in plain sight. Text is
+   unreadable until the blur is under a pixel, so a radius falling in a
+   straight line reads as a smear that snaps sharp at the end; this one falls
+   quickly and settles slowly, and the page sharpens evenly. */
+html[data-splash=up] .titlebar,html[data-splash=leaving] .titlebar{background:var(--surface-0)}
+html[data-splash=leaving] .titlebar{
+  transition:background-color calc(var(--t-reveal) * .5) ease-in-out calc(var(--t-reveal) * .1);
+}
+html[data-splash] body::after{
+  content:'';position:fixed;left:0;right:0;top:var(--tbar-h);bottom:0;
+  pointer-events:none;z-index:2147483000;
+  backdrop-filter:blur(var(--blur));
+}
+html[data-splash=leaving] body::after{
+  backdrop-filter:blur(0);
+  transition:backdrop-filter calc(var(--t-reveal) * .85) cubic-bezier(.33,.4,.5,1) calc(var(--t-reveal) * .05);
+}
+html[data-splash=lifting] body::after{
+  backdrop-filter:blur(0);transition:backdrop-filter var(--t-out) ease-out;
+}
 /* The band's fill is a flat palette colour, the one secondary controls use,
    never a gradient. */
 .tbar-band{position:absolute;inset:0;background:var(--control);pointer-events:none}

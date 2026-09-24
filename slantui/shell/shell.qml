@@ -42,19 +42,22 @@ Item {
         onContextMenuRequested: function (request) { request.accepted = true }
     }
 
-    /* The page goes out of focus under the screen, the way it does on the WPF
-       side: the veil alone over a drawn page reads as a page that went dim,
-       and the blur is what says the application is busy with something else.
-       It costs nothing until the screen is up, since the layer is only turned
-       on with it, and it is skipped where the effect is missing (Qt 5), where
-       the veil carries the screen by itself. */
+    /* The page is told the screen is up, before it draws a frame, and while
+       it is told it keeps its body out of focus and the strip under the band
+       in the empty window's colour (pagemark.qml and layout.css say why).
+       The page does its own blur: the window never draws the page twice. */
     Loader {
-        id: haze
-        anchors.fill: web
-        active: splash.active && splashBlur > 0
-        source: hazeSource
-        onLoaded: { item.target = web; item.radius_ = splashBlur }
+        id: mark
+        active: splash.active
+        source: pagemarkSource
+        onLoaded: item.target = web
         onStatusChanged: if (status === Loader.Error) active = false
+    }
+    Binding {
+        target: mark.item
+        when: mark.item !== null && splash.item !== null
+        property: "state_"
+        value: splash.item ? splash.item.page : ""
     }
 
     Loader {
@@ -64,6 +67,6 @@ Item {
         active: false
         anchors.fill: parent
         anchors.topMargin: splashBandHeight
-        onLoaded: item.veil = true
+        onLoaded: item.over = true
     }
 }

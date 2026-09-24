@@ -114,13 +114,27 @@ invariant culture. On a machine set to Italian the obvious call writes
 
 ## WPF
 
-Three files ship inside the package. Copy them next to the application, or
-let the build step do it:
+Three files ship inside the package, and an application imports them from
+there. It does not copy them: a copy is a second SlantUI, and it is behind
+the first the day the library changes. A PowerShell script cannot ask Python
+where a package is without starting Python, so the library writes its own
+address once, in the user's local data:
 
-```python
-from slantui.wpf import install
-install(r"C:\MyApp\vendor")        # the module, the data, the drawing thread
 ```
+python -m slantui.wpf register      # writes %LOCALAPPDATA%\SlantUI\wpf.path
+```
+
+```powershell
+$dove = "$(Get-Content "$env:LOCALAPPDATA\SlantUI\wpf.path" -Raw)".Trim()
+Import-Module (Join-Path $dove 'SlantUI.psm1')
+```
+
+Installed editable, the address is the checkout, and an edit to the module
+reaches every application at its next start. An application that finds the
+pointer missing can run the register command itself before it gives up.
+`install()` still copies the three files into a folder, for the library's own
+tests and for a build carried to a machine the library is not on; an
+application on a machine that has the library does not call it.
 
 `SlantUI.Tokens.psd1` is generated and holds every palette, every metric and
 the band's four numbers. `SlantUI.psm1` is the module that reads it, and it
@@ -129,12 +143,8 @@ is the one file in the repository written by hand in PowerShell.
 use into the user's local data; it is not an optional extra, and what it is
 for is further down.
 
-The copy goes one way. The library is where these files are written and an
-application receives them from `install`, so a change made in a copy is a
-change that will be overwritten. Anything worth keeping belongs here.
-
 ```powershell
-Import-Module .\SlantUI.psm1
+Import-Module (Join-Path $dove 'SlantUI.psm1')
 
 $b = Get-SlantBrushes                      # the default palette, as brushes
 $window.Background = $b['surface-0']
@@ -244,6 +254,7 @@ doing what it says.
 |---|---|
 | `Install-SlantWindow` | all of the above, on a window |
 | `New-SlantTitleBar` | the bar on its own, for a window that wants to place it itself |
+| `Set-SlantBrandAction` | the mark made a way home, the round disc `setBrandAction()` makes on the page; also `$chrome.SetBrandAction({ ... }, 'hint')` |
 | `Set-SlantWindowFrame` | the styles and the subclass, on a bare handle |
 | `Set-SlantWindowScheme` | tells Windows the palette is dark or light |
 | `Set-SlantWindowTransitions` | the system's own state animation, on or off |
@@ -310,7 +321,7 @@ wants this on screen the moment an icon is clicked.
 
 ```powershell
 $splash = Show-SlantSplash -Window $window -Logo .\brand.png -Busy -Text 'starting'
-$splash.Hide(190)
+$splash.Hide()
 ```
 
 Put together, the two forms hand over without a seam: the first screen turns,

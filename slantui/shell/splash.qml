@@ -5,10 +5,27 @@ import QtQuick 2.15
    and a thin bar under it.
 
    One file, two places. Over the body of a window this library dressed it is
-   a veil, with the band left sharp above it so the window can still be moved
-   and closed while it loads; on its own it is a small window with the same
-   screen on it, for the seconds before there is an application to dress.
-   Both are this file, which is what makes the two hand over without a jump.
+   the window itself, empty: the band sharp above it, so the window can still
+   be moved and closed while it loads, and under the band nothing but the
+   window's own surface. The page is not shown through it. A page seen while
+   it is being put together is an application assembling itself in front of
+   the person waiting for it, and what they should see is the window, and then
+   the application in it. On its own it is a small window with the same screen
+   on it, for the seconds before there is an application to dress. Both are
+   this file, which is what makes the two hand over without a jump.
+
+   A wait in the middle of work is the other case, and `veil` is for it: there
+   the page is the person's work and stays in sight, out of focus under a
+   scrim, because hiding it would look like it had been lost.
+
+   The handover is one movement, `leave`, from nothing to one. The ring goes
+   first, fading as it grows a little, the way the circle it let go at the end
+   went outwards; the empty window thins out behind it; and through it the page
+   comes into focus, arriving sharp exactly as the movement ends. The first
+   two are curves over that one number, here; the third is the page's own,
+   told to start in the same frame and written in layout.css over the same
+   length, because the page is the one that blurs itself. How long the
+   movement lasts is splash.py's, which takes it from --t-reveal.
 
    The ring is a canvas and not a shape, for one reason: the arc is not a flat
    colour. It runs from a lighter accent to the accent, along a gradient
@@ -21,7 +38,7 @@ import QtQuick 2.15
    no rule about how that state moves. The colours arrive as the accent's and
    the track's own components, out of the palette, so no value in this file is
    a colour. */
-Rectangle {
+Item {
     id: root
 
     property real progress: 0          // 0 .. 1, the arc's fill
@@ -31,7 +48,24 @@ Rectangle {
     property real burst: 0             // the ring's one flourish, at the end
     property string line: ""           // what is happening, in words
     property url logo: ""
-    property bool veil: false          // over an application's body, not on its own
+    property bool over: false          // over an application's body, not on its own
+    property bool veil: false          // and the page left in sight, under a scrim
+    property real leave: 0             // the handover, 0 .. 1
+
+    // a step from a to b with no corner at either end
+    function smooth(a, b, x) {
+        var t = Math.max(0, Math.min(1, (x - a) / (b - a)))
+        return t * t * (3 - 2 * t)
+    }
+    readonly property real ringGone: smooth(0.0, 0.45, leave)
+    readonly property real ringGrow: 1 - Math.pow(1 - Math.min(1, leave / 0.45), 3)
+    readonly property real groundGone: smooth(0.10, 0.60, leave)
+    // What the page is told (pagemark.qml): the page blurs its own body under
+    // the screen and comes into focus on the same curve, and paints the strip
+    // under the band in the empty window's colour while the window is empty.
+    readonly property string page: !over ? ""
+        : veil ? (leave > 0 ? "lifting" : "veil")
+        : (leave > 0 ? "leaving" : "up")
 
     readonly property real ring: ringSize
     readonly property real thick: ringThickness
@@ -44,8 +78,15 @@ Rectangle {
     // while it spins, and it looked like a crop box, which is what it was.
     readonly property real halo: Math.max(thick * 1.9, ring * 0.16)
 
-    color: veil ? scrimColour : surfaceColour
-    radius: veil ? 0 : cornerRadius
+    // What is behind the ring: the window's own surface, which is what an
+    // empty window is, or the scrim over a page left in sight. On its own the
+    // screen is a small window with round corners, and this is its fill.
+    Rectangle {
+        anchors.fill: parent
+        color: root.over && root.veil ? scrimColour : surfaceColour
+        radius: root.over ? 0 : cornerRadius
+        opacity: 1 - root.groundGone
+    }
 
     // The accent, lifted towards white. The arc is lighter where it starts
     // than where it ends, and the head lighter still: that is what makes a
@@ -65,6 +106,9 @@ Rectangle {
     Column {
         anchors.centerIn: parent
         spacing: 0
+        opacity: 1 - root.ringGone
+        scale: 1 + 0.08 * root.ringGrow
+        transformOrigin: Item.Center
 
         Item {
             width: root.ring

@@ -257,6 +257,27 @@
       "kind": "length"
     },
     {
+      "name": "sp-1",
+      "group": "spacing",
+      "value": "4px",
+      "purpose": "Between two controls of one section.",
+      "kind": "length"
+    },
+    {
+      "name": "sp-2",
+      "group": "spacing",
+      "value": "8px",
+      "purpose": "Between a control and something that is not one, and the gap inside a row of controls.",
+      "kind": "length"
+    },
+    {
+      "name": "sp-3",
+      "group": "spacing",
+      "value": "12px",
+      "purpose": "Before a section that starts a new subject.",
+      "kind": "length"
+    },
+    {
       "name": "font",
       "group": "type",
       "value": "'Segoe UI',system-ui,-apple-system,sans-serif",
@@ -268,6 +289,13 @@
       "group": "type",
       "value": "'Abadi','Abadi MT Std','Segoe UI Variable Display','Selawik','Segoe UI',system-ui,sans-serif",
       "purpose": "The application name in the title bar, and nothing else. A modern humanist sans if the machine has one, Segoe UI Variable next on Windows 11, plain Segoe UI last.",
+      "kind": "font"
+    },
+    {
+      "name": "font-credit",
+      "group": "type",
+      "value": "'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif",
+      "purpose": "The credit line the licence asks for, and nothing else. It is the library speaking and not the application, so it is set in the text face of the platform and not in the one the application reads in.",
       "kind": "font"
     },
     {
@@ -355,6 +383,41 @@
       "kind": "length"
     },
     {
+      "name": "slot",
+      "group": "comb",
+      "value": "32px",
+      "purpose": "The step a panel's controls sit on: one control takes one slot, or as many whole slots as its ink needs.",
+      "kind": "length"
+    },
+    {
+      "name": "block",
+      "group": "comb",
+      "value": "96px",
+      "purpose": "How tall a block of controls is. A block that needs more is two of these, or three.",
+      "kind": "length"
+    },
+    {
+      "name": "blur",
+      "group": "overlay",
+      "value": "14px",
+      "purpose": "How far the page behind a veil goes out of focus.",
+      "kind": "length"
+    },
+    {
+      "name": "sheet-w",
+      "group": "overlay",
+      "value": "520px",
+      "purpose": "The width of a sheet, the one surface that opens beside a control to say what that control is for.",
+      "kind": "length"
+    },
+    {
+      "name": "sheet-wide",
+      "group": "overlay",
+      "value": "660px",
+      "purpose": "The width of a sheet docked down the side of the work area, the one that holds a picture and the controls that work on it.",
+      "kind": "length"
+    },
+    {
       "name": "t-in",
       "group": "motion",
       "value": "120ms",
@@ -373,6 +436,13 @@
       "group": "motion",
       "value": "140ms",
       "purpose": "A state changing on its own: a status dot, a step marked done.",
+      "kind": "time"
+    },
+    {
+      "name": "t-reveal",
+      "group": "motion",
+      "value": "1600ms",
+      "purpose": "The loading screen handing the window over: the ring leaves and the page comes into focus.",
       "kind": "time"
     }
   ],

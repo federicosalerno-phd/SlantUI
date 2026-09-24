@@ -107,12 +107,18 @@
   /* picture and the controls that work on it. */
   --sheet-wide:660px;
 
-  /* motion. One material, three durations */
+  /* motion. One material, three durations and one handover */
   /* A control answers the pointer faster than it lets go, which is what */
   /* makes it feel like a thing and not a slide. The rule the components */
   /* keep: everything transitions over --t-out, and the :hover state */
-  /* overrides the duration to --t-in. */
+  /* overrides the duration to --t-in. --t-reveal is ten times longer on */
+  /* purpose: it is the one moment the whole window changes at once, the */
+  /* loading screen going and the page arriving in focus, and a change */
+  /* that large read in two hundred milliseconds reads as a cut. */
   --t-in:120ms;        /* A control answering the pointer. */
   --t-out:180ms;       /* The same control letting go. */
   --t-chg:140ms;       /* A state changing on its own: a status dot, a step marked done. */
+  /* The loading screen handing the window over: the ring leaves and the page comes into */
+  /* focus. */
+  --t-reveal:1600ms;
 }

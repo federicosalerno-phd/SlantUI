@@ -168,6 +168,18 @@ function _fillOf(el) {
    gradient of hard stops. Where the engine cannot tell (no elementsFromPoint)
    the bar keeps the fill layout.css gives it. */
 function _paintStrip(bar, x1) {
+  /* While the loading screen is over the window, the window is empty, and the
+     strip is part of the empty window: the fill layout.css gives it for
+     html[data-splash=up]. The page under the screen is not what is under the
+     bar, since nobody can see it. When the screen starts to go the attribute
+     says so ("leaving"), the strip is measured again, and layout.css carries
+     it over to its own colour on the same long curve the page arrives on.
+     The pane that blurs the body takes no pointer, so the measure goes
+     through it to the page. */
+  if (document.documentElement.getAttribute('data-splash') === 'up') {
+    bar.style.background = '';
+    return;
+  }
   if (!document.elementsFromPoint) return;
   const box = bar.getBoundingClientRect();
   const y = box.bottom + 0.5;
@@ -323,7 +335,8 @@ function initTitlebar() {
 
 /* What is under the band changes without the window changing size: a row is
    shown or hidden, a class moves the page from one screen to the next, the
-   palette changes, a fill fades in. Each of those asks for the shape again,
+   palette changes, a fill fades in, the loading screen goes. Each of those
+   asks for the shape again,
    at most once a frame. Nothing here
    watches inline styles, so the page can animate what it likes under the
    band without the strip being measured on every frame of it. */
@@ -344,7 +357,7 @@ function _watchUnder(bar) {
     mo.observe(rows, { subtree: true, childList: true, attributes: true,
                        attributeFilter: ['class', 'hidden'] });
     mo.observe(document.documentElement, { attributes: true,
-                                           attributeFilter: ['data-palette'] });
+                                           attributeFilter: ['data-palette', 'data-splash'] });
   }
   if (typeof ResizeObserver === 'function' && rows) {
     const ro = new ResizeObserver(again);

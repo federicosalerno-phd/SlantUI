@@ -949,6 +949,168 @@ function New-SlantTitleBar {
     }
 }
 
+# ── the mark as the way home ────────────────────────────────────────────────
+# The same control titlebar.js makes with setBrandAction(), for a window drawn
+# in WPF: the mark inside a round disc that is always there to see, one step
+# off the band and casting the library's shadow, so it reads as a raised
+# control before anybody points at it. Under the pointer it takes the accent
+# tint; pressed, it settles and the shadow goes. Three fills and no outline.
+#
+# The disc gives back exactly the room it takes: 22 + 4 + 4 wide, and the
+# margins -4 and 10 make that the 22 + 14 the mark occupied by itself, so the
+# mark does not move, the brand keeps its width, and the band is cut to the
+# same shape. What pressing it means is the application's; a window that
+# registers nothing keeps the plain mark, because a control that answers a
+# press nothing listens for is worse than none.
+
+function New-SlantBrandButton {
+    <#  .SYNOPSIS  The round button the mark sits in, empty.  #>
+    param([string]$Palette)
+    Initialize-SlantWpf
+    $colour = (Get-SlantPalette (Resolve-SlantSlug $Palette)).Wpf
+    $inTime = [double](Get-SlantTokens).Times['t-in'] / 1000
+    $outTime = [double](Get-SlantTokens).Times['t-out'] / 1000
+    $inv = [Globalization.CultureInfo]::InvariantCulture
+    $tIn = $inTime.ToString('0.000', $inv)
+    $tOut = $outTime.ToString('0.000', $inv)
+    # the shadow's colour and its alpha apart: an effect takes its strength
+    # from Opacity and draws the colour whole
+    $ombra = [System.Windows.Media.ColorConverter]::ConvertFromString("$($colour['shadow'])")
+    $ombraRgb = '#FF{0:X2}{1:X2}{2:X2}' -f $ombra.R, $ombra.G, $ombra.B
+    $ombraA = ($ombra.A / 255.0).ToString('0.###', $inv)
+    $rest = $colour['control-hover']
+    $hover = $colour['accent-surface-hover']
+    $down = $colour['accent-surface']
+    # The shadow is cast by a disc of its own under the one that changes
+    # colour: an effect on the disc itself would shadow the mark inside it
+    # too, and the mark would sit on the disc like a sticker.
+    $markup = @"
+<ControlTemplate xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" TargetType="Button">
+  <Grid Width="30" Height="30">
+    <Border x:Name="lift" CornerRadius="15" Background="$rest">
+      <Border.Effect>
+        <DropShadowEffect Color="$ombraRgb" Opacity="$ombraA" BlurRadius="4" ShadowDepth="1" Direction="270"/>
+      </Border.Effect>
+    </Border>
+    <Border x:Name="disc" CornerRadius="15">
+      <Border.Background><SolidColorBrush Color="$rest"/></Border.Background>
+    </Border>
+    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+  </Grid>
+  <ControlTemplate.Triggers>
+    <Trigger Property="IsMouseOver" Value="True">
+      <Trigger.EnterActions>
+        <BeginStoryboard>
+          <Storyboard>
+            <ColorAnimation Storyboard.TargetName="disc" Storyboard.TargetProperty="Background.Color"
+                            To="$hover" Duration="0:0:$tIn"/>
+          </Storyboard>
+        </BeginStoryboard>
+      </Trigger.EnterActions>
+      <Trigger.ExitActions>
+        <BeginStoryboard>
+          <Storyboard>
+            <ColorAnimation Storyboard.TargetName="disc" Storyboard.TargetProperty="Background.Color"
+                            To="$rest" Duration="0:0:$tOut"/>
+          </Storyboard>
+        </BeginStoryboard>
+      </Trigger.ExitActions>
+    </Trigger>
+    <Trigger Property="IsPressed" Value="True">
+      <Trigger.EnterActions>
+        <BeginStoryboard>
+          <Storyboard>
+            <ColorAnimation Storyboard.TargetName="disc" Storyboard.TargetProperty="Background.Color"
+                            To="$down" Duration="0:0:$tIn"/>
+            <DoubleAnimation Storyboard.TargetName="lift" Storyboard.TargetProperty="Effect.Opacity"
+                             To="0" Duration="0:0:$tIn"/>
+          </Storyboard>
+        </BeginStoryboard>
+      </Trigger.EnterActions>
+      <Trigger.ExitActions>
+        <BeginStoryboard>
+          <Storyboard>
+            <ColorAnimation Storyboard.TargetName="disc" Storyboard.TargetProperty="Background.Color"
+                            To="$hover" Duration="0:0:$tOut"/>
+            <DoubleAnimation Storyboard.TargetName="lift" Storyboard.TargetProperty="Effect.Opacity"
+                             To="$ombraA" Duration="0:0:$tOut"/>
+          </Storyboard>
+        </BeginStoryboard>
+      </Trigger.ExitActions>
+    </Trigger>
+  </ControlTemplate.Triggers>
+</ControlTemplate>
+"@
+    $button = New-Object System.Windows.Controls.Button
+    $button.Width = 30
+    $button.Height = 30
+    $button.Margin = New-Object System.Windows.Thickness -4, -4, 10, -4
+    $button.VerticalAlignment = 'Center'
+    $button.Cursor = 'Hand'
+    $button.FocusVisualStyle = $null
+    $button.Template = [System.Windows.Markup.XamlReader]::Load(
+        (New-Object System.Xml.XmlNodeReader ([xml]$markup)))
+    return $button
+}
+
+function Set-SlantBrandAction {
+    <#  .SYNOPSIS  Make the mark on the band a button, or a mark again.
+
+        .PARAMETER Chrome  What Install-SlantWindow returned.
+        .PARAMETER Action  A scriptblock, run with nothing when the mark is
+                           pressed. Nothing takes the button away and puts
+                           the plain mark back.
+        .PARAMETER Hint    The tooltip, in the application's own words: the
+                           library knows there is a mark on the band, not
+                           what is behind it. Call again with a new hint when
+                           the language changes.
+
+        .EXAMPLE
+            $chrome.SetBrandAction({ Go-Home }, 'Back to the list')
+
+        .OUTPUTS  The button, or nothing when there is none.  #>
+    param([Parameter(Mandatory = $true)]$Chrome, $Action = $null, [string]$Hint = '')
+    Initialize-SlantWpf
+    $mark = $Chrome.Logo
+    $btn = $Chrome.BrandButton
+    if ($null -eq $Action) {
+        if ($null -ne $btn) {
+            $row = $btn.Parent
+            $i = $row.Children.IndexOf($btn)
+            $btn.Content = $null
+            $row.Children.RemoveAt($i)
+            $mark.Margin = New-Object System.Windows.Thickness 0, 0, 14, 0
+            $row.Children.Insert($i, $mark)
+            $Chrome.BrandButton = $null
+        }
+        $Chrome.BrandAction = $null
+        return $null
+    }
+    if ($null -eq $btn) {
+        $row = $mark.Parent
+        $i = $row.Children.IndexOf($mark)
+        $row.Children.RemoveAt($i)
+        $btn = New-SlantBrandButton -Palette $Chrome.Palette
+        $mark.Margin = New-Object System.Windows.Thickness 0
+        $btn.Content = $mark
+        $row.Children.Insert($i, $btn)
+        $me = $Chrome
+        # One handler for the life of the button, which runs whatever is
+        # registered now: registering again replaces the action, it does not
+        # stack a second one. A throw inside a WPF handler closes the window,
+        # so it is caught and written down instead.
+        $btn.add_Click({
+            if ($null -eq $me.BrandAction) { return }
+            try { & $me.BrandAction } catch { Write-SlantNote "the mark's action failed: $($_.Exception.Message)" }
+        }.GetNewClosure())
+        $Chrome.BrandButton = $btn
+    }
+    $Chrome.BrandAction = $Action
+    $btn.ToolTip = $(if ("$Hint") { "$Hint" } else { $null })
+    return $btn
+}
+
 $script:SlantVectorCache = @{}
 
 # ── plain SVG, read as drawings ─────────────────────────────────────────────
@@ -1407,6 +1569,15 @@ function Install-SlantWindow {
         Corner     = $Corner
         Resizable  = $resizable
         OnMaximized = $null
+        BrandButton = $null
+        BrandAction = $null
+    }
+
+    $chrome | Add-Member -MemberType ScriptMethod -Name SetBrandAction -Value {
+        <#  The mark as a way back to wherever the application starts; see
+            Set-SlantBrandAction. Nothing puts the plain mark back.  #>
+        param($Action, [string]$Hint = '')
+        Set-SlantBrandAction -Chrome $this -Action $Action -Hint $Hint
     }
 
     # ── the parts that read or write the window ─────────────────────────
@@ -2584,9 +2755,12 @@ function New-SlantPicker {
 # An application that reads a folder before it can show anything has a few
 # seconds with nothing to show. Hiding the window until then is worse than
 # showing it: the window is the proof that the click worked. So the window
-# opens at once and wears this over its body: the page it is about to show,
-# blurred and darkened, with the brand in the middle of a ring that fills as
-# the work goes.
+# opens at once and wears this over its body: the window itself, empty, in
+# the palette's own surface, with the brand in the middle of a ring that fills
+# as the work goes. The page is not shown through it while it is being put
+# together; it arrives when the work is done, out of focus and coming into
+# focus as the ring leaves, over --t-reveal. A wait in the middle of work is
+# the other case (-Veil): there the page stays in sight under the scrim.
 #
 # None of it is drawn on the application's thread. WPF beats its animations
 # on the Dispatcher and not on the composition thread, so a load that holds
@@ -2725,9 +2899,15 @@ function Show-SlantSplash {
 
         It comes in two forms, and they draw the same screen.
 
-        With -Chrome it covers the body of a window this library dressed: the
-        page underneath blurred under the scrim, the band left sharp so the
-        window can still be moved and closed while it loads.
+        With -Chrome it covers the body of a window this library dressed, and
+        the window is seen EMPTY under the band: the palette's own surface,
+        opaque, and the strip under the band's thin half the same colour. The
+        band is left sharp so the window can still be moved and closed while
+        it loads. Hide hands the window over to the page in one long movement:
+        the ring grows a little and fades, the empty window thins out, and the
+        page comes into focus through it. With -Veil the page stays in sight
+        instead, out of focus under the scrim: that is for a wait in the middle
+        of work, where the page is the person's work and must not vanish.
 
         With -Window it covers a bare System.Windows.Window and nothing else:
         no band, no blur, the screen on its own. That form is for the seconds
@@ -2750,9 +2930,12 @@ function Show-SlantSplash {
                             the ring's size; a raster with an .svg of the same
                             name beside it is read from the .svg.
         .PARAMETER Text     The first line under the ring.
-        .PARAMETER Blur     How far the page behind goes out of focus. It
-                            belongs to the -Chrome form: a bare window has
-                            nothing behind the screen to blur.
+        .PARAMETER Blur     How far the page behind goes out of focus: the
+                            metric --blur unless an application asks for its
+                            own. It belongs to the -Chrome form: a bare window
+                            has nothing behind the screen to blur.
+        .PARAMETER Veil     Keep the page in sight under the scrim, for a wait
+                            in the middle of work. -Chrome form only.
         .PARAMETER Size     The outer size of the ring.
         .PARAMETER Busy     A wait with nothing to measure: no figure, and the
                             ring turns instead of filling. The bar underneath
@@ -2772,7 +2955,9 @@ function Show-SlantSplash {
 
         .OUTPUTS  An object with SetProgress(fraction, text), SetText(text),
                   SetBusy(on), IsBusy(), Draw(fraction), Hide([ms]),
-                  Snapshot(scale) and Visible.  #>
+                  Snapshot(scale) and Visible. Hide() with no length takes
+                  the library's: --t-reveal for an empty window, a fifth of a
+                  second under a veil or on a bare window.  #>
     [CmdletBinding(DefaultParameterSetName = 'Chrome')]
     param(
         [Parameter(ParameterSetName = 'Chrome', Mandatory = $true, Position = 0)]$Chrome,
@@ -2780,16 +2965,22 @@ function Show-SlantSplash {
         [Parameter(ParameterSetName = 'Window')][string]$Palette = "",
         $Logo = $null,
         [string]$Text = "",
-        [Parameter(ParameterSetName = 'Chrome')][double]$Blur = 14,
+        [Parameter(ParameterSetName = 'Chrome')][double]$Blur = -1,
+        [Parameter(ParameterSetName = 'Chrome')][switch]$Veil,
         [double]$Size = 132,
         [switch]$Busy
     )
     Initialize-SlantWpf
     if (-not (Initialize-SlantSplash)) { throw "SlantUI: the splash's drawing thread would not build" }
+    if ($Blur -lt 0) { $Blur = [double](Get-SlantMetric 'blur') }
 
     $nuda = ($PSCmdlet.ParameterSetName -eq 'Window')
+    # empty: the window is seen with nothing in it, which is every form but a
+    # veil over a page left in sight
+    $vuota = -not $Veil
     $sotto = $null
     $sfoca = $null
+    $striscia = $null
     if ($nuda) {
         $wpf = (Get-SlantPalette $Palette).Wpf
         $shell = Get-SlantSplashHost $Window
@@ -2797,6 +2988,20 @@ function Show-SlantSplash {
     } else {
         $wpf = (Get-SlantPalette $Chrome.Palette).Wpf
         $shell = $Chrome.Body
+        # The strip under the band's thin half is the bar's own fill, and while
+        # the window is empty it is part of the empty window: in the bar's
+        # colour it would be a line across the top belonging to nothing. It
+        # takes the ground's colour now, on a brush of its own that Hide
+        # carries back to the bar's colour as the page arrives.
+        if ($vuota -and $null -ne $Chrome.Element) {
+            $vuotoC = [System.Windows.Media.ColorConverter]::ConvertFromString("$($wpf['surface-0'])")
+            $striscia = [PSCustomObject]@{
+                Bar   = $Chrome.Element
+                Was   = $Chrome.Element.Background
+                Brush = New-Object System.Windows.Media.SolidColorBrush $vuotoC
+            }
+            $Chrome.Element.Background = $striscia.Brush
+        }
 
         # the application's own content is the second row of the shell; the band
         # stays sharp and its buttons stay live, so the window can still be moved
@@ -2838,8 +3043,11 @@ function Show-SlantSplash {
         try { $arte = $arte.Clone(); $arte.Freeze() } catch { $arte = $null }
     }
 
+    # what is behind the ring: the window's own surface, or the scrim over a
+    # page left in sight
+    $fondo = $(if ($vuota) { "$($wpf['surface-0'])" } else { "$($wpf['scrim'])" })
     $core = New-Object SlantSplashCore(
-        "$($wpf['accent'])", "$($wpf['control-active'])", "$($wpf['scrim'])", "$($wpf['text-3'])",
+        "$($wpf['accent'])", "$($wpf['control-active'])", $fondo, "$($wpf['text-3'])",
         $Size, $quale, "Segoe UI")
 
     if ($null -ne $arte) { try { $core.SetLogoSource($arte) } catch { } }
@@ -2911,6 +3119,8 @@ function Show-SlantSplash {
         Under   = $sotto
         Shell   = $shell
         Text    = $Text
+        Empty   = $vuota
+        Strip   = $striscia
     }
 
     $splash | Add-Member -MemberType ScriptMethod -Name SetProgress -Value {
@@ -2955,16 +3165,26 @@ function Show-SlantSplash {
         try { return $this.Core.Snapshot($scala) } catch { return $null }
     }
 
-    # The handover. The veil fades on the drawing thread, so it is smooth
-    # whatever the application is doing; the blur comes back here, and it
-    # starts once the dispatcher has nothing left queued, because a fade that
-    # begins under a busy thread is a fade nobody sees.
+    # The handover. The screen goes on the drawing thread, so it is smooth
+    # whatever the application is doing; the page comes into focus here, and
+    # it starts once the dispatcher has nothing left queued, because a
+    # movement that begins under a busy thread is a movement nobody sees.
+    #
+    # With no length given the length is the library's: --t-reveal when the
+    # window was empty and the page is arriving, the long movement that finds
+    # the page by focusing it; a fifth of a second under a veil, where the page
+    # was in sight all along, and on a bare window.
     $splash | Add-Member -MemberType ScriptMethod -Name Hide -Value {
-        param([int]$ms = 420)
+        param([int]$ms = -1)
         if (-not $this.Visible) { return }
         $this.Visible = $false
         $me = $this
         $durata = $ms
+        if ($durata -lt 0) {
+            $durata = $(if ($this.Empty -and $null -ne $this.Under) {
+                            [int](Get-SlantTokens).Times['t-reveal'] } else { 190 })
+        }
+        $lunga = ($this.Empty -and $durata -gt 0)
         $parti = {
             try {
                 if ($null -ne $me.Under) { $me.Under.UpdateLayout() }
@@ -2977,17 +3197,53 @@ function Show-SlantSplash {
                     # throw here would carry off the FadeOut below with it and
                     # the screen would never leave at all.
                     if ($null -ne $me.Blur) {
-                        $torna = New-Object System.Windows.Media.Animation.DoubleAnimation(
-                            $me.BlurMax, 0, [TimeSpan]::FromMilliseconds($durata))
-                        $torna.EasingFunction = $ease
+                        if ($lunga) {
+                            # The page comes into focus on the curve the Qt
+                            # half's page does (layout.css): from a twentieth of
+                            # the movement to nine tenths, falling quickly and
+                            # settling slowly, because text is unreadable until
+                            # the blur is under a pixel and a radius falling in
+                            # a straight line reads as a smear that snaps sharp
+                            # at the end. Half uncovered, the page is still
+                            # plainly out of focus; uncovered, it is nearly
+                            # there, and it settles into focus in plain sight.
+                            $torna = New-Object System.Windows.Media.Animation.DoubleAnimationUsingKeyFrames
+                            $torna.BeginTime = [TimeSpan]::FromMilliseconds($durata * 0.05)
+                            $fine = New-Object System.Windows.Media.Animation.SplineDoubleKeyFrame
+                            $fine.Value = 0
+                            $fine.KeyTime = [System.Windows.Media.Animation.KeyTime]::FromTimeSpan(
+                                [TimeSpan]::FromMilliseconds($durata * 0.85))
+                            $fine.KeySpline = New-Object System.Windows.Media.Animation.KeySpline(0.33, 0.4, 0.5, 1.0)
+                            [void]$torna.KeyFrames.Add($fine)
+                        } else {
+                            $torna = New-Object System.Windows.Media.Animation.DoubleAnimation(
+                                $me.BlurMax, 0, [TimeSpan]::FromMilliseconds($durata))
+                            $torna.EasingFunction = $ease
+                        }
                         $me.Blur.BeginAnimation(
                             [System.Windows.Media.Effects.BlurEffect]::RadiusProperty, $torna)
                     }
+                    # The strip under the band goes over from the empty window
+                    # to the bar's own colour while the empty window thins out,
+                    # between a tenth and six tenths of the movement.
+                    if ($null -ne $me.Strip) {
+                        try {
+                            $verso = $me.Strip.Was
+                            if ($verso -is [System.Windows.Media.SolidColorBrush]) {
+                                $passa = New-Object System.Windows.Media.Animation.ColorAnimation(
+                                    $verso.Color, [TimeSpan]::FromMilliseconds($durata * 0.5))
+                                $passa.BeginTime = [TimeSpan]::FromMilliseconds($durata * 0.1)
+                                $passa.EasingFunction = New-Object SlantSmoothEase
+                                $me.Strip.Brush.BeginAnimation(
+                                    [System.Windows.Media.SolidColorBrush]::ColorProperty, $passa)
+                            }
+                        } catch { }
+                    }
                     # And the page arrives: it comes in from half a per cent
-                    # larger and settles on its own size, in the same time and on
-                    # the same curve the veil leaves on. It is not a zoom, it is
-                    # six pixels in a thousand: it feels like a focus being
-                    # found, which is exactly what is happening.
+                    # larger and settles on its own size, while it comes into
+                    # focus. It is not a zoom, it is six pixels in a thousand:
+                    # it feels like a focus being found, which is exactly what
+                    # is happening.
                     if ($null -ne $me.Under) {
                         $prima = $me.Under.RenderTransform
                         $origine = $me.Under.RenderTransformOrigin
@@ -2997,7 +3253,7 @@ function Show-SlantSplash {
                         foreach ($pr in @([System.Windows.Media.ScaleTransform]::ScaleXProperty,
                                           [System.Windows.Media.ScaleTransform]::ScaleYProperty)) {
                             $giu = New-Object System.Windows.Media.Animation.DoubleAnimation(
-                                1.006, 1.0, [TimeSpan]::FromMilliseconds($durata))
+                                1.006, 1.0, [TimeSpan]::FromMilliseconds($durata * $(if ($lunga) { 0.9 } else { 1.0 })))
                             $giu.EasingFunction = $ease
                             $posa.BeginAnimation($pr, $giu)
                         }
@@ -3022,10 +3278,13 @@ function Show-SlantSplash {
                         [void]$me.Shell.Children.Remove($me.Element)
                         if ($null -ne $me.Under) { $me.Under.Effect = $null }
                     } catch { }
+                    # and the bar gets its own brush back, the one the band
+                    # was built with, not a copy that happens to match it
+                    try { if ($null -ne $me.Strip) { $me.Strip.Bar.Background = $me.Strip.Was } } catch { }
                 })
             } catch { }
         }.GetNewClosure()
-        if ($ms -le 0) { & $parti; return }
+        if ($durata -le 0) { & $parti; return }
         # Background, which is smoothed out after layout and after drawing:
         # the last step of a load usually leaves work queued, and those few
         # frames are the ones this transition needs. Not ApplicationIdle,
@@ -3048,6 +3307,7 @@ Export-ModuleMember -Function Get-SlantDataPath, Get-SlantTokens, Get-SlantPalet
     Set-SlantWindowTransitions, Test-SlantWindowZoomed, Get-SlantWindowStyle,
     Get-SlantWindowSizes, Get-SlantWindowHandle, Get-SlantWorkArea,
     New-SlantWindowButton, New-SlantTitleBar, Set-SlantLogo, Install-SlantWindow,
+    New-SlantBrandButton, Set-SlantBrandAction,
     New-SlantVectorImage, Get-SlantArtSource, ConvertTo-SlantSvgTransform,
     Get-SlantWidgetColours, Set-SlantLogger, Write-SlantNote,
     Get-SlantHoverColor, Find-SlantHoverTarget, New-SlantHoverStoryboard,
