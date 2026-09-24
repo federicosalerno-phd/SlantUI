@@ -264,6 +264,73 @@ Four metrics cut it, and a page can redefine any of them after `slantui.css`:
 The same four numbers are what the shape is drawn from outside a browser. See
 [outside a browser](beyond-the-browser.md).
 
+## The corner, round about the mark
+
+Windows 11 rounds every corner of a window by the same 8 pixels. The top left
+corner of a SlantUI window is rounder, and it is round about something: an arc
+of half the band, whose centre is the centre of the mark.
+
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="img/gold-dark/window-corner.png">
+<img src="img/gold-light/window-corner.png" width="580" alt="The window's top left corner five times over: the band cut by an arc, the disc round the mark inside it, both on one centre, with the disc's radius, the margin between and the corner's radius drawn along the diagonal">
+</picture>
+
+The mark sits half the band in from the left and half the band down. So the
+disc round it and the window's corner share a centre, and the band shows the
+same margin between them all the way round the arc:
+
+| | | |
+|---|---|---|
+| `C` | the centre of the disc and of the corner | (22, 22) |
+| `r` | the disc round the mark | 15 px |
+| `m` | the band between, all the way round | 7 px |
+| `R` | the corner, `r + m` | `--tbar-h / 2`, 22 px |
+
+It is not a fifth metric. A page that redefines `--tbar-h` gets a rounder or a
+tighter corner, and the mark moves to its new centre with it. A plain mark,
+with no disc round it, sits on the same centre. The picture is drawn by the
+gallery from its own band, with the library's own path, so it cannot say one
+thing while the window does another.
+
+The compositor cannot round one corner further than the other three, so the
+window cuts that one itself. `Window` is clear, `shell.qml` draws the colour
+behind the page with the corner cut out of it, and once a page with a title
+bar has loaded, the shell puts `data-corner` on its `<html>` and reads the
+radius back off the page. With the attribute there, the page gives up its own
+backdrop, `.app` carries it with the corner cut, and `titlebar.js` cuts the
+band with a true arc. Not the quadratic the two joints of the oblique are
+rounded with: a quadratic drifts almost a pixel off the circle at 45 degrees,
+and the margin round the mark would show it. The other three corners keep what
+Windows gives them. Maximised, the corner sits on the screen's own and is
+square again, on the page and on the backdrop both.
+
+A page in a browser, or in a `QMainWindow`, never gets the attribute and keeps
+the square corner it always had: nothing is cut where nothing behind could
+show through.
+
+The one thing the compositor still draws is the shadow, and it follows its own
+8 pixel corner. On a light desktop a sliver of it shows past the arc; on a
+dark one it cannot be seen.
+
+## The strip under the band
+
+Under its thin half, between the oblique and the right edge, the band leaves
+16 pixels of the title bar's box showing. That strip has no colour of its own.
+`titlebar.js` paints it with whatever is under the title bar, measured along
+the line just below it: over the step rail it is the rail, over a bare stage
+it is the stage, and over a column and a side panel it is the two of them,
+each over its own width. Nothing inside the bar counts, nor anything the page
+has made invisible, and a veil that lets half through is laid over what is
+under it, the way the screen lays it.
+
+It is measured again whenever what is under the band can change without the
+window changing size: a row shown or hidden, a class that moves the page to
+another screen, a palette, a fill that has finished fading in. Inline styles
+are not watched, so a page can animate under the band without the strip being
+measured on every frame of it. Until the script has measured, the box carries
+the step rail's fill, `surface-1`, which is what sits under the band in a
+shell that has one.
+
 ## A minimum width the page decides
 
 A window whose step rail keeps every label whole has a width below which it
@@ -324,6 +391,11 @@ The two implementations answer the same Win32 messages for the same reasons,
 so a fix to one is a fix worth making to the other. What differs is only what
 the toolkit forces: WPF has no page inside the window, so the title bar is
 built as elements and the application puts its own layout under it.
+
+The corner round the mark and the measured strip are Qt's so far. A WPF window
+has to be opaque to keep the DWM shadow and the system animations, so it keeps
+the compositor's corner and a strip in `surface-1`; the maths for the arc is
+there already, as `-Corner` on `Get-SlantBandPath`.
 
 `OnSizing`, the self-measuring animation and `Place` are WPF's so far. Qt hands
 moving and resizing back to the window manager and draws through one swap

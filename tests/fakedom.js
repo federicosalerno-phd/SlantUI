@@ -33,11 +33,20 @@ Event.prototype.preventDefault = function () { this.defaultPrevented = true; };
 Event.prototype.stopPropagation = function () { this.stopped = true; };
 
 let CSS_VARS = {};
-function getComputedStyle() {
-  return { getPropertyValue: function (name) { return CSS_VARS[name] || ''; } };
+/* The custom properties come from CSS_VARS. An element's fill and opacity
+   are whatever the test wrote on its style, and transparent and 1 when it
+   wrote nothing, which is what an engine answers for an unstyled div. */
+function getComputedStyle(el) {
+  const s = (el && el.style) || {};
+  return {
+    getPropertyValue: function (name) { return CSS_VARS[name] || ''; },
+    backgroundColor: s.backgroundColor || 'rgba(0, 0, 0, 0)',
+    opacity: s.opacity || '1',
+  };
 }
 
 function El(tag, cls) {
+  this.nodeType = 1;
   this.tagName = (tag || 'div').toUpperCase();
   this.className = cls || '';
   this.children = [];

@@ -87,6 +87,14 @@ the vertex with a quadratic whose control point is the vertex itself, entered
 and left at `min(r, side / 2)` along each side. Trimming to half the side is
 what stops two corners on a short edge from each eating all of it.
 
+The first vertex is the window's own corner, and a window that can cut it
+cuts it round the mark: a circular arc of radius `tbar-h / 2`, tangent to the
+left edge and the top, whose centre is the centre of the mark's disc. It is an
+arc and not a quadratic because the margin round the disc has to be the same
+all the way round, and a quadratic drifts almost a pixel off the circle at 45
+degrees. A toolkit whose compositor rounds every corner the same, WPF among
+them, passes no corner and keeps the square one.
+
 That is the whole recipe. In Python:
 
 ```python
@@ -94,6 +102,7 @@ from slantui.geometry import band_path, band_shape
 
 band_path(width=1280, brand_width=210)
 band_path(width=1280, brand_width=210, shape=band_shape(height=60))
+band_path(width=1280, brand_width=210, corner=band_shape().corner)
 ```
 
 The output is the SVG path mini language, which the page hands to

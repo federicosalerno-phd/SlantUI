@@ -58,6 +58,10 @@ $out.Bands     = @()
 foreach ($c in @({cases})) {{
     $out.Bands += Get-SlantBandPath -Width $c[0] -BrandWidth $c[1]
 }}
+$out.Cornered  = @()
+foreach ($c in @({cases})) {{
+    $out.Cornered += Get-SlantBandPath -Width $c[0] -BrandWidth $c[1] -Corner 22
+}}
 $out.Tall = Get-SlantBandPath -Width 1000 -BrandWidth 200 -Height 60
 $out.Refs = @{{}}
 foreach ($r in @('surface-0', 'accent', 'text-2', 'scrim')) {{
@@ -147,6 +151,14 @@ def test_powershell_draws_the_same_band(probe, i, case):
     assert probe["Bands"][i] == band_path(*case), (
         "slantui/wpf/SlantUI.psm1 and slantui/geometry.py no longer draw the "
         "same band")
+
+
+@pytest.mark.parametrize("i,case", list(enumerate(CASES)), ids=[f"{w}x{b}" for w, b in CASES])
+def test_powershell_cuts_the_same_corner(probe, i, case):
+    """The window's corner, an arc round the mark, is the same arc here."""
+    assert probe["Cornered"][i] == band_path(*case, corner=22), (
+        "slantui/wpf/SlantUI.psm1 and slantui/geometry.py no longer cut the "
+        "same corner")
 
 
 def test_powershell_takes_a_band_of_another_height(probe):

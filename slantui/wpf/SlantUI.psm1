@@ -187,11 +187,14 @@ function Get-SlantBandPoints {
     <#  .SYNOPSIS  The six vertices of the band, clockwise from the top left.
         Width is the window's, BrandWidth is where the application's name
         ends: the oblique starts there, so the band is cut to the real
-        layout and never to a guess.  #>
+        layout and never to a guess. Corner is the radius the window's own
+        top left corner is cut to, an arc round the mark, and 0 leaves it
+        square: a window that cannot cut its corner passes nothing.  #>
     param(
         [Parameter(Mandatory = $true)][double]$Width,
         [Parameter(Mandatory = $true)][double]$BrandWidth,
-        [double]$Height = 0, [double]$Thin = 0, [double]$Slant = 0, [double]$Join = -1
+        [double]$Height = 0, [double]$Thin = 0, [double]$Slant = 0, [double]$Join = -1,
+        [double]$Corner = 0
     )
     if ($Height -le 0) { $Height = [double](Get-SlantMetric 'tbar-h') }
     if ($Thin -le 0) { $Thin = [double](Get-SlantMetric 'tbar-thin') }
@@ -201,7 +204,7 @@ function Get-SlantBandPoints {
     $x1 = $BrandWidth
     $x2 = [Math]::Min($Width, $x1 + $Slant)
     return @(
-        @{ X = 0.0;    Y = 0.0;     R = 0.0 },
+        @{ X = 0.0;    Y = 0.0;     R = 0.0; A = $Corner },
         @{ X = $Width; Y = 0.0;     R = 0.0 },
         @{ X = $Width; Y = $Thin;   R = 0.0 },
         @{ X = $x2;    Y = $Thin;   R = $Join },
@@ -212,8 +215,9 @@ function Get-SlantBandPoints {
 
 function Get-SlantRoundedPolyPath {
     <#  .SYNOPSIS  A closed path through the points, each corner rounded by
-        its own R. The corner is a quadratic whose control point is the
-        vertex, trimmed to half the shorter of the two sides.  #>
+        its own R or cut by its own arc A. R is a quadratic whose control
+        point is the vertex, trimmed to half the shorter of the two sides; A
+        is a circular arc tangent to both sides, trimmed the same way.  #>
     param([Parameter(Mandatory = $true)][array]$Points)
     $n = $Points.Count
     $sb = New-Object System.Text.StringBuilder
@@ -223,7 +227,12 @@ function Get-SlantRoundedPolyPath {
         $next = $Points[($i + 1) % $n]
         $head = 'L'
         if ($i -eq 0) { $head = 'M' }
-        if ($cur.R -le 0) {
+        # A is new, and a point built before it has no such key: under strict
+        # mode reading it would throw, so it is looked for first.
+        $arc = 0.0
+        if ($cur -is [System.Collections.IDictionary]) { if ($cur.Contains('A')) { $arc = [double]$cur['A'] } }
+        elseif ($null -ne $cur.PSObject.Properties['A']) { $arc = [double]$cur.A }
+        if ($cur.R -le 0 -and $arc -le 0) {
             [void]$sb.Append(('{0}{1},{2} ' -f $head, (Format-SlantCoord $cur.X), (Format-SlantCoord $cur.Y)))
             continue
         }
@@ -231,6 +240,21 @@ function Get-SlantRoundedPolyPath {
         $v2x = $next.X - $cur.X; $v2y = $next.Y - $cur.Y
         $l1 = [Math]::Sqrt($v1x * $v1x + $v1y * $v1y); if ($l1 -eq 0) { $l1 = 1.0 }
         $l2 = [Math]::Sqrt($v2x * $v2x + $v2y * $v2y); if ($l2 -eq 0) { $l2 = 1.0 }
+        if ($arc -gt 0) {
+            # The two tangent points sit A / tan(half the angle) from the
+            # vertex; clockwise on screen, where y grows down, is sweep 1.
+            $cos = [Math]::Max(-1.0, [Math]::Min(1.0, ($v1x * $v2x + $v1y * $v2y) / ($l1 * $l2)))
+            $t = [Math]::Tan([Math]::Acos($cos) / 2); if ($t -eq 0) { $t = 1.0 }
+            $d = [Math]::Min([Math]::Min($arc / $t, $l1 / 2), $l2 / 2)
+            $sweep = 0; if ($v1y * $v2x - $v1x * $v2y -gt 0) { $sweep = 1 }
+            $p1x = $cur.X + $v1x / $l1 * $d; $p1y = $cur.Y + $v1y / $l1 * $d
+            $p2x = $cur.X + $v2x / $l2 * $d; $p2y = $cur.Y + $v2y / $l2 * $d
+            [void]$sb.Append(('{0}{1},{2} ' -f $head, (Format-SlantCoord $p1x), (Format-SlantCoord $p1y)))
+            [void]$sb.Append(('A{0},{1} 0 0 {2} {3},{4} ' -f (Format-SlantCoord ($d * $t)),
+                                                          (Format-SlantCoord ($d * $t)), $sweep,
+                                                          (Format-SlantCoord $p2x), (Format-SlantCoord $p2y)))
+            continue
+        }
         $a = [Math]::Min($cur.R, $l1 / 2); $b = [Math]::Min($cur.R, $l2 / 2)
         $p1x = $cur.X + $v1x / $l1 * $a; $p1y = $cur.Y + $v1y / $l1 * $a
         $p2x = $cur.X + $v2x / $l2 * $b; $p2y = $cur.Y + $v2y / $l2 * $b
@@ -249,10 +273,11 @@ function Get-SlantBandPath {
     param(
         [Parameter(Mandatory = $true)][double]$Width,
         [Parameter(Mandatory = $true)][double]$BrandWidth,
-        [double]$Height = 0, [double]$Thin = 0, [double]$Slant = 0, [double]$Join = -1
+        [double]$Height = 0, [double]$Thin = 0, [double]$Slant = 0, [double]$Join = -1,
+        [double]$Corner = 0
     )
     Get-SlantRoundedPolyPath (Get-SlantBandPoints -Width $Width -BrandWidth $BrandWidth `
-        -Height $Height -Thin $Thin -Slant $Slant -Join $Join)
+        -Height $Height -Thin $Thin -Slant $Slant -Join $Join -Corner $Corner)
 }
 
 function Get-SlantBandGeometry {
@@ -261,11 +286,12 @@ function Get-SlantBandGeometry {
     param(
         [Parameter(Mandatory = $true)][double]$Width,
         [Parameter(Mandatory = $true)][double]$BrandWidth,
-        [double]$Height = 0, [double]$Thin = 0, [double]$Slant = 0, [double]$Join = -1
+        [double]$Height = 0, [double]$Thin = 0, [double]$Slant = 0, [double]$Join = -1,
+        [double]$Corner = 0
     )
     Initialize-SlantWpf
     $d = Get-SlantBandPath -Width $Width -BrandWidth $BrandWidth `
-        -Height $Height -Thin $Thin -Slant $Slant -Join $Join
+        -Height $Height -Thin $Thin -Slant $Slant -Join $Join -Corner $Corner
     $g = [System.Windows.Media.Geometry]::Parse($d)
     $g.Freeze()
     return $g

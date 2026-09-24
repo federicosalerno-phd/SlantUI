@@ -49,9 +49,12 @@ name, runs obliquely down over 38 px, and stays 28 px to the right edge: it
 never stops, it only gets thinner. `titlebar.js` cuts it from those three
 metrics and the measured width of the brand block, so the taper starts where
 the name ends whatever the name is. The credit line the licence asks for sits
-in the middle of it. Under the band the HWND carries a real Windows frame, so
-the window animates, snaps and casts a shadow like any other, and no caption is
-ever drawn.
+in the middle of it. The window's top left corner is an arc of half the band
+whose centre is the mark's, so the band shows one margin all the way round the
+mark, and the strip under the thin half has no colour of its own: it is
+whatever is under the title bar, measured. Under the band the HWND carries a
+real Windows frame, so the window animates, snaps and casts a shadow like any
+other, and no caption is ever drawn.
 
 The mark on the left can be a way back to wherever the application starts.
 `setBrandAction()` puts a round disc around it, and the disc is always there to
@@ -729,7 +732,7 @@ way is under [Outside a browser](#outside-a-browser).*
 
 `docs/gallery.html` is a window holding a catalogue of the widget set, one
 cell per component, and `docs/capture.py` opens it and saves a picture of
-every cell in every palette: forty shots, eight palettes, and the four parts
+every cell in every palette: forty one shots, eight palettes, and the four parts
 of the shell shot where they are. There is no screenshot tool in it. The
 window renders the page, `grabWindow()` hands the frame back as an image, and
 the page itself says which rectangle to keep, so a picture is of the real
@@ -743,8 +746,8 @@ the radius Windows cuts the window to. They are drawn at four times the size
 they are shown at, with grey antialiasing, so that zooming into one finds
 more of it and no coloured fringe on any edge.
 
-A full run is 334 files and twelve megabytes, and `docs/shots/` is ignored by
-git. `docs/publish.py` is what puts the handful this page shows into
+A full run is 342 files and twenty five megabytes, and `docs/shots/` is
+ignored by git. `docs/publish.py` is what puts the handful this page shows into
 `docs/img/`, which is tracked: it reads the markdown, copies every picture a
 page points at, and deletes the ones nobody points at any more. So a picture
 enters the repository by being put in a page. See [docs/README.md](https://github.com/federicosalerno-phd/SlantUI/blob/main/docs/README.md).
@@ -839,8 +842,9 @@ python -m slantui.tokens uss                  Unity's UI Toolkit
 ```
 
 The band is the interesting one, because it is the one part of the design
-that is a drawing and not a rectangle. Its profile is six points and two
-rounded corners, built in `slantui/geometry.py` and emitted as an SVG path,
+that is a drawing and not a rectangle. Its profile is six points, two
+rounded joints and, where the window can cut it, an arc for the window's own
+corner, built in `slantui/geometry.py` and emitted as an SVG path,
 which the page clips with and WPF parses with no character changing. There
 are three implementations, in Python, in JavaScript and in PowerShell, and
 the tests run all three on the same windows and compare the strings.

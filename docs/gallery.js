@@ -564,12 +564,74 @@ function buildIcons() {
   }).join('');
 }
 
+/* ── the window's corner, to scale ──────────────────────────────────────── */
+/* The top left corner of this very window, five times over, with the
+   construction drawn on it. Every number is read off the band above: its
+   height, the disc round the mark, where the disc's centre is. The outline is
+   the library's own roundedPolyPath, cut with the same arc titlebar.js cuts
+   the band with, so the drawing cannot say one thing while the window does
+   another. Outside the arc there is nothing, which is what the window has
+   there too. */
+function drawCorner() {
+  const host = $('cornerDraw');
+  const bar = document.querySelector('.titlebar');
+  const disc = bar && bar.querySelector('.tbar-logo-btn');
+  if (!host || !disc) return;
+  const b = bar.getBoundingClientRect(), d = disc.getBoundingClientRect();
+  const H = b.height, R = H / 2;
+  const cx = d.left - b.left + d.width / 2, cy = d.top - b.top + d.height / 2;
+  const r = d.width / 2, m = R - r;
+  const Z = 5, span = 56, w = span * Z, h = H * Z;
+  const mark = disc.querySelector('path');
+  const s = function (v) { return (v * Z).toFixed(2); };
+  const num = function (v) { return String(Math.round(v * 100) / 100); };
+
+  // Out from the centre towards the corner, along the diagonal: the disc's
+  // radius, then the margin, then the window's edge.
+  const k = Math.SQRT1_2;
+  const ex = cx - r * k, ey = cy - r * k, fx = cx - R * k, fy = cy - R * k;
+  const band = roundedPolyPath([{ x: 0, y: 0, a: R }, { x: span, y: 0 },
+                                { x: span, y: H }, { x: 0, y: H }]);
+  const rows = [
+    ['C', 'the centre of the disc, and of the corner', '(' + num(cx) + ', ' + num(cy) + ')'],
+    ['r', 'the disc round the mark', num(r)],
+    ['m', 'the band between, all the way round', num(m)],
+    ['R', 'the corner: r + m, half of --tbar-h', num(R)],
+  ];
+  const lx = w + 24;
+  host.innerHTML =
+    '<svg viewBox="0 0 ' + (w + 300) + ' ' + h + '" width="' + (w + 300) +
+    '" height="' + h + '">' +
+    '<g transform="scale(' + Z + ')">' +
+      '<path class="gc-band" d="' + band + '"/>' +
+      '<circle class="gc-disc" cx="' + cx + '" cy="' + cy + '" r="' + r + '"/>' +
+      (mark ? '<path class="gc-mark" transform="translate(' + (cx - 11) + ',' + (cy - 11) +
+              ') scale(' + (22 / 24) + ')" d="' + mark.getAttribute('d') + '"/>' : '') +
+    '</g>' +
+    '<circle class="gc-guide" cx="' + s(cx) + '" cy="' + s(cy) + '" r="' + s(R) + '"/>' +
+    '<line class="gc-r" x1="' + s(cx) + '" y1="' + s(cy) + '" x2="' + s(ex) + '" y2="' + s(ey) + '"/>' +
+    '<line class="gc-m" x1="' + s(ex) + '" y1="' + s(ey) + '" x2="' + s(fx) + '" y2="' + s(fy) + '"/>' +
+    '<circle class="gc-c" cx="' + s(cx) + '" cy="' + s(cy) + '" r="5"/>' +
+    '<text class="gc-k" x="' + (+s(cx) + 12) + '" y="' + (+s(cy) + 22) + '">C</text>' +
+    '<text class="gc-k" x="' + (+s((cx + ex) / 2) + 10) + '" y="' + (+s((cy + ey) / 2) - 4) + '">r</text>' +
+    '<text class="gc-k" x="' + (+s((ex + fx) / 2) + 12) + '" y="' + (+s((ey + fy) / 2) - 6) + '">m</text>' +
+    '<text class="gc-k" x="' + (+s(cx) - 18) + '" y="' + (+s(cy + R) - 12) + '">R</text>' +
+    rows.map(function (row, i) {
+      const y = 40 + i * 50;
+      return '<text class="gc-k" x="' + lx + '" y="' + y + '">' + row[0] + '</text>' +
+             '<text class="gc-t" x="' + (lx + 28) + '" y="' + y + '">' + row[1] + '</text>' +
+             '<text class="gc-v" x="' + (lx + 28) + '" y="' + (y + 20) + '">' + row[2] + ' px</text>';
+    }).join('') +
+    '</svg>';
+}
+
 function boot() {
   Bridge.init();
   initSelects();
   initTitlebar();
 
   Theme.read();
+  drawCorner();
   buildIcons();
   buildPalettes();
   wire();

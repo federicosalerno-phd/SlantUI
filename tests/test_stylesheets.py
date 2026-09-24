@@ -16,6 +16,7 @@ from slantui.css import STYLESHEETS, bundle, path
 from slantui.tokens import DEFAULT, PALETTES
 from slantui.tokens.css import metrics_stylesheet, stylesheet
 from slantui.tokens.metrics import METRIC_NAMES
+from slantui.tokens.metrics import px as metric_px
 from slantui.tokens.roles import ROLE_NAMES
 
 # Every stylesheet that may not write a colour of its own. palettes.css is
@@ -198,6 +199,43 @@ def test_the_ring_round_the_mark_gives_back_the_room_it_takes():
     assert top + px(button.group(1), "height") + bottom == px(logo.group(1), "height")
     # and the mark stops holding the name away from itself once it is inside
     assert re.search(r"\.tbar-logo-btn>\.tbar-logo\{[^}]*margin-right:0", code)
+
+
+def test_the_mark_sits_on_the_centre_of_the_window_corner():
+    """The window's top left corner is an arc of radius --tbar-h / 2, and the
+    mark's centre is --tbar-h / 2 in and --tbar-h / 2 down, so the two share a
+    centre and the band shows one margin all the way round the disc. The name
+    stays 47 px in, where it was before the mark moved onto the corner, so the
+    band cut from the block's width does not move either."""
+    code = _code("layout.css")
+    brand = re.search(r"\.tbar-brand\{([^}]*)\}", code)
+    logo = re.search(r"\.tbar-logo\{([^}]*)\}", code)
+    button = re.search(r"\.tbar-logo-btn\{([^}]*)\}", code)
+    assert brand and logo and button
+
+    # in from the left: half the band, less half the mark
+    width = float(re.search(r"(?:^|;)\s*width:(\d+)px", logo.group(1)).group(1))
+    pad = re.search(r"padding:0 16px 0 calc\(var\(--tbar-h\) / 2 - ([\d.]+)px\)", brand.group(1))
+    assert pad and float(pad.group(1)) == width / 2
+    # down from the top: the block is the band's height and centres the mark
+    assert "height:var(--tbar-h)" in brand.group(1)
+    assert "align-items:center" in brand.group(1)
+
+    # the name, 47 px in: (44 / 2 - 11) + 22 + the margin after the mark
+    margin = float(re.search(r"margin-right:(\d+)px", logo.group(1)).group(1))
+    assert metric_px("tbar-h") / 2 - width / 2 + width + margin == 47
+
+    # the disc fits inside the corner with room round it
+    disc = float(re.search(r"(?:^|;)\s*width:(\d+)px", button.group(1)).group(1)) / 2
+    assert metric_px("tbar-h") / 2 - disc == 7
+
+    # and the corner itself, only where the shell can cut it, never maximised
+    for sel in (r"\[data-corner\] \.app", r"\[data-corner\] \.titlebar"):
+        rule = re.search(sel + r"\{([^}]*)\}", code)
+        assert rule and "border-top-left-radius:calc(var(--tbar-h) / 2)" in rule.group(1), sel
+    assert re.search(r"\[data-corner\] \.maximized \.app,\[data-corner\] \.maximized "
+                     r"\.titlebar\{border-top-left-radius:0\}", code)
+    assert re.search(r"\[data-corner\],\[data-corner\]>body\{background:none\}", code)
 
 
 def test_hidden_scrim_means_display_none():

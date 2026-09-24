@@ -350,6 +350,48 @@ def test_the_example_comes_up(win):
 
 
 @show_window
+def test_the_corner_is_round_about_the_mark(win):
+    """The shell marks the page, the page cuts its corner to half its band, the
+    mark's centre is the corner's, and the backdrop under the page is cut to
+    the radius the page reported."""
+    assert js(win, "document.documentElement.getAttribute('data-corner')") == ""
+    assert js(win, "getComputedStyle(document.querySelector('.app')).borderTopLeftRadius") \
+        == "22px"
+    assert js(win, "document.querySelector('.tbar-band').style.clipPath").startswith(
+        'path("M 0 22 A 22 22 0 0 1 22 0 ')
+    assert js(win, "(function () { var r = document.querySelector('.tbar-logo')"
+                   ".getBoundingClientRect(); return [r.left + r.width / 2,"
+                   " r.top + r.height / 2]; })()") == [22, 22]
+    assert win.rootObject().property("corner") == 22
+
+
+@show_window
+def test_the_strip_under_the_band_is_what_is_under_it(win):
+    """Over the step rail the strip is the rail. With the rail gone, it is the
+    column and the panel that are under the band now, each over its own width."""
+    rail = js(win, "getComputedStyle(document.querySelector('.topbar')).backgroundColor")
+    assert js(win, "getComputedStyle(document.querySelector('.titlebar')).backgroundColor") \
+        == rail
+    js(win, "document.querySelector('.topbar').style.display = 'none'; 1")
+    wait(300)
+    under = js(win, "(function () {"
+                    " var b = document.querySelector('.titlebar').getBoundingClientRect();"
+                    " return [10, b.width - 10].map(function (x) {"
+                    "  var s = document.elementsFromPoint(x, b.bottom + 1);"
+                    "  for (var i = 0; i < s.length; i++) {"
+                    "   var c = getComputedStyle(s[i]).backgroundColor;"
+                    "   if (c !== 'rgba(0, 0, 0, 0)') return c.replace(/ /g, '');"
+                    "  } return ''; }); })()")
+    strip = js(win, "document.querySelector('.titlebar').style.background").replace(" ", "")
+    js(win, "document.querySelector('.topbar').style.display = ''; 1")
+    wait(300)
+    # the engine writes an opaque rgba() back as rgb(), as it does the fills
+    assert under[0] != under[1]
+    for colour in under:
+        assert colour in strip
+
+
+@show_window
 def test_the_backend_answered_with_its_versions(win):
     from slantui import __version__
 

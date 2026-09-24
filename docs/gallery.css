@@ -41,6 +41,21 @@
    step off the wrong thing. */
 .gal-band{background:var(--control);border-radius:var(--r-md);padding-right:10px}
 
+/* The window's corner, drawn to scale by gallery.js with the construction on
+   it. Every fill and stroke is a role, so the drawing is right on all eight
+   palettes like the rest of the page. */
+.gal-corner svg{display:block}
+.gc-band{fill:var(--control)}
+.gc-disc{fill:var(--control-hover)}
+.gc-mark{fill:var(--accent);opacity:.3}
+.gc-guide{fill:none;stroke:var(--accent);stroke-width:1.5;stroke-dasharray:7 5}
+.gc-r{stroke:var(--text-1);stroke-width:2.5}
+.gc-m{stroke:var(--accent);stroke-width:5}
+.gc-c{fill:var(--text-1)}
+.gc-k{fill:var(--text-1);font-weight:600;font-size:var(--fs-lg)}
+.gc-t{fill:var(--text-2);font-size:var(--fs)}
+.gc-v{fill:var(--text-1);font-family:var(--mono);font-size:var(--fs-sm)}
+
 /* A patch of stage, for the two boxes that are drawn over whatever the
    application shows. They are positioned against the stage, so the cell has
    to be a stage for them. */

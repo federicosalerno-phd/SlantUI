@@ -458,6 +458,98 @@ def test_the_band_is_cut_to_the_metrics(js):
     assert "Q238.00,28.00" in J(js, "band.style.clipPath")
 
 
+def test_the_corner_is_cut_only_by_a_window_that_can_cut_it(js):
+    """The shell puts data-corner on <html> when its window is clear behind
+    the corner. Then the band's first vertex is an arc of half the band,
+    round about the mark; maximised, the corner is the screen's and square."""
+    js.eval(TITLEBAR_PAGE)
+    js.eval(_runnable("titlebar.js"))
+    js.eval("shapeTitleBar()")
+    assert J(js, "band.style.clipPath").startswith('path("M0.00,0.00 L800.00,0.00 ')
+
+    js.eval("document.documentElement.setAttribute('data-corner', ''); shapeTitleBar()")
+    assert J(js, "band.style.clipPath").startswith(
+        'path("M0.00,22.00 A22.00,22.00 0 0 1 22.00,0.00 L800.00,0.00 ')
+
+    js.eval("document.body.classList.add('maximized'); shapeTitleBar()")
+    assert J(js, "band.style.clipPath").startswith('path("M0.00,0.00 L800.00,0.00 ')
+    js.eval("document.body.classList.remove('maximized'); shapeTitleBar()")
+    assert J(js, "band.style.clipPath").startswith('path("M0.00,22.00 A22.00')
+
+    # a taller band, a rounder corner: still half of it
+    js.eval("bar.clientHeight = 60; shapeTitleBar()")
+    assert J(js, "band.style.clipPath").startswith(
+        'path("M0.00,30.00 A30.00,30.00 0 0 1 30.00,0.00 ')
+
+
+# What is under the bar, for the strip: a column and a panel side by side, in
+# an app with no fill of its own. elementsFromPoint answers front first, the
+# way the engine does, and knows nothing about pointer events or visibility.
+STRIP_PAGE = TITLEBAR_PAGE + """
+  bar.rect = { left: 0, top: 0, width: 800, height: 44, right: 800, bottom: 44 };
+  brand.rect.width = 120;
+  const main = app.appendChild(new El('div', 'main'));
+  main.rect = { left: 0, top: 44, width: 600, height: 556, right: 600, bottom: 600 };
+  main.style.backgroundColor = 'rgb(13, 13, 15)';
+  const rp = app.appendChild(new El('div', 'rp'));
+  rp.rect = { left: 600, top: 44, width: 200, height: 556, right: 800, bottom: 600 };
+  rp.style.backgroundColor = 'rgb(16, 16, 19)';
+  app.rect = { left: 0, top: 0, width: 800, height: 600, right: 800, bottom: 600 };
+  let OVER = [];
+  document.elementsFromPoint = function (x, y) {
+    return OVER.concat([bar, main, rp, app]).filter(function (e) {
+      const r = e.rect;
+      return x >= r.left && x < r.right && y >= r.top && y < r.bottom;
+    });
+  };
+"""
+
+
+def test_the_strip_under_the_band_is_what_is_under_the_bar(js):
+    """The title bar's box shows under the thin half of the band, and it has
+    no colour of its own there: over a column and a panel it is the column
+    and then the panel, with the edge where the two meet."""
+    js.eval(STRIP_PAGE)
+    js.eval(_runnable("titlebar.js"))
+    js.eval("shapeTitleBar()")
+    assert J(js, "bar.style.background") == (
+        "linear-gradient(to right,rgba(13,13,15,1) 0px 600px,"
+        "rgba(16,16,19,1) 600px 100%)")
+
+    # one thing under the whole bar is one fill
+    js.eval("main.rect.right = main.rect.width = 800; rp.rect.left = 800; shapeTitleBar()")
+    assert J(js, "bar.style.background") == "rgba(13,13,15,1)"
+
+
+def test_the_strip_sees_what_the_page_sees(js):
+    """Something at opacity 0 is hit and not painted, so it does not count; a
+    veil that lets half through is laid over what is under it; and with nothing
+    under the bar at all, the strip is clear and shows the window behind."""
+    js.eval(STRIP_PAGE)
+    js.eval(_runnable("titlebar.js"))
+    js.eval("main.rect.right = main.rect.width = 800; rp.rect.left = 800")
+
+    js.eval("""
+      const ghost = new El('div', 'ghost');
+      ghost.rect = { left: 0, top: 0, width: 800, height: 600, right: 800, bottom: 600 };
+      ghost.style.backgroundColor = 'rgb(255, 0, 0)';
+      ghost.style.opacity = '0';
+      OVER = [ghost];
+      shapeTitleBar();
+    """)
+    assert J(js, "bar.style.background") == "rgba(13,13,15,1)"
+
+    js.eval("""
+      ghost.style.backgroundColor = 'rgba(0, 0, 0, 0.5)'; ghost.style.opacity = '1';
+      main.style.backgroundColor = 'rgb(200, 100, 50)';
+      shapeTitleBar();
+    """)
+    assert J(js, "bar.style.background") == "rgba(100,50,25,1)"
+
+    js.eval("OVER = []; main.style.backgroundColor = ''; shapeTitleBar()")
+    assert J(js, "bar.style.background") == "transparent"
+
+
 def test_rounded_poly_path_leaves_sharp_corners_alone(js):
     js.eval(_runnable("titlebar.js"))
     assert J(js, "roundedPolyPath([{x:0,y:0},{x:10,y:0},{x:10,y:10}])") == \
