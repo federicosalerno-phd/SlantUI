@@ -43,11 +43,16 @@
    winDrag, winResize(edge), winMinimize, winMaximizeToggle, winClose,
    winIsMaximized, and windowMaximized(bool).
 
+   One thing goes the other way without the bridge: once the band is on
+   screen, data-band="shown" goes on the root element, and the window, which
+   has been drawing the same band itself since its first frame, lets its own
+   go. _sayWhenDrawn says how the page knows the moment.
+
    The two drawings the maximise button swaps between are not here: they are
    `win-maximise` and `win-restore` in icons.js, like every other sign.
 
    Leaves on the window: initTitlebar, shapeTitleBar, setBrandAction,
-   onWindowMaximized, roundedPolyPath, CREDIT_TEXT.
+   onWindowMaximized, roundedPolyPath, CREDIT_TEXT, BAND_TIMING, BAND_LATE_MS.
    ========================================================================== */
 
 /* The licence's one condition. The text is fixed here and the size in
@@ -221,7 +226,10 @@ function _paintStrip(bar, x1) {
 }
 
 /* The credit line. Whatever the page put in .tbar-credit, or did not, the
-   element ends up there with the licence's text in it. */
+   element ends up there with the licence's text in it.
+
+   The text is written after the element is marked for Element Timing, so the
+   browser reports the frame it is first presented in: _sayWhenDrawn. */
 function _ensureCredit(bar) {
   let el = bar.querySelector('.tbar-credit');
   if (!el) {
@@ -231,8 +239,51 @@ function _ensureCredit(bar) {
     if (btns) bar.insertBefore(el, btns);
     else bar.appendChild(el);
   }
+  el.setAttribute('elementtiming', BAND_TIMING);
   el.textContent = CREDIT_TEXT;
   return el;
+}
+
+/* ── telling the window the band is drawn ─────────────────────────────── */
+/* The window draws this same band itself from its first frame, until the
+   page has (shell/band.py), and it learns that the page has from
+   data-band="shown" on the root element. An attribute, because the window
+   asks before the page's channel is up.
+
+   The moment is the one the page's first frame with the band in it is
+   PRESENTED, and the browser says when that is: Element Timing reports the
+   frame the credit line's text is first on screen in. That frame has the
+   band cut, since the band is cut in the same call the line is written.
+   A requestAnimationFrame does not say it. Measured: the page ran two of
+   them a hundred and twenty milliseconds before its first frame reached the
+   screen, while the browser was still holding that frame back, and the
+   window's band went with nothing under it.
+
+   A page whose credit line is never painted, or an engine with no Element
+   Timing, would never say it at all, and the window would keep its own band
+   over the page's for good. So a second after the page has loaded it is said
+   anyway: by then the band has long been on screen. */
+const BAND_TIMING = 'slantui-band';
+const BAND_LATE_MS = 1000;
+
+function _sayWhenDrawn() {
+  let said = false;
+  const done = function () {
+    if (said) return;
+    said = true;
+    document.documentElement.setAttribute('data-band', 'shown');
+  };
+  const late = function () { setTimeout(done, BAND_LATE_MS); };
+  if (document.readyState === 'complete') late();
+  else window.addEventListener('load', late);
+  const kinds = (typeof PerformanceObserver === 'function' &&
+                 PerformanceObserver.supportedEntryTypes) || [];
+  if (kinds.indexOf('element') < 0) return;
+  const watch = new PerformanceObserver(function (list) {
+    const seen = list.getEntries().some(function (e) { return e.identifier === BAND_TIMING; });
+    if (seen) { watch.disconnect(); done(); }
+  });
+  watch.observe({ type: 'element', buffered: true });
 }
 
 function _wireButton(bar, cls, slot) {
@@ -326,6 +377,7 @@ function initTitlebar() {
   shapeTitleBar();
   // Once more after the first frame: the name's width is only final after layout.
   requestAnimationFrame(shapeTitleBar);
+  _sayWhenDrawn();
   window.addEventListener('resize', shapeTitleBar);
   _watchUnder(bar);
 

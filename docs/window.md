@@ -270,6 +270,79 @@ Under the thin half of the band, 16 px of the title bar show. That strip has
 no colour of its own: `titlebar.js` paints it with whatever is directly under
 the bar, measured, so it never reads as a stripe between the band and the page.
 
+## Before the page has drawn it
+
+The band is the page's, and the page takes time. A window opens, Chromium
+starts, reads the page, runs its scripts and only then paints, and at a cold
+start that is seconds. Until then the top of the window was the colour behind
+the page with nothing on it: a dark rectangle with no title bar, which nobody
+could move or close and which did not say whose it was.
+
+So the window draws the band itself, from the first frame it shows, and gives
+it up when the page has drawn its own. That is `slantui/shell/band.py`, and it
+draws the same band, not a stand in for it:
+
+- the profile is `geometry.band_path`, the string the page clips with;
+- every fill and ink is a role of the window's palette, and the strip under the
+  thin half is the empty window's colour, as the page paints it while the
+  loading screen is up;
+- the name is set in the face the page's font stack gives on the machine, at
+  the page's size, spacing and weight, and laid out the way Chromium lays it
+  out, because where the name ends is where the oblique starts. Qt rounds a
+  font's size to whole pixels and Chromium does not, and a variable face asked
+  for 600 through Qt's weight comes back Bold, so the name is shaped large and
+  drawn at the exact size with the weight on the axis. The boxes (the mark, the
+  disc, the buttons) are snapped to device pixels the way Chromium snaps them;
+- the credit line, the three buttons and their hover are the page's, from the
+  same text and the same four drawings.
+
+It works while it is up: a press on it moves the window through the window
+manager, so snapping and Win+arrows keep working, a double click maximises,
+the three buttons do what they say, and the eight resize strips are there. A
+press on the mark's disc does nothing yet, because what the mark does is the
+page's.
+
+What it says comes from the page's markup when the words are written there
+(`.tbar-name`, and an image element with the class `tbar-logo`). A page that writes its name from a
+script has nothing in its markup to read, so the application passes the same
+words, from the same place the page takes them:
+
+```python
+win = Window("ui/index.html", bridge=Backend(), title="My App",
+             bold="My", name=" App", logo="ui/mark.svg", brand_action=True)
+```
+
+`brand_action` says the page makes the mark a button with `setBrandAction`,
+which puts it in its disc.
+
+**The handover.** The page says its band is on screen with `data-band="shown"`
+on its root, and the window asks for it every 50 ms, which needs nothing but
+the page: the channel is the application's and comes up later. The moment is
+the frame the band is first *presented* in, and the browser reports it:
+`titlebar.js` marks the credit line for Element Timing and writes it in the
+same call that cuts the band, so the first frame the line is on screen in has
+the band cut. A `requestAnimationFrame` is not that moment. Measured, the page
+ran two of them 120 ms before its first frame reached the screen, and a window
+that went on them uncovered nothing. The window then lets two of its own
+frames through and takes its band away over `--t-chg`.
+
+It is a fade and not a cut because one thing cannot be copied: the glyphs'
+own pixels. Chromium blends ClearType one way and Qt another, so the same
+glyph at the same place comes out a few shades apart along its edges. The
+profile, the fills, the strip and the thin half come out the same to the
+pixel, and every character of the name sits within a twentieth of a pixel of
+the page's. Over the fade the band's region changes by at most 39 levels from
+one frame to the next, on the edges of the glyphs.
+
+While the band is still the window's, the loading screen holds its handover
+back: the strip is the page's to carry across on the reveal, and under the
+window's band it would carry it unseen. It waits two seconds at the most.
+
+`tests/test_band.py` holds the two bands together: every number and role in
+`band.py` is read back out of the rule it copies, and with the window switched
+on it lays the window's band and the page's side by side and fails if the
+oblique, the profile, a colour, a word or a character's place parts.
+
 ## A minimum width the page decides
 
 A window whose step rail keeps every label whole has a width below which it

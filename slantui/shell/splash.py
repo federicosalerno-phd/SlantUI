@@ -139,6 +139,13 @@ VEIL_MS = 190
 # not hold the finished application back for a second and a half either.
 CLOSE_MAX = 0.9
 
+# The longest the handover waits for the window's band to have gone over to
+# the page's (band.py). The strip under the band's thin half is the page's
+# to carry across on the reveal, and under the window's band it would carry
+# it unseen and then jump. A page that never says its band is drawn must not
+# hold the screen up for good, so the wait has an end.
+BAND_WAIT_S = 2.0
+
 
 def thickness(ring: float) -> float:
     return max(3.0, round(ring / 34.0))
@@ -229,6 +236,8 @@ class Splash(QObject):
     # the handover: (how far, how long in seconds), or None before it starts
     _leaving = None
     _last = None
+    # a handover asked for while the window's band was still up: (ms, until)
+    _held = None
 
     def __init__(self, *, window=None, palette: str | None = None, logo=None,
                  text: str = "", busy: bool = False, ring: float = RING,
@@ -429,15 +438,32 @@ class Splash(QObject):
             self._motor.stop()
             self._gone()
             return
+        if self._leaving is not None:
+            return                 # going already: a second hide() does not start it over
+        until = self._held[1] if self._held is not None else self._elapsed + BAND_WAIT_S
+        if self._band_up() and self._elapsed < until:
+            self._held = (ms, until)
+            if not self._motor.isActive():
+                self._last = None
+                self._motor.start()
+            return
+        self._held = None
         self._leaving = (0.0, ms / 1000.0)
         if not self._motor.isActive():
             self._last = None
             self._motor.start()
 
+    def _band_up(self) -> bool:
+        """Whether the window this screen is over still draws its own band.
+        Under a veil the page is in sight and its band long since its own."""
+        return (self.window is not None and not self._veil
+                and bool(getattr(self.window, "band_up", False)))
+
     def _gone(self) -> None:
         """Nothing is showing the screen any more: put it all down."""
         self._visible = False
         self._leaving = None
+        self._held = None
         self._motor.stop()
         if self._page is not None:
             self._page.stop()
@@ -535,6 +561,11 @@ class Splash(QObject):
             flourished = self._burst is not None and self._burst >= HANDOVER_AT
             if (self._pos >= 0.995 and flourished) or self._elapsed >= deadline:
                 self._closing = None
+                self._fade(ms)
+
+        if self._held is not None:
+            ms, until = self._held
+            if not self._band_up() or self._elapsed >= until:
                 self._fade(ms)
 
         if self._leaving is not None:

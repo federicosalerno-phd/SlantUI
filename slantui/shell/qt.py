@@ -25,15 +25,19 @@ try:
     from PyQt6.QtWebEngineWidgets import QWebEngineView  # noqa: F401
     from PyQt6.QtWebEngineCore import QWebEngineSettings, QWebEnginePage  # noqa: F401
     from PyQt6.QtWebEngineQuick import QtWebEngineQuick  # noqa: F401
-    from PyQt6.QtQuick import QQuickImageProvider, QQuickView  # noqa: F401
+    from PyQt6.QtQuick import (QQuickImageProvider, QQuickItem,  # noqa: F401
+                               QQuickPaintedItem, QQuickView)
     from PyQt6.QtWebChannel import QWebChannel  # noqa: F401
+    from PyQt6.QtSvg import QSvgRenderer  # noqa: F401
     from PyQt6.QtCore import (QObject, pyqtSlot, pyqtSignal, QUrl, Qt,  # noqa: F401
                               QProcess, QProcessEnvironment,
                               QTimer, QEvent, QEventLoop, QMarginsF, QSize, QMetaObject,
-                              Q_ARG, QVariant, QRect, QVariantAnimation, QEasingCurve,
-                              qVersion)
+                              Q_ARG, QVariant, QRect, QRectF, QPointF, QByteArray,
+                              QVariantAnimation, QEasingCurve, qVersion)
     from PyQt6.QtGui import (QColor, QCursor, QDesktopServices, QIcon,  # noqa: F401
-                             QImage, QPageLayout, QPageSize)
+                             QImage, QPageLayout, QPageSize, QPainter, QPainterPath,
+                             QFont, QFontDatabase, QRawFont, QTextLayout, QGlyphRun,
+                             QRadialGradient)
 
     USE_QT6 = True
     QUEUED = Qt.ConnectionType.QueuedConnection
@@ -46,15 +50,19 @@ except ImportError as exc_qt6:  # pragma: no cover - depends on the install
         from PyQt5.QtWebEngineWidgets import (QWebEngineView, QWebEngineSettings,  # noqa: F401
                                               QWebEnginePage)
         from PyQt5.QtWebEngine import QtWebEngine as QtWebEngineQuick  # noqa: F401
-        from PyQt5.QtQuick import QQuickImageProvider, QQuickView  # noqa: F401
+        from PyQt5.QtQuick import (QQuickImageProvider, QQuickItem,  # noqa: F401
+                                   QQuickPaintedItem, QQuickView)
         from PyQt5.QtWebChannel import QWebChannel  # noqa: F401
+        from PyQt5.QtSvg import QSvgRenderer  # noqa: F401
         from PyQt5.QtCore import (QObject, pyqtSlot, pyqtSignal, QUrl, Qt,  # noqa: F401
                               QProcess, QProcessEnvironment,
                                   QTimer, QEvent, QEventLoop, QMarginsF, QSize, QMetaObject,
-                                  Q_ARG, QVariant, QRect, QVariantAnimation, QEasingCurve,
-                                  qVersion)
+                                  Q_ARG, QVariant, QRect, QRectF, QPointF, QByteArray,
+                                  QVariantAnimation, QEasingCurve, qVersion)
         from PyQt5.QtGui import (QColor, QCursor, QDesktopServices, QIcon,  # noqa: F401
-                                 QImage, QPageLayout, QPageSize)
+                                 QImage, QPageLayout, QPageSize, QPainter, QPainterPath,
+                                 QFont, QFontDatabase, QRawFont, QTextLayout, QGlyphRun,
+                                 QRadialGradient)
 
         USE_QT6 = False
         QUEUED = Qt.QueuedConnection

@@ -18,6 +18,13 @@ manager through ``startSystemMove`` / ``startSystemResize``, so Windows keeps
 doing snapping, edge magnetism and the drop shadow. The Win32 side of that is
 ``win32.py``.
 
+Until the page has drawn its band, the window draws it (``band.py``): the
+same band, from the first frame the window shows, with its buttons working and
+the window movable by it. When the page says its own is on screen
+(``data-band`` on its root, set by titlebar.js), the window's goes, over
+``--t-chg``. Without it, a window at a cold start was a dark rectangle with no
+title bar for as long as Chromium took to start.
+
 Maximised is a state of this class, not of the HWND. The window is never
 zoomed: maximised means a normal window animated onto the work area that
 reports itself maximised to the page. ``win32.py`` says why a zoomed window
@@ -29,16 +36,19 @@ of a maximised window restores it under the cursor first, as Windows does.
 """
 from __future__ import annotations
 
+import time
 from pathlib import Path
 
 from ..tokens import DEFAULT, PALETTES
+from ..tokens.metrics import px
 from . import win32
+from .band import EDGES, HANDOVER_MS, Brand, Edge, NativeBand, brand_from_page
 from .bridge import Bridge
 from .qt import (QColor, QCursor, QEasingCurve, QIcon, QMetaObject, QObject, QQuickView, QRect,
-                 QSize, QUrl, QVariant, QVariantAnimation, Q_ARG, Qt)
+                 QSize, QTimer, QUrl, QVariant, QVariantAnimation, Q_ARG, Qt, USE_QT6)
 from .splash import screen_context
 
-__all__ = ["Window", "SHELL_QML", "STATE_ANIM_MS"]
+__all__ = ["Window", "SHELL_QML", "STATE_ANIM_MS", "BAND_POLL_MS"]
 
 SHELL_QML = Path(__file__).resolve().parent / "shell.qml"
 
@@ -50,6 +60,29 @@ SHELL_QML = Path(__file__).resolve().parent / "shell.qml"
 # transition is switched off only around the state change itself, so nothing
 # animates twice.
 STATE_ANIM_MS = 240
+
+# How often the page is asked whether its band is on screen yet, while the
+# window's is up. The page cannot call the window before its channel is up,
+# and the channel is the application's; asking needs nothing but the page.
+BAND_POLL_MS = 50
+
+# How long a question is waited on before it is taken as lost.
+BAND_ASK_S = 1.0
+
+# What the page is asked: whether it has said its band is drawn, or whether it
+# has finished loading with no band in it at all, in which case there is
+# nothing to wait for. Before the page there is an empty document, loaded and
+# with no band in it, and it answers for nothing: taking its word let the
+# window's band go a fifth of a second after the window opened.
+_BAND_QUESTION = (
+    "(function () {"
+    " var h = document.documentElement;"
+    " if (!h || location.href === 'about:blank') return '';"
+    " if (h.getAttribute('data-band') === 'shown') return 'shown';"
+    " if (document.readyState === 'complete' && !document.querySelector('.titlebar .tbar-band'))"
+    "   return 'none';"
+    " return '';"
+    "})()")
 
 
 class Window(QQuickView):
@@ -75,6 +108,16 @@ class Window(QQuickView):
     ``icon`` is best a ``.ico`` carrying 16 to 256 px renditions: Windows
     then picks a real 16 px icon for the taskbar instead of squashing a
     large one.
+
+    ``bold``, ``name``, ``logo`` and ``brand_action`` are what the page's
+    band will say and show, for the band the window draws until the page has
+    drawn its own: the strong word of the name, the rest of it with its
+    leading space, the mark's picture, and whether the page makes the mark a
+    button with ``setBrandAction``. Left out, they are read from the page's
+    markup (``.tbar-name``, ``<img class="tbar-logo">``), which is enough for
+    a page that writes them there. A page that writes its name from a script,
+    in the language it is showing, passes the same words here, taken from the
+    same place the page takes them.
     """
 
     # Defaults on the class, so the event handlers below are safe to run
@@ -84,12 +127,21 @@ class Window(QQuickView):
     _normal_rect = None             # where to come back to from maximised
     _pre_min = None                 # (rect, was maximised) before a minimise
     _native_frame = False           # set once the HWND carries the frame styles
+    band = None                     # the band the window draws (band.py), while it does
+    band_up = False                 # True until the page's band has taken over
+    _edges = ()
+    _band_asking = False
+    _band_asked_at = 0.0
+    _band_frames = 0
+    _band_fade = None
 
     def __init__(self, page: str | Path | QUrl, *, bridge: Bridge | None = None,
                  title: str = "", icon: str | Path | None = None,
                  background: str | None = None, palette: str | None = None,
                  size: tuple[int, int] = (1280, 800), min_size: tuple[int, int] = (1024, 640),
-                 object_name: str = "backend"):
+                 object_name: str = "backend", bold: str | None = None,
+                 name: str | None = None, logo: str | Path | None = None,
+                 brand_action: bool | None = None):
         super().__init__()
         self.setTitle(title)              # the taskbar label
         self.setFlag(Qt.WindowType.FramelessWindowHint, True)
@@ -113,6 +165,7 @@ class Window(QQuickView):
         self._js_token = 0
 
         self._load(page)
+        self._dress_band(page, bold, name, logo, brand_action)
         self.windowStateChanged.connect(self._on_state_changed)
 
     def _load(self, page: str | Path | QUrl) -> None:
@@ -160,6 +213,118 @@ class Window(QQuickView):
         if cb is not None:
             cb(value)
 
+    # ── the band, until the page has drawn its own ───────────────────────
+    def _dress_band(self, page, bold, name, logo, brand_action) -> None:
+        """Lay the window's band over the page, with the resize strips, and
+        start asking the page for its own.
+
+        What the band says comes from the page's markup, and what the
+        application passed wins over it: a page that writes its name from a
+        script has an empty ``.tbar-name`` in its markup.
+
+        Laying the name out like the page takes Qt 6 (a raw font at a
+        fractional size, a variable font's axes), so on the Qt 5 fallback the
+        window opens as it did before there was a band of its own."""
+        if not USE_QT6:
+            return
+        brand = brand_from_page(page) if isinstance(page, (str, Path)) else Brand()
+        if bold is not None or name is not None:
+            # a half left out is the markup's half
+            if bold is None:
+                bold = "".join(t for t, strong in brand.runs if strong)
+            if name is None:
+                name = "".join(t for t, strong in brand.runs if not strong)
+            said = Brand.of(bold, name)
+            brand = Brand(runs=said.runs, mark=brand.mark, logo=brand.logo, fill=brand.fill,
+                          action=brand.action)
+        if logo is not None:
+            # how the picture sits in its square is the markup's: an <img> is
+            # stretched to it, a background is fitted inside it
+            brand = Brand(runs=brand.runs, mark=True, logo=Path(logo),
+                          fill=brand.fill if brand.mark else False, action=brand.action)
+        if brand_action is not None:
+            brand = Brand(runs=brand.runs, mark=brand.mark, logo=brand.logo, fill=brand.fill,
+                          action=bool(brand_action))
+
+        root = self.rootObject()
+        self.band = NativeBand(root, palette=self.palette_slug, brand=brand,
+                               strip=self.background)
+        self.band.setZ(2)
+        self.band.setHeight(px("tbar-h"))
+        self._edges = [Edge(edge, cursor, root) for edge, cursor in EDGES]
+        for strip in self._edges:
+            strip.setZ(3)
+        root.widthChanged.connect(self._place_band)
+        root.heightChanged.connect(self._place_band)
+        self._place_band()
+        self.band_up = True
+
+        self._band_timer = QTimer(self)
+        self._band_timer.setInterval(BAND_POLL_MS)
+        self._band_timer.timeout.connect(self._ask_for_band)
+        self._band_timer.start()
+
+    def _place_band(self) -> None:
+        root = self.rootObject()
+        if root is None or self.band is None:
+            return
+        w, h = root.width(), root.height()
+        self.band.setWidth(w)
+        for strip in self._edges:
+            strip.place(w, h)
+            strip.setVisible(self.band_up and not self._maximized)
+
+    def _ask_for_band(self) -> None:
+        """One question at a time. An answer can be lost, when the page is
+        swapped under the question or its process goes, and a question still
+        out after BAND_ASK_S is taken as lost and asked again, or the window
+        would keep its band for good."""
+        now = time.monotonic()
+        if self._band_asking and now - self._band_asked_at < BAND_ASK_S:
+            return
+        self._band_asking = True
+        self._band_asked_at = now
+        self.run_js(_BAND_QUESTION, self._band_answer)
+
+    def _band_answer(self, value) -> None:
+        """The page has drawn its band, or has none. Two frames of the window
+        are let through first, so the frame the page drew is on screen under
+        the window's band before that starts to go."""
+        self._band_asking = False
+        if value not in ("shown", "none") or not self.band_up or self._band_frames:
+            return
+        self._band_timer.stop()
+        self._band_frames = 2
+        self.frameSwapped.connect(self._band_frame)
+        self.update()
+
+    def _band_frame(self) -> None:
+        # frameSwapped comes from the render thread, queued: a swap posted
+        # before the disconnect can still arrive after it
+        if self._band_frames <= 0:
+            return
+        self._band_frames -= 1
+        if self._band_frames > 0:
+            self.update()
+            return
+        self.frameSwapped.disconnect(self._band_frame)
+        fade = QVariantAnimation(self)
+        fade.setStartValue(1.0)
+        fade.setEndValue(0.0)
+        fade.setDuration(int(HANDOVER_MS))
+        fade.setEasingCurve(QEasingCurve.Type.InOutQuad)
+        fade.valueChanged.connect(lambda v: self.band.setOpacity(float(v)))
+        fade.finished.connect(self._band_gone)
+        self._band_fade = fade
+        fade.start()
+
+    def _band_gone(self) -> None:
+        self._band_fade = None
+        self.band_up = False
+        self.band.setVisible(False)
+        for strip in self._edges:
+            strip.setVisible(False)
+
     # ── the palette, when the page changes it ────────────────────────────
     def set_palette(self, palette: str) -> None:
         """Follow the page onto another palette.
@@ -184,6 +349,9 @@ class Window(QQuickView):
         # and so does the loading screen, which is drawn by the window and not
         # by the page: on the old palette it would come up in the old accent.
         screen_context(self.rootContext(), palette)
+        # and the band, while the window is the one drawing it
+        if self.band is not None:
+            self.band.set_palette(palette, self.background)
 
     # ── the minimum width, when the page has measured itself ─────────────
     def set_min_width(self, width: int) -> int:
@@ -247,6 +415,10 @@ class Window(QQuickView):
         if self._maximized != on:
             self._maximized = on
             self.bridge.windowMaximized.emit(on)
+            if self.band is not None:
+                self.band.set_maximized(on)
+                for strip in self._edges:
+                    strip.setVisible(self.band_up and not on)
 
     def _track_normal(self) -> None:
         """Remember the last geometry the window had as a normal window, for

@@ -165,6 +165,80 @@ def test_the_ring_lets_go_once_at_the_end(arc):
     assert arc._burst == first, "the ring let go twice"
 
 
+class _Motor:
+    def __init__(self):
+        self.active = True
+
+    def isActive(self):                          # noqa: N802  (Qt's name)
+        return self.active
+
+    def start(self):
+        self.active = True
+
+    def stop(self):
+        self.active = False
+
+
+class _Window:
+    band_up = True
+
+
+def _over_a_window(arc):
+    arc.window = _Window()
+    arc._veil = False
+    arc._motor = _Motor()
+    return arc
+
+
+def test_the_handover_waits_for_the_window_band(arc):
+    """While the window still draws its own band (band.py), the strip under
+    the band's thin half is not the page's to carry across, so the page is
+    not uncovered yet. It is as soon as the band is the page's."""
+    arc = _over_a_window(arc)
+    arc._fade(1600)
+    assert arc._held is not None and arc._leaving is None
+    run(arc, 0.5)
+    assert arc._leaving is None, "the page was uncovered under the window's band"
+    arc.window.band_up = False
+    arc._advance(1 / 60)
+    assert arc._held is None and arc._leaving is not None
+
+
+def test_a_band_that_never_goes_does_not_hold_the_screen_for_good(arc):
+    """A page that never says its band is drawn: the wait has an end."""
+    from slantui.shell.splash import BAND_WAIT_S
+
+    arc = _over_a_window(arc)
+    arc._fade(1600)
+    run(arc, BAND_WAIT_S + 0.1)
+    assert arc._leaving is not None
+
+
+def test_a_second_hide_does_not_cut_the_wait_short(arc):
+    """An application that asks twice, from a timeout and from its ready
+    signal, must not uncover the page under the window's band the second
+    time, nor start the reveal over once it has begun."""
+    arc = _over_a_window(arc)
+    arc._fade(1600)
+    run(arc, 0.2)
+    arc._fade(1600)
+    assert arc._leaving is None, "the second hide uncovered the page under the window's band"
+    arc.window.band_up = False
+    arc._advance(1 / 60)
+    run(arc, 0.4)
+    going = arc._leaving[0]
+    arc._fade(1600)
+    assert arc._leaving[0] == going, "a hide during the reveal started it over"
+
+
+def test_a_veil_does_not_wait_for_the_band(arc):
+    """Under a veil the page is in sight and its band has long been its own."""
+    arc = _over_a_window(arc)
+    arc._veil = True
+    arc._fade(190)
+    assert arc._held is None and arc._leaving is not None
+
+
 def test_the_bar_travels_whatever_the_arc_does(arc):
     """The bar carries no scale: it says the load is alive, and it says it
     while the arc is standing still at its goal."""

@@ -153,13 +153,17 @@ def wait_for_page(win: Window, wired: str, tries: int = 25) -> None:
     is slow to be mapped lays the page out at no size at all, every rectangle
     comes back as zeros, and the run dies on the first crop with nothing to
     say about why. This asks the page instead.
+
+    And it holds until the band on screen is the page's: until then the
+    window draws the band itself (shell/band.py), and a picture of the title
+    bar is a picture of the page's.
     """
     answer = ""
     for _ in range(tries):
         answer = run_js(win, "JSON.stringify([document.readyState, typeof "
                              + wired + ", innerWidth, innerHeight])")
         state, kind, w, h = json.loads(answer)
-        if state == "complete" and kind == "function" and w > 0 and h > 0:
+        if state == "complete" and kind == "function" and w > 0 and h > 0 and not win.band_up:
             return
         wait(200)
     screen = win.screen().geometry()

@@ -14,7 +14,11 @@ import QtWebChannel 1.15
    under the band, which stays sharp, so the window can still be moved and
    closed while it loads. It is the same file a screen of its own draws, so
    an application that puts one up before its window exists and this one are
-   one screen, not two. */
+   one screen, not two.
+
+   The band itself is not here. Until the page has drawn its own, window.py
+   lays the band band.py draws over the top of this item, with the resize
+   strips, and takes them away when the page says its band is on screen. */
 Item {
     id: root
 

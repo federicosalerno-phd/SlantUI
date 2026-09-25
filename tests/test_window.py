@@ -114,6 +114,11 @@ def win(shell, app, tmp_path_factory):
     yield w
     QTimer.singleShot(0, w.close)
     wait(app, 200)
+    # destroyed while there is still an application, and not whenever the
+    # garbage collector gets to it: a window that outlives the application
+    # takes the process down on the way out
+    w.deleteLater()
+    wait(app, 100)
 
 
 def wait(app, ms: int) -> None:

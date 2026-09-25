@@ -615,6 +615,14 @@ a `.titlebar` in its markup, and calls `Bridge.init()` and `initTitlebar()`.
 A page that lets the user change palette tells the window with
 `Window.set_palette(slug)`, so the colour behind it moves too.
 
+Until the page has drawn its band, the window draws it: the same profile, the
+same roles, the name laid out where Chromium lays it, and the buttons working,
+from the first frame the window shows. When the page's band is on screen the
+window's fades out under it over `--t-chg`. The words come from the page's
+markup, or, for a page that writes its name from a script, from the
+application: `Window(..., bold="My", name=" App", logo="mark.svg",
+brand_action=True)`. [The window](docs/window.md) has the whole of it.
+
 ### The loading screen
 
 Every application wearing this library shows one, and it is the same screen
@@ -635,8 +643,9 @@ splash.hide()
 ```
 
 It goes over the application's own window, under the band, which stays sharp
-so the window can still be moved and closed while it loads, and under the band
-the window is empty: the palette's own surface, and nothing of the page being
+so the window can still be moved and closed while it loads (the window draws
+the band itself until the page has, so it is there from the first frame), and
+under the band the window is empty: the palette's own surface, and nothing of the page being
 put together behind it. When the work is done `hide()` hands the window over in
 one long movement, `--t-reveal`: the ring grows a little and fades, the empty
 window thins out, and the page arrives out of focus and comes into focus.
