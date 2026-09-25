@@ -334,6 +334,62 @@
       "kind": "length"
     },
     {
+      "name": "fs-brand",
+      "group": "type",
+      "value": "14.5px",
+      "purpose": "The application's name in the title band.",
+      "kind": "length"
+    },
+    {
+      "name": "fs-credit",
+      "group": "type",
+      "value": "11px",
+      "purpose": "The credit line in the title band, which the licence keeps at this size.",
+      "kind": "length"
+    },
+    {
+      "name": "ls-brand",
+      "group": "type",
+      "value": ".15px",
+      "purpose": "The spacing between the letters of the name.",
+      "kind": "length"
+    },
+    {
+      "name": "ls-strong",
+      "group": "type",
+      "value": ".4px",
+      "purpose": "The spacing between the letters of the name's strong word, a little wider because a heavier face closes up.",
+      "kind": "length"
+    },
+    {
+      "name": "ls-credit",
+      "group": "type",
+      "value": ".25px",
+      "purpose": "The spacing between the letters of the credit line.",
+      "kind": "length"
+    },
+    {
+      "name": "w",
+      "group": "type",
+      "value": "400",
+      "purpose": "The weight of text that is not strong.",
+      "kind": "number"
+    },
+    {
+      "name": "w-strong",
+      "group": "type",
+      "value": "600",
+      "purpose": "Strong text: a label that heads something, a title, the application's own word in its name.",
+      "kind": "number"
+    },
+    {
+      "name": "lh",
+      "group": "type",
+      "value": "1.45",
+      "purpose": "The height of a line of text, as a multiple of its size.",
+      "kind": "number"
+    },
+    {
       "name": "tbar-h",
       "group": "band",
       "value": "44px",
@@ -359,6 +415,83 @@
       "group": "band",
       "value": "8px",
       "purpose": "The radius the oblique's two vertices are rounded by.",
+      "kind": "length"
+    },
+    {
+      "name": "tbar-mark",
+      "group": "band",
+      "value": "22px",
+      "purpose": "The mark's square at the start of the band.",
+      "kind": "length"
+    },
+    {
+      "name": "tbar-mark-gap",
+      "group": "band",
+      "value": "14px",
+      "purpose": "Between the mark and the name.",
+      "kind": "length"
+    },
+    {
+      "name": "tbar-name-end",
+      "group": "band",
+      "value": "16px",
+      "purpose": "Between the end of the name and the foot of the oblique.",
+      "kind": "length"
+    },
+    {
+      "name": "tbar-ring",
+      "group": "band",
+      "value": "4px",
+      "purpose": "How far the round button the mark sits in reaches past the mark, all round.",
+      "kind": "length"
+    },
+    {
+      "name": "tbar-lift",
+      "group": "band",
+      "value": "1px",
+      "purpose": "How far the shadow under that button falls.",
+      "kind": "length"
+    },
+    {
+      "name": "tbar-lift-blur",
+      "group": "band",
+      "value": "3px",
+      "purpose": "How soft that shadow is.",
+      "kind": "length"
+    },
+    {
+      "name": "tbar-button",
+      "group": "band",
+      "value": "42px",
+      "purpose": "The width of a window button, at the thin end: minimise, maximise, close.",
+      "kind": "length"
+    },
+    {
+      "name": "tbar-glyph",
+      "group": "band",
+      "value": "12px",
+      "purpose": "The drawing on a window button, square.",
+      "kind": "length"
+    },
+    {
+      "name": "tbar-stroke",
+      "group": "band",
+      "value": "1.35",
+      "purpose": "The width of that drawing's strokes, in its own units, which at --tbar-glyph are pixels.",
+      "kind": "number"
+    },
+    {
+      "name": "rz",
+      "group": "frame",
+      "value": "5px",
+      "purpose": "How deep the strip along each edge of the window is that resizes it.",
+      "kind": "length"
+    },
+    {
+      "name": "rz-corner",
+      "group": "frame",
+      "value": "12px",
+      "purpose": "How far along the edges each corner resizes both ways at once.",
       "kind": "length"
     },
     {

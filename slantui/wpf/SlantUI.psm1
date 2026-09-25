@@ -89,15 +89,31 @@ function Get-SlantColor {
 }
 
 function Get-SlantMetric {
-    <#  .SYNOPSIS  One length, as a number with no unit on it.
+    <#  .SYNOPSIS  One length, as a number with no unit on it, or a plain
+                   number: a weight, a line height, a stroke.
         .EXAMPLE   Get-SlantMetric 'tbar-h'      44  #>
     param([Parameter(Mandatory = $true)][string]$Name)
     $t = Get-SlantTokens
     if (-not $t.MetricNumbers.ContainsKey($Name)) {
+        if ($t.Numbers.ContainsKey($Name)) { return $t.Numbers[$Name] }
         if ($t.Fonts.ContainsKey($Name)) { return $t.Fonts[$Name] }
         throw "No metric called '$Name'. Known: $(($t.MetricNumbers.Keys | Sort-Object) -join ', ')"
     }
     $t.MetricNumbers[$Name]
+}
+
+function Get-SlantBandRole {
+    <#  .SYNOPSIS  The role a part of the title band is in, as the page's own
+                   rule says: band, name, strong, credit, disc, disc-hover,
+                   disc-down, lift, glyph, hover, hover-glyph, close,
+                   close-glyph, strip.
+        .EXAMPLE   Get-SlantBandRole 'name'      text-2  #>
+    param([Parameter(Mandatory = $true)][string]$Part)
+    $roles = (Get-SlantTokens).BandRoles
+    if (-not $roles.ContainsKey($Part)) {
+        throw "No part of the band called '$Part'. Known: $(($roles.Keys | Sort-Object) -join ', ')"
+    }
+    $roles[$Part]
 }
 
 # ── the drawing half. WPF is loaded here and nowhere above. ─────────────────
@@ -624,8 +640,10 @@ function Set-SlantWindowFrame {
         .PARAMETER Corner  How far from a corner a drag resizes both ways.  #>
     param(
         [Parameter(Mandatory = $true)][IntPtr]$Handle,
-        [int]$Border = 5, [int]$Corner = 12, [bool]$Resizable = $true)
+        [int]$Border = -1, [int]$Corner = -1, [bool]$Resizable = $true)
     Initialize-SlantChrome
+    if ($Border -lt 0) { $Border = [int](Get-SlantMetric 'rz') }
+    if ($Corner -lt 0) { $Corner = [int](Get-SlantMetric 'rz-corner') }
     [SlantUI.Chrome]::Dress($Handle, $Border, $Corner, $Resizable)
 }
 
@@ -735,8 +753,10 @@ function New-SlantWindowButton {
         [Parameter(Mandatory = $true)][string]$Ink,
         [Parameter(Mandatory = $true)][string]$Hover,
         [Parameter(Mandatory = $true)][string]$HoverInk,
-        [double]$Width = 42, [double]$Height = 28)
+        [double]$Width = -1, [double]$Height = -1)
     Initialize-SlantWpf
+    if ($Width -lt 0) { $Width = [double](Get-SlantMetric 'tbar-button') }
+    if ($Height -lt 0) { $Height = [double](Get-SlantMetric 'tbar-thin') }
     $inTime = [double](Get-SlantTokens).Times['t-in'] / 1000
     $outTime = [double](Get-SlantTokens).Times['t-out'] / 1000
     $inv = [Globalization.CultureInfo]::InvariantCulture
@@ -785,12 +805,12 @@ function New-SlantWindowButton {
         (New-Object System.Xml.XmlNodeReader ([xml]$markup)))
     $path = New-Object System.Windows.Shapes.Path
     $path.Data = [System.Windows.Media.Geometry]::Parse($Glyph)
-    $path.StrokeThickness = 1.35
+    $path.StrokeThickness = [double](Get-SlantMetric 'tbar-stroke')
     $path.StrokeStartLineCap = 'Round'
     $path.StrokeEndLineCap = 'Round'
     $path.StrokeLineJoin = 'Round'
-    $path.Width = 12
-    $path.Height = 12
+    $path.Width = [double](Get-SlantMetric 'tbar-glyph')
+    $path.Height = $path.Width
     $binding = New-Object System.Windows.Data.Binding 'Foreground'
     $binding.RelativeSource = New-Object System.Windows.Data.RelativeSource ([System.Windows.Data.RelativeSourceMode]::FindAncestor)
     $binding.RelativeSource.AncestorType = [System.Windows.Controls.Button]
@@ -823,6 +843,7 @@ function New-SlantTitleBar {
     $tall = [double]$tokens.MetricNumbers['tbar-h']
     $thin = [double]$tokens.MetricNumbers['tbar-thin']
     $radius = [double]$tokens.MetricNumbers['r']
+    $roles = $tokens.BandRoles
 
     $bar = New-Object System.Windows.Controls.Grid
     $bar.Height = $tall
@@ -840,7 +861,7 @@ function New-SlantTitleBar {
     # only known after the first layout pass, so Install-SlantWindow asks for
     # it again on every size change.
     $band = New-Object System.Windows.Shapes.Path
-    $band.Fill = $brush['control']
+    $band.Fill = $brush[(Get-SlantBandRole 'band')]
     $band.IsHitTestVisible = $false
     [void]$bar.Children.Add($band)
 
@@ -851,17 +872,19 @@ function New-SlantTitleBar {
     $brand = New-Object System.Windows.Controls.Border
     $brand.HorizontalAlignment = 'Left'
     $brand.VerticalAlignment = 'Stretch'
-    $brand.Padding = New-Object System.Windows.Thickness ($tall / 2 - 11), 0, 16, 0
+    $side = [double]$tokens.MetricNumbers['tbar-mark']
+    $brand.Padding = New-Object System.Windows.Thickness ($tall / 2 - $side / 2), 0, `
+        ([double]$tokens.MetricNumbers['tbar-name-end']), 0
     $brandRow = New-Object System.Windows.Controls.StackPanel
     $brandRow.Orientation = 'Horizontal'
     $brandRow.VerticalAlignment = 'Center'
     $brand.Child = $brandRow
 
     $mark = New-Object System.Windows.Controls.Border
-    $mark.Width = 22
-    $mark.Height = 22
+    $mark.Width = $side
+    $mark.Height = $side
     $mark.CornerRadius = New-Object System.Windows.CornerRadius $radius
-    $mark.Margin = New-Object System.Windows.Thickness 0, 0, 14, 0
+    $mark.Margin = New-Object System.Windows.Thickness 0, 0, ([double]$tokens.MetricNumbers['tbar-mark-gap']), 0
     $mark.VerticalAlignment = 'Center'
     $mark.Background = $brush['accent']
     $mark.SnapsToDevicePixels = $true
@@ -870,14 +893,14 @@ function New-SlantTitleBar {
 
     $title = New-Object System.Windows.Controls.TextBlock
     $title.FontFamily = New-Object System.Windows.Media.FontFamily $tokens.Fonts['font-brand']
-    $title.FontSize = 14.5
-    $title.Foreground = $brush['text-2']
+    $title.FontSize = [double]$tokens.MetricNumbers['fs-brand']
+    $title.Foreground = $brush[(Get-SlantBandRole 'name')]
     $title.VerticalAlignment = 'Center'
     $title.TextWrapping = 'NoWrap'
     if ($Bold -ne '') {
         $strong = New-Object System.Windows.Documents.Run $Bold
-        $strong.FontWeight = 'SemiBold'
-        $strong.Foreground = $brush['text-1']
+        $strong.FontWeight = [System.Windows.FontWeight]::FromOpenTypeWeight([int]$tokens.Numbers['w-strong'])
+        $strong.Foreground = $brush[(Get-SlantBandRole 'strong')]
         [void]$title.Inlines.Add($strong)
     }
     if ($Name -ne '') { [void]$title.Inlines.Add((New-Object System.Windows.Documents.Run $Name)) }
@@ -894,10 +917,10 @@ function New-SlantTitleBar {
     $creditHost.IsHitTestVisible = $false
     $credit = New-Object System.Windows.Controls.TextBlock
     $credit.Text = Get-SlantCreditText
-    $credit.FontFamily = New-Object System.Windows.Media.FontFamily 'Segoe UI Variable Text, Segoe UI'
-    $credit.FontSize = 11
+    $credit.FontFamily = New-Object System.Windows.Media.FontFamily $tokens.Fonts['font-credit']
+    $credit.FontSize = [double]$tokens.MetricNumbers['fs-credit']
     $credit.FontStyle = 'Italic'
-    $credit.Foreground = $brush['text-4']
+    $credit.Foreground = $brush[(Get-SlantBandRole 'credit')]
     $credit.VerticalAlignment = 'Center'
     $credit.TextWrapping = 'NoWrap'
     [void]$creditHost.Children.Add($credit)
@@ -919,18 +942,21 @@ function New-SlantTitleBar {
     $buttons = @{}
     if (-not $NoMinimize) {
         $buttons['min'] = New-SlantWindowButton -Glyph $script:SlantGlyphs.Minimise -Tip 'Minimise' `
-            -Ink $colour['text-3'] -Hover $colour['control-hover'] -HoverInk $colour['text-1'] -Height $thin
+            -Ink $colour[$roles['glyph']] -Hover $colour[$roles['hover']] -HoverInk $colour[$roles['hover-glyph']] `
+            -Height $thin
         [void]$right.Children.Add($buttons['min'])
     }
     if (-not $NoMaximize) {
         $buttons['max'] = New-SlantWindowButton -Glyph $script:SlantGlyphs.Maximise -Tip 'Maximise' `
-            -Ink $colour['text-3'] -Hover $colour['control-hover'] -HoverInk $colour['text-1'] -Height $thin
+            -Ink $colour[$roles['glyph']] -Hover $colour[$roles['hover']] -HoverInk $colour[$roles['hover-glyph']] `
+            -Height $thin
         [void]$right.Children.Add($buttons['max'])
     }
     # The close button takes the error fill, which is the one place in the
     # design where a status colour is a hover.
     $buttons['close'] = New-SlantWindowButton -Glyph $script:SlantGlyphs.Close -Tip 'Close' `
-        -Ink $colour['text-3'] -Hover $colour['err'] -HoverInk $colour['on-status'] -Height $thin
+        -Ink $colour[$roles['glyph']] -Hover $colour[$roles['close']] -HoverInk $colour[$roles['close-glyph']] `
+        -Height $thin
     [void]$right.Children.Add($buttons['close'])
     [void]$bar.Children.Add($right)
 
@@ -975,25 +1001,34 @@ function New-SlantBrandButton {
     $tOut = $outTime.ToString('0.000', $inv)
     # the shadow's colour and its alpha apart: an effect takes its strength
     # from Opacity and draws the colour whole
-    $ombra = [System.Windows.Media.ColorConverter]::ConvertFromString("$($colour['shadow'])")
+    $ombra = [System.Windows.Media.ColorConverter]::ConvertFromString("$($colour[(Get-SlantBandRole 'lift')])")
     $ombraRgb = '#FF{0:X2}{1:X2}{2:X2}' -f $ombra.R, $ombra.G, $ombra.B
     $ombraA = ($ombra.A / 255.0).ToString('0.###', $inv)
-    $rest = $colour['control-hover']
-    $hover = $colour['accent-surface-hover']
-    $down = $colour['accent-surface']
+    $rest = $colour[(Get-SlantBandRole 'disc')]
+    $hover = $colour[(Get-SlantBandRole 'disc-hover')]
+    $down = $colour[(Get-SlantBandRole 'disc-down')]
+    # the mark and a ring round it; the lift is the page's box-shadow, the
+    # same number as a blur radius, the way the loading screen takes --blur
+    $ring = [double](Get-SlantMetric 'tbar-ring')
+    $disc = [double](Get-SlantMetric 'tbar-mark') + 2 * $ring
+    $gap = [double](Get-SlantMetric 'tbar-mark-gap')
+    $half = ($disc / 2).ToString($inv)
+    $discText = $disc.ToString($inv)
+    $liftBlur = ([double](Get-SlantMetric 'tbar-lift-blur')).ToString($inv)
+    $lift = ([double](Get-SlantMetric 'tbar-lift')).ToString($inv)
     # The shadow is cast by a disc of its own under the one that changes
     # colour: an effect on the disc itself would shadow the mark inside it
     # too, and the mark would sit on the disc like a sticker.
     $markup = @"
 <ControlTemplate xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" TargetType="Button">
-  <Grid Width="30" Height="30">
-    <Border x:Name="lift" CornerRadius="15" Background="$rest">
+  <Grid Width="$discText" Height="$discText">
+    <Border x:Name="lift" CornerRadius="$half" Background="$rest">
       <Border.Effect>
-        <DropShadowEffect Color="$ombraRgb" Opacity="$ombraA" BlurRadius="4" ShadowDepth="1" Direction="270"/>
+        <DropShadowEffect Color="$ombraRgb" Opacity="$ombraA" BlurRadius="$liftBlur" ShadowDepth="$lift" Direction="270"/>
       </Border.Effect>
     </Border>
-    <Border x:Name="disc" CornerRadius="15">
+    <Border x:Name="disc" CornerRadius="$half">
       <Border.Background><SolidColorBrush Color="$rest"/></Border.Background>
     </Border>
     <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
@@ -1043,9 +1078,9 @@ function New-SlantBrandButton {
 </ControlTemplate>
 "@
     $button = New-Object System.Windows.Controls.Button
-    $button.Width = 30
-    $button.Height = 30
-    $button.Margin = New-Object System.Windows.Thickness -4, -4, 10, -4
+    $button.Width = $disc
+    $button.Height = $disc
+    $button.Margin = New-Object System.Windows.Thickness (-$ring), (-$ring), ($gap - $ring), (-$ring)
     $button.VerticalAlignment = 'Center'
     $button.Cursor = 'Hand'
     $button.FocusVisualStyle = $null
@@ -1504,8 +1539,8 @@ function Install-SlantWindow {
         [switch]$NoMaximize,
         [int]$StateMs = 240,
         [int]$SlowMs = 40,
-        [int]$Border = 5,
-        [int]$Corner = 12)
+        [int]$Border = -1,
+        [int]$Corner = -1)
 
     Initialize-SlantChrome
     $slug = Resolve-SlantSlug $Palette
@@ -1620,8 +1655,9 @@ function Install-SlantWindow {
         $this.Name.Inlines.Clear()
         if ("$Bold" -ne '') {
             $strong = New-Object System.Windows.Documents.Run "$Bold"
-            $strong.FontWeight = 'SemiBold'
-            $strong.Foreground = $this.Brushes['text-1']
+            $strong.FontWeight = [System.Windows.FontWeight]::FromOpenTypeWeight(
+                [int](Get-SlantMetric 'w-strong'))
+            $strong.Foreground = $this.Brushes[(Get-SlantBandRole 'strong')]
             [void]$this.Name.Inlines.Add($strong)
         }
         if ("$Name" -ne '') { [void]$this.Name.Inlines.Add((New-Object System.Windows.Documents.Run "$Name")) }
@@ -3299,7 +3335,7 @@ function Show-SlantSplash {
 }
 
 Export-ModuleMember -Function Get-SlantDataPath, Get-SlantTokens, Get-SlantPaletteNames,
-    Get-SlantPalette, Get-SlantColor, Get-SlantMetric, ConvertTo-SlantColorRef,
+    Get-SlantPalette, Get-SlantColor, Get-SlantMetric, Get-SlantBandRole, ConvertTo-SlantColorRef,
     New-SlantBrush, Get-SlantBrushes,
     Get-SlantBandPoints, Get-SlantRoundedPolyPath, Get-SlantBandPath, Get-SlantBandGeometry,
     Format-SlantCoord,

@@ -67,7 +67,20 @@
    the last third of the movement settling into focus in plain sight. Text is
    unreadable until the blur is under a pixel, so a radius falling in a
    straight line reads as a smear that snaps sharp at the end; this one falls
-   quickly and settles slowly, and the page sharpens evenly. */
+   quickly and settles slowly, and the page sharpens evenly.
+
+   WHAT MOVES IS --splash-blur, NEVER backdrop-filter ITSELF. The engine runs a
+   transition of backdrop-filter on its compositor, and while one runs it
+   draws every piece of text in the page in grey scale instead of ClearType:
+   the band's name and credit line with the rest, for the whole second and a
+   half the page takes to come into focus, and they snapped sharp again when
+   it was over. The band is never out of focus, and that looked like it was.
+   A registered property is moved by the page itself, frame by frame, and the
+   compositor sees a filter that is still at every frame, so the text keeps
+   its ClearType. The curve, the length and the delay are the same ones;
+   measured, the radius is the same at every frame to a hundredth of a pixel.
+   tests/test_band.py watches the band's ClearType through a whole reveal. */
+@property --splash-blur{syntax:'<length>';inherits:false;initial-value:0px}
 html[data-splash=up] .titlebar,html[data-splash=leaving] .titlebar{background:var(--surface-0)}
 html[data-splash=leaving] .titlebar{
   transition:background-color calc(var(--t-reveal) * .5) ease-in-out calc(var(--t-reveal) * .1);
@@ -75,14 +88,15 @@ html[data-splash=leaving] .titlebar{
 html[data-splash] body::after{
   content:'';position:fixed;left:0;right:0;top:var(--tbar-h);bottom:0;
   pointer-events:none;z-index:2147483000;
-  backdrop-filter:blur(var(--blur));
+  --splash-blur:var(--blur);
+  backdrop-filter:blur(var(--splash-blur));
 }
 html[data-splash=leaving] body::after{
-  backdrop-filter:blur(0);
-  transition:backdrop-filter calc(var(--t-reveal) * .85) cubic-bezier(.33,.4,.5,1) calc(var(--t-reveal) * .05);
+  --splash-blur:0px;
+  transition:--splash-blur calc(var(--t-reveal) * .85) cubic-bezier(.33,.4,.5,1) calc(var(--t-reveal) * .05);
 }
 html[data-splash=lifting] body::after{
-  backdrop-filter:blur(0);transition:backdrop-filter var(--t-out) ease-out;
+  --splash-blur:0px;transition:--splash-blur var(--t-out) ease-out;
 }
 /* The band's fill is a flat palette colour, the one secondary controls use,
    never a gradient. */
@@ -90,13 +104,17 @@ html[data-splash=lifting] body::after{
 
 /* The mark's centre is half the band in and half the band down, so it sits as
    far from the left edge as from the top and the bottom of the band. The
-   margin after it keeps the name 47 px in, where the taper is measured from. */
+   margin after it keeps the name 47 px in, where the taper is measured from.
+   Every length on the band is a metric: the window draws this same band until
+   the page has (shell/band.py) and WPF draws it for good, and both read the
+   metrics, so a number written here would be a number they do not have. */
 .tbar-brand{
   position:relative;flex-shrink:0;
   height:var(--tbar-h);display:flex;align-items:center;
-  padding:0 16px 0 calc(var(--tbar-h) / 2 - 11px);
+  padding:0 var(--tbar-name-end) 0 calc(var(--tbar-h) / 2 - var(--tbar-mark) / 2);
 }
-.tbar-logo{width:22px;height:22px;flex-shrink:0;margin-right:14px;border-radius:5px}
+.tbar-logo{width:var(--tbar-mark);height:var(--tbar-mark);flex-shrink:0;
+           margin-right:var(--tbar-mark-gap);border-radius:var(--r)}
 /* The mark can be pressed. Then it is a round button around it, a little
    larger, with the mark still exactly in the middle. titlebar.js makes this
    element only once the application has said what pressing it does, so a disc
@@ -111,15 +129,20 @@ html[data-splash=lifting] body::after{
    The negative margins give back exactly what the button's own size takes, so
    the mark does not move and .tbar-brand keeps the width it had. That width
    is what shapeTitleBar() starts the taper from, so a button that widened the
-   block would move the shape of the band. The arithmetic: the button is
-   22 + 4 + 4, and -4 + 30 + 10 is the 22 + 14 the mark occupied by itself.
+   block would move the shape of the band. The arithmetic: the button is the
+   mark and a ring round it, --tbar-mark + 2 * --tbar-ring, and a margin of
+   minus the ring on three sides and the gap less the ring on the fourth gives
+   back exactly the --tbar-mark + --tbar-mark-gap the mark occupied by itself.
    With the band 44 tall the disc is 7 px from the left, the top and the
    bottom. */
 .tbar-logo-btn{
   display:flex;align-items:center;justify-content:center;flex-shrink:0;
-  width:30px;height:30px;margin:-4px 10px -4px -4px;
+  width:calc(var(--tbar-mark) + 2 * var(--tbar-ring));
+  height:calc(var(--tbar-mark) + 2 * var(--tbar-ring));
+  margin:calc(0px - var(--tbar-ring)) calc(var(--tbar-mark-gap) - var(--tbar-ring))
+         calc(0px - var(--tbar-ring)) calc(0px - var(--tbar-ring));
   border-radius:50%;background:var(--control-hover);
-  box-shadow:0 1px 3px var(--shadow);
+  box-shadow:0 var(--tbar-lift) var(--tbar-lift-blur) var(--shadow);
   transition:background var(--t-out),color var(--t-out),box-shadow var(--t-out);
 }
 .tbar-logo-btn>.tbar-logo{margin-right:0}
@@ -144,10 +167,10 @@ html[data-splash=lifting] body::after{
 .tbar-logo-btn:active{background:var(--accent-surface);box-shadow:none}
 .tbar-name{
   font-family:var(--font-brand);
-  font-size:14.5px;font-weight:400;letter-spacing:.15px;
+  font-size:var(--fs-brand);font-weight:var(--w);letter-spacing:var(--ls-brand);
   color:var(--text-2);white-space:nowrap;
 }
-.tbar-name b{font-weight:600;color:var(--text-1);letter-spacing:.4px}
+.tbar-name b{font-weight:var(--w-strong);color:var(--text-1);letter-spacing:var(--ls-strong)}
 
 .tbar-drag{flex:1;min-width:0;height:var(--tbar-h)}
 /* The credit line sits in the thin part of the band, centred on the window.
@@ -157,7 +180,7 @@ html[data-splash=lifting] body::after{
   position:absolute;left:50%;top:0;transform:translateX(-50%);
   height:var(--tbar-thin);display:flex;align-items:center;
   font-family:var(--font-credit);
-  font-size:11px;font-weight:400;font-style:italic;letter-spacing:.25px;
+  font-size:var(--fs-credit);font-weight:var(--w);font-style:italic;letter-spacing:var(--ls-credit);
   color:var(--text-4);white-space:nowrap;pointer-events:none;
 }
 /* The buttons live in the thin part of the band. */
@@ -219,7 +242,7 @@ html[data-splash=lifting] body::after{
    room to spare, and what is left over is air at the bottom, the way it is
    in every block. */
 .rp-hd{height:var(--block);flex-shrink:0;padding:11px 14px;background:var(--surface-3)}
-.rp-title{font-size:var(--fs-lg);font-weight:600;color:var(--text-1)}
+.rp-title{font-size:var(--fs-lg);font-weight:var(--w-strong);color:var(--text-1)}
 .rp-sub{font-size:var(--fs-sm);color:var(--text-3);margin-top:2px}
 
 /* The block's card runs wider than the column it is in, so the sideways
@@ -310,7 +333,7 @@ html[data-splash=lifting] body::after{
   display:inline-flex;align-items:center;justify-content:center;
   min-width:15px;height:15px;border-radius:var(--r-xs);
   background:var(--control);color:var(--text-2);
-  font-size:var(--fs-xs);font-weight:600;letter-spacing:0;
+  font-size:var(--fs-xs);font-weight:var(--w-strong);letter-spacing:0;
 }
 
 .rp-foot{

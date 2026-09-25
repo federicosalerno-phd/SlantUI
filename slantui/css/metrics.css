@@ -15,11 +15,11 @@
 
 :root{
   /* radii, on one scale: 4 inputs, 5 buttons, 6 cards, 7 panels */
-  --r-xs:4px;          /* A field you type or pick into. */
-  --r:5px;             /* Anything you press: buttons, tabs, chips, rows. */
-  --r-md:6px;          /* A raised card, or a plate over the stage. */
-  --r-lg:7px;          /* A framed pane, a dialog, an image. */
-  --r-pill:99px;       /* A pill: any height, fully round ends. */
+  --r-xs:4px;            /* A field you type or pick into. */
+  --r:5px;               /* Anything you press: buttons, tabs, chips, rows. */
+  --r-md:6px;            /* A raised card, or a plate over the stage. */
+  --r-lg:7px;            /* A framed pane, a dialog, an image. */
+  --r-pill:99px;         /* A pill: any height, fully round ends. */
 
   /* spacing, on one scale: 0, 4, 8, 12 */
   /* Four steps and no others, counting the zero: nothing, a sibling, a */
@@ -27,11 +27,11 @@
   /* grouping is wrong, and the way to mend it is a section, not a number. */
   /* An application that reads these draws a panel spaced like every other */
   /* panel by construction, and not by review. */
-  --sp-1:4px;          /* Between two controls of one section. */
+  --sp-1:4px;            /* Between two controls of one section. */
   /* Between a control and something that is not one, and the gap inside a row of */
   /* controls. */
   --sp-2:8px;
-  --sp-3:12px;         /* Before a section that starts a new subject. */
+  --sp-3:12px;           /* Before a section that starts a new subject. */
 
   /* type */
   /* Every piece of text but the application name. */
@@ -45,10 +45,23 @@
   --font-credit:'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif;
   /* Numbers in a column, paths, anything measured. */
   --mono:Consolas,'Courier New',monospace;
-  --fs:12.5px;         /* Body. */
-  --fs-sm:11.5px;      /* Captions. */
-  --fs-xs:10px;        /* Uppercase section labels. */
-  --fs-lg:13.5px;      /* Panel titles. */
+  --fs:12.5px;           /* Body. */
+  --fs-sm:11.5px;        /* Captions. */
+  --fs-xs:10px;          /* Uppercase section labels. */
+  --fs-lg:13.5px;        /* Panel titles. */
+  --fs-brand:14.5px;     /* The application's name in the title band. */
+  /* The credit line in the title band, which the licence keeps at this size. */
+  --fs-credit:11px;
+  --ls-brand:.15px;      /* The spacing between the letters of the name. */
+  /* The spacing between the letters of the name's strong word, a little wider because a */
+  /* heavier face closes up. */
+  --ls-strong:.4px;
+  --ls-credit:.25px;     /* The spacing between the letters of the credit line. */
+  --w:400;               /* The weight of text that is not strong. */
+  /* Strong text: a label that heads something, a title, the application's own word in */
+  /* its name. */
+  --w-strong:600;
+  --lh:1.45;             /* The height of a line of text, as a multiple of its size. */
 
   /* the title band */
   /* The band runs the whole width of the window. Its lower profile, */
@@ -57,20 +70,43 @@
   /* --tbar-slant, then --tbar-thin all the way to the right edge (where */
   /* the window buttons are). The two vertices of that run are rounded by */
   /* --tbar-join. slantui/geometry.py turns these four into the profile, */
-  /* and js/titlebar.js cuts the band to it. */
-  --tbar-h:44px;       /* The thick end, on the left, under the logo and the name. */
-  --tbar-thin:28px;    /* The thin end, on the right, under the window buttons. */
-  --tbar-slant:38px;   /* The horizontal run of the oblique between the two. */
-  --tbar-join:8px;     /* The radius the oblique's two vertices are rounded by. */
+  /* and js/titlebar.js cuts the band to it. The rest are what sits on it: */
+  /* the mark, the round button it becomes, the room after the name and the */
+  /* window buttons. The window draws the same band itself until the page */
+  /* has drawn its own (shell/band.py), and WPF draws it for good, both from */
+  /* these and not from numbers of their own. */
+  --tbar-h:44px;         /* The thick end, on the left, under the logo and the name. */
+  --tbar-thin:28px;      /* The thin end, on the right, under the window buttons. */
+  --tbar-slant:38px;     /* The horizontal run of the oblique between the two. */
+  --tbar-join:8px;       /* The radius the oblique's two vertices are rounded by. */
+  --tbar-mark:22px;      /* The mark's square at the start of the band. */
+  --tbar-mark-gap:14px;  /* Between the mark and the name. */
+  --tbar-name-end:16px;  /* Between the end of the name and the foot of the oblique. */
+  /* How far the round button the mark sits in reaches past the mark, all round. */
+  --tbar-ring:4px;
+  --tbar-lift:1px;       /* How far the shadow under that button falls. */
+  --tbar-lift-blur:3px;  /* How soft that shadow is. */
+  /* The width of a window button, at the thin end: minimise, maximise, close. */
+  --tbar-button:42px;
+  --tbar-glyph:12px;     /* The drawing on a window button, square. */
+  /* The width of that drawing's strokes, in its own units, which at --tbar-glyph are */
+  /* pixels. */
+  --tbar-stroke:1.35;
+
+  /* the edges the window is resized from */
+  /* How deep the strip along each edge of the window is that resizes it. */
+  --rz:5px;
+  /* How far along the edges each corner resizes both ways at once. */
+  --rz-corner:12px;
 
   /* the step rail under it */
-  --tab-h:42px;        /* The height of the rail and of a step tab. */
+  --tab-h:42px;          /* The height of the rail and of a step tab. */
   /* Every step tab is this wide, so the numbers line up in one column and the initials */
   /* in another. They shrink together, never one at a time, when the window is narrow. */
   --tab-w:132px;
 
   /* the side panel */
-  --rp-w:244px;        /* The width of the panel down the right. */
+  --rp-w:244px;          /* The width of the panel down the right. */
 
   /* the comb the panel is laid on */
   /* A panel is a column of slots, and a control does not pick where it */
@@ -99,7 +135,7 @@
   /* place. A sheet veils nothing and blurs nothing. It opens beside the */
   /* control it is about, at --sheet-w, or docked down the side of the */
   /* work area at --sheet-wide. */
-  --blur:14px;         /* How far the page behind a veil goes out of focus. */
+  --blur:14px;           /* How far the page behind a veil goes out of focus. */
   /* The width of a sheet, the one surface that opens beside a control to say what that */
   /* control is for. */
   --sheet-w:520px;
@@ -115,9 +151,10 @@
   /* purpose: it is the one moment the whole window changes at once, the */
   /* loading screen going and the page arriving in focus, and a change */
   /* that large read in two hundred milliseconds reads as a cut. */
-  --t-in:120ms;        /* A control answering the pointer. */
-  --t-out:180ms;       /* The same control letting go. */
-  --t-chg:140ms;       /* A state changing on its own: a status dot, a step marked done. */
+  --t-in:120ms;          /* A control answering the pointer. */
+  --t-out:180ms;         /* The same control letting go. */
+  /* A state changing on its own: a status dot, a step marked done. */
+  --t-chg:140ms;
   /* The loading screen handing the window over: the ring leaves and the page comes into */
   /* focus. */
   --t-reveal:1600ms;

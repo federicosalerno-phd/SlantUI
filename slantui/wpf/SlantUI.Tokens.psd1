@@ -71,10 +71,29 @@
         'fs-sm'                  = '11.5px'
         'fs-xs'                  = '10px'
         'fs-lg'                  = '13.5px'
+        'fs-brand'               = '14.5px'
+        'fs-credit'              = '11px'
+        'ls-brand'               = '.15px'
+        'ls-strong'              = '.4px'
+        'ls-credit'              = '.25px'
+        'w'                      = '400'
+        'w-strong'               = '600'
+        'lh'                     = '1.45'
         'tbar-h'                 = '44px'
         'tbar-thin'              = '28px'
         'tbar-slant'             = '38px'
         'tbar-join'              = '8px'
+        'tbar-mark'              = '22px'
+        'tbar-mark-gap'          = '14px'
+        'tbar-name-end'          = '16px'
+        'tbar-ring'              = '4px'
+        'tbar-lift'              = '1px'
+        'tbar-lift-blur'         = '3px'
+        'tbar-button'            = '42px'
+        'tbar-glyph'             = '12px'
+        'tbar-stroke'            = '1.35'
+        'rz'                     = '5px'
+        'rz-corner'              = '12px'
         'tab-h'                  = '42px'
         'tab-w'                  = '132px'
         'rp-w'                   = '244px'
@@ -101,10 +120,25 @@
         'fs-sm'                  = 11.5
         'fs-xs'                  = 10
         'fs-lg'                  = 13.5
+        'fs-brand'               = 14.5
+        'fs-credit'              = 11
+        'ls-brand'               = 0.15
+        'ls-strong'              = 0.4
+        'ls-credit'              = 0.25
         'tbar-h'                 = 44
         'tbar-thin'              = 28
         'tbar-slant'             = 38
         'tbar-join'              = 8
+        'tbar-mark'              = 22
+        'tbar-mark-gap'          = 14
+        'tbar-name-end'          = 16
+        'tbar-ring'              = 4
+        'tbar-lift'              = 1
+        'tbar-lift-blur'         = 3
+        'tbar-button'            = 42
+        'tbar-glyph'             = 12
+        'rz'                     = 5
+        'rz-corner'              = 12
         'tab-h'                  = 42
         'tab-w'                  = 132
         'rp-w'                   = 244
@@ -113,6 +147,13 @@
         'blur'                   = 14
         'sheet-w'                = 520
         'sheet-wide'             = 660
+    }
+    # Plain numbers: weights, a line height, a stroke width.
+    Numbers = @{
+        'w'                      = 400
+        'w-strong'               = 600
+        'lh'                     = 1.45
+        'tbar-stroke'            = 1.35
     }
     # Durations in milliseconds, for a storyboard or a timer.
     Times = @{
@@ -126,6 +167,25 @@
         'font-brand'             = 'Abadi, Abadi MT Std, Segoe UI Variable Display, Selawik, Segoe UI'
         'font-credit'            = 'Segoe UI Variable Text, Segoe UI'
         'mono'                   = 'Consolas, Courier New'
+    }
+
+    # The role each part of the title band is in, read out of the rule
+    # the page uses for it (slantui.css.BAND_PARTS).
+    BandRoles = @{
+        'band'                   = 'control'
+        'name'                   = 'text-2'
+        'strong'                 = 'text-1'
+        'credit'                 = 'text-4'
+        'disc'                   = 'control-hover'
+        'disc-hover'             = 'accent-surface-hover'
+        'disc-down'              = 'accent-surface'
+        'lift'                   = 'shadow'
+        'glyph'                  = 'text-3'
+        'hover'                  = 'control-hover'
+        'hover-glyph'            = 'text-1'
+        'close'                  = 'err'
+        'close-glyph'            = 'on-status'
+        'strip'                  = 'surface-0'
     }
 
     # The four numbers the oblique band is built from.

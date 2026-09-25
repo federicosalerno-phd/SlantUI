@@ -283,9 +283,12 @@ it up when the page has drawn its own. That is `slantui/shell/band.py`, and it
 draws the same band, not a stand in for it:
 
 - the profile is `geometry.band_path`, the string the page clips with;
-- every fill and ink is a role of the window's palette, and the strip under the
-  thin half is the empty window's colour, as the page paints it while the
-  loading screen is up;
+- every length is a metric (`--tbar-mark`, `--tbar-button`, `--fs-brand` and
+  the rest, in `slantui/tokens/metrics.py`), the same ones the stylesheets
+  read, and every fill and ink is the role the page's own rule gives that part,
+  read out of the stylesheet (`slantui.css.band_roles`). Nothing of the band is
+  written twice. The strip under the thin half is the empty window's colour,
+  as the page paints it while the loading screen is up;
 - the name is set in the face the page's font stack gives on the machine, at
   the page's size, spacing and weight, and laid out the way Chromium lays it
   out, because where the name ends is where the oblique starts. Qt rounds a
@@ -293,6 +296,17 @@ draws the same band, not a stand in for it:
   for 600 through Qt's weight comes back Bold, so the name is shaped large and
   drawn at the exact size with the weight on the axis. The boxes (the mark, the
   disc, the buttons) are snapped to device pixels the way Chromium snaps them;
+- the glyphs are the page's pixels. On Windows the name and the credit line
+  are drawn the way Chromium draws them (`slantui/shell/glyphs.py`): the
+  coverage DirectWrite gives in the mode Skia picks, a glyph at a quarter of a
+  pixel across, the face at the size Blink's font cache keeps (hundredths of a
+  pixel), Skia's correcting table and a 5-6-5 mask, and an italic the face does
+  not have leaned by a quarter. Drawn by Qt, the same text came out a fifth
+  lighter along its edges, and the window's band read as the soft one until
+  the page's arrived and brought it into focus. Now every subpixel of it is
+  within a level or two of the page's, at 100 to 175 per cent. Every stretch of
+  text between two tags is laid out as a run of its own, starting on a layout
+  unit, as the page lays it out;
 - the credit line, the three buttons and their hover are the page's, from the
   same text and the same four drawings.
 
@@ -302,16 +316,23 @@ the three buttons do what they say, and the eight resize strips are there. A
 press on the mark's disc does nothing yet, because what the mark does is the
 page's.
 
-What it says comes from the page's markup when the words are written there
-(`.tbar-name`, and an image element with the class `tbar-logo`). A page that writes its name from a
-script has nothing in its markup to read, so the application passes the same
-words, from the same place the page takes them:
+What it says comes from the page's markup (`.tbar-name`, and an image
+element with the class `tbar-logo`), read by the library, structure,
+language and all. A page that writes its name from a script leaves the
+elements empty, and the application says the one thing the library cannot
+know, what they will hold: `words(attributes, lang)` is called for every
+element inside the name with its attributes and the page's `<html lang>`, and
+answers the text or None.
 
 ```python
+def words(attrs, lang):
+    return my_strings(lang).get(attrs.get("data-key"))
+
 win = Window("ui/index.html", bridge=Backend(), title="My App",
-             bold="My", name=" App", logo="ui/mark.svg", brand_action=True)
+             words=words, logo="ui/mark.svg", brand_action=True)
 ```
 
+`logo` is the mark's picture for a page that paints it from a stylesheet, and
 `brand_action` says the page makes the mark a button with `setBrandAction`,
 which puts it in its disc.
 
@@ -326,22 +347,34 @@ ran two of them 120 ms before its first frame reached the screen, and a window
 that went on them uncovered nothing. The window then lets two of its own
 frames through and takes its band away over `--t-chg`.
 
-It is a fade and not a cut because one thing cannot be copied: the glyphs'
-own pixels. Chromium blends ClearType one way and Qt another, so the same
-glyph at the same place comes out a few shades apart along its edges. The
-profile, the fills, the strip and the thin half come out the same to the
-pixel, and every character of the name sits within a twentieth of a pixel of
-the page's. Over the fade the band's region changes by at most 39 levels from
-one frame to the next, on the edges of the glyphs.
+It is still a fade and not a cut, for what is left that is not the page's own
+pixels: the window buttons' strokes and the mark, which Qt antialiases a few
+shades apart from Chromium along their edges. The profile, the fills, the
+strip, the thin half and the words come out the same.
+
+**Sharp in every frame.** Measured frame by frame through a whole start, the
+band's words are as sharp in every frame as in the last one, and two things
+had to go for that. Windows brings a new window in with an animation of its
+own, a little smaller and growing, and for those frames the words were soft:
+the window switches the system's transition off for its appearance only and
+back on once its first frame is out, the same switch its own state changes
+use. And the loading screen's reveal moved the page's blur on the compositor,
+which makes the engine draw every piece of text in grey scale until it stops:
+the blur now reads a registered property that the page moves itself
+(`layout.css`, under the loading screen), and `tests/test_stylesheets.py`
+fails if a filter is transitioned or animated anywhere.
 
 While the band is still the window's, the loading screen holds its handover
 back: the strip is the page's to carry across on the reveal, and under the
 window's band it would carry it unseen. It waits two seconds at the most.
 
-`tests/test_band.py` holds the two bands together: every number and role in
-`band.py` is read back out of the rule it copies, and with the window switched
-on it lays the window's band and the page's side by side and fails if the
-oblique, the profile, a colour, a word or a character's place parts.
+`tests/test_band.py` holds the two bands together: every part of the band in
+the stylesheets reads a metric, `band.py` writes no length and names no role,
+and with the window switched on it lays the window's band and the page's side
+by side and fails if the oblique, the profile, a colour, a word, a
+character's place or a glyph's pixels part. Two more watch the start: the
+page's band keeps its ClearType through a whole reveal, and the window comes
+up already as it settles, with no frame of an opening animation.
 
 ## A minimum width the page decides
 

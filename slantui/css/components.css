@@ -53,7 +53,7 @@
 .btn svg.r:first-child{margin-left:0}
 
 /* primary: the one action that moves the workflow forward */
-.btn-primary{background:var(--accent);color:var(--on-accent);font-weight:600}
+.btn-primary{background:var(--accent);color:var(--on-accent);font-weight:var(--w-strong)}
 .btn-primary:hover:not(:disabled){background:var(--accent-hover)}
 .btn-primary:active:not(:disabled){background:var(--accent-active)}
 .btn-primary:disabled{background:var(--control);color:var(--text-4)}
@@ -67,7 +67,7 @@
    tint, like the step you are on, and not the filled accent, which belongs to
    the button you are meant to press next: a page with three of those in it
    has told the reader nothing. */
-.btn-2.on{background:var(--accent-surface);color:var(--accent-text);font-weight:600}
+.btn-2.on{background:var(--accent-surface);color:var(--accent-text);font-weight:var(--w-strong)}
 .btn-2.on:hover:not(:disabled){background:var(--accent-surface-hover);color:var(--accent-text)}
 
 /* destructive */
@@ -93,12 +93,13 @@
 
 /* -- window buttons -------------------------------------------------------- */
 .wbtn{
-  width:42px;height:100%;
+  width:var(--tbar-button);height:100%;
   display:flex;align-items:center;justify-content:center;
   cursor:pointer;color:var(--text-3);
   transition:background var(--t-out),color var(--t-chg);
 }
-.wbtn svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:1.35;
+.wbtn svg{width:var(--tbar-glyph);height:var(--tbar-glyph);stroke:currentColor;fill:none;
+          stroke-width:var(--tbar-stroke);
           stroke-linecap:round;stroke-linejoin:round}
 /* The buttons sit on the band, whose fill is control, so the hover has to be
    the next step up or it would not show. */
@@ -109,14 +110,14 @@
 /* Thin invisible strips; the drag itself is handed to Windows, which is why
    snapping and edge magnetism still work. */
 .rz{position:fixed;z-index:10001}
-.rz-n{top:0;left:12px;right:12px;height:5px;cursor:ns-resize}
-.rz-s{bottom:0;left:12px;right:12px;height:5px;cursor:ns-resize}
-.rz-w{left:0;top:12px;bottom:12px;width:5px;cursor:ew-resize}
-.rz-e{right:0;top:12px;bottom:12px;width:5px;cursor:ew-resize}
-.rz-nw{top:0;left:0;width:12px;height:12px;cursor:nwse-resize}
-.rz-ne{top:0;right:0;width:12px;height:12px;cursor:nesw-resize}
-.rz-sw{bottom:0;left:0;width:12px;height:12px;cursor:nesw-resize}
-.rz-se{bottom:0;right:0;width:12px;height:12px;cursor:nwse-resize}
+.rz-n{top:0;left:var(--rz-corner);right:var(--rz-corner);height:var(--rz);cursor:ns-resize}
+.rz-s{bottom:0;left:var(--rz-corner);right:var(--rz-corner);height:var(--rz);cursor:ns-resize}
+.rz-w{left:0;top:var(--rz-corner);bottom:var(--rz-corner);width:var(--rz);cursor:ew-resize}
+.rz-e{right:0;top:var(--rz-corner);bottom:var(--rz-corner);width:var(--rz);cursor:ew-resize}
+.rz-nw{top:0;left:0;width:var(--rz-corner);height:var(--rz-corner);cursor:nwse-resize}
+.rz-ne{top:0;right:0;width:var(--rz-corner);height:var(--rz-corner);cursor:nesw-resize}
+.rz-sw{bottom:0;left:0;width:var(--rz-corner);height:var(--rz-corner);cursor:nesw-resize}
+.rz-se{bottom:0;right:0;width:var(--rz-corner);height:var(--rz-corner);cursor:nwse-resize}
 body.maximized .rz{display:none}
 
 /* -- status pill ----------------------------------------------------------- */
@@ -154,7 +155,7 @@ body.maximized .rz{display:none}
 .tn{
   width:17px;height:17px;border-radius:50%;flex-shrink:0;margin-right:8px;
   display:flex;align-items:center;justify-content:center;
-  font-size:10px;font-weight:600;
+  font-size:10px;font-weight:var(--w-strong);
   background:var(--control);color:var(--text-4);
   transition:background var(--t-out),color var(--t-chg);
 }
@@ -267,7 +268,7 @@ body.maximized .rz{display:none}
   overflow:hidden;text-overflow:ellipsis;
 }
 .combo-opt:hover{background:var(--control);color:var(--text-1)}
-.combo-opt.combo-on{background:var(--accent-surface);color:var(--accent-text);font-weight:600}
+.combo-opt.combo-on{background:var(--accent-surface);color:var(--accent-text);font-weight:var(--w-strong)}
 .combo-opt.combo-on:hover{background:var(--accent-surface-hover)}
 
 /* -- sliders --------------------------------------------------------------- */
@@ -294,7 +295,7 @@ input[type=range]::-webkit-slider-thumb{
 .sl-l svg{width:13px;height:13px;flex-shrink:0;
           stroke:currentColor;fill:none;stroke-width:1.8;
           stroke-linecap:round;stroke-linejoin:round}
-.sl-v{font-size:var(--fs);font-weight:600;width:56px;text-align:right;
+.sl-v{font-size:var(--fs);font-weight:var(--w-strong);width:56px;text-align:right;
       color:var(--text-1);flex-shrink:0;white-space:nowrap;font-variant-numeric:tabular-nums}
 
 /* -- controls side by side ------------------------------------------------- */
@@ -320,7 +321,7 @@ input[type=range]::-webkit-slider-thumb{
         transition:background var(--t-out)}
 .toggle:hover{background:var(--control);transition-duration:var(--t-in)}
 .toggle input{margin-right:9px;accent-color:var(--accent);flex-shrink:0}
-.toggle b{font-weight:600}
+.toggle b{font-weight:var(--w-strong)}
 /* The dimmed line that belongs to the control above it: what the choice costs,
    where the folder has to be, what the other setting does. Beside a switch it
    runs on the same line; on its own it is a line under what it explains. */
@@ -383,11 +384,11 @@ input[type=range]::-webkit-slider-thumb{
 /* What the name is qualified by, said quieter: a role, a coordinate, a
    length. Same size, lighter weight, a shade back, and the shade is audited
    over the selected fill as well as the rest. */
-.mitem-det{font-weight:400;color:var(--text-3)}
+.mitem-det{font-weight:var(--w);color:var(--text-3)}
 /* A VALUE IS NEVER ON TWO LINES. A badge is one thing read at a glance, and a
    thing read at a glance is on one line: it keeps its width and never
    shrinks. If it does not fit, the phrase in it is the wrong phrase. */
-.mbadge{font-size:10.5px;font-weight:600;padding:2px 8px;border-radius:var(--r-pill);
+.mbadge{font-size:10.5px;font-weight:var(--w-strong);padding:2px 8px;border-radius:var(--r-pill);
         letter-spacing:.3px;background:var(--control);color:var(--text-4);
         white-space:nowrap;flex-shrink:0}
 .mitem.sel .mbadge{background:var(--accent);color:var(--on-accent)}
@@ -399,7 +400,7 @@ input[type=range]::-webkit-slider-thumb{
    colour the page sets on the row, or the accent when it set none. */
 .mg{
   display:flex;align-items:center;
-  font-size:var(--fs-xs);font-weight:600;letter-spacing:.8px;text-transform:uppercase;
+  font-size:var(--fs-xs);font-weight:var(--w-strong);letter-spacing:.8px;text-transform:uppercase;
   padding:14px 4px 6px;
 }
 .mg::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor;
@@ -413,7 +414,7 @@ input[type=range]::-webkit-slider-thumb{
 .mrow:hover{background:var(--control)}
 .mrow.active{background:var(--control);box-shadow:inset 3px 0 0 var(--gc,var(--accent-text))}
 .ml{color:var(--text-3);flex:1;min-width:0;padding-right:8px}
-.mv{font-weight:600;color:var(--text-1);text-align:right;min-width:56px;
+.mv{font-weight:var(--w-strong);color:var(--text-1);text-align:right;min-width:56px;
     font-variant-numeric:tabular-nums;letter-spacing:.2px}
 
 /* -- key and value rows ---------------------------------------------------- */
@@ -449,7 +450,7 @@ input[type=range]::-webkit-slider-thumb{
   font-size:var(--fs-sm);line-height:1.6;color:var(--text-1);
   background:var(--surface-3);
 }
-.callout b{font-weight:600}
+.callout b{font-weight:var(--w-strong)}
 .callout-accent{background:var(--accent-surface)}
 .callout-warn{background:var(--warn-surface)}
 .callout-err{background:var(--err-surface)}
@@ -581,7 +582,7 @@ input[type=range]::-webkit-slider-thumb{
   padding:13px 13px 11px 16px;background:var(--surface-3);
   border-radius:var(--r-lg) var(--r-lg) 0 0;
 }
-.sheet-title{flex:1;font-size:var(--fs-lg);font-weight:600;color:var(--text-1)}
+.sheet-title{flex:1;font-size:var(--fs-lg);font-weight:var(--w-strong);color:var(--text-1)}
 /* The place a figure goes, above what is said and outside the scroll, so it
    stays in view while the words under it move. Empty it takes no room at all:
    an entry with nothing to show is not a box with nothing in it. */
@@ -602,7 +603,7 @@ input[type=range]::-webkit-slider-thumb{
 }
 .sheet-body p{margin:0 0 11px}
 .sheet-body p:last-child{margin-bottom:0}
-.sheet-body b{font-weight:600;color:var(--text-1)}
+.sheet-body b{font-weight:var(--w-strong);color:var(--text-1)}
 .sheet-body::-webkit-scrollbar{width:11px}
 .sheet-body::-webkit-scrollbar-thumb{
   background:var(--control);border-radius:3px;
@@ -617,7 +618,7 @@ input[type=range]::-webkit-slider-thumb{
   display:inline-flex;align-items:center;justify-content:center;
   background:var(--control);color:var(--text-3);
   border-radius:var(--r-pill);
-  font-size:var(--fs-xs);font-weight:600;line-height:1;
+  font-size:var(--fs-xs);font-weight:var(--w-strong);line-height:1;
   transition:background var(--t-out),color var(--t-chg);
 }
 .more:hover{background:var(--control-hover);color:var(--text-1)}
@@ -639,5 +640,5 @@ input[type=range]::-webkit-slider-thumb{
 .dz svg{width:26px;height:26px;stroke:currentColor;fill:none;stroke-width:1.5;
         stroke-linecap:round;stroke-linejoin:round;opacity:.65;margin-bottom:13px}
 .dz:hover svg,.dz.dzover svg{opacity:1}
-.dz-lbl{font-size:14px;font-weight:600;text-align:center;line-height:1.5;margin-bottom:6px}
+.dz-lbl{font-size:14px;font-weight:var(--w-strong);text-align:center;line-height:1.5;margin-bottom:6px}
 .dz-sub{font-size:var(--fs-sm);color:var(--text-4)}

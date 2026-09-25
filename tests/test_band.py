@@ -75,83 +75,103 @@ def band():
     return module
 
 
-# ── the numbers and the roles are the stylesheets' ──────────────────────────
-def test_the_mark_and_the_brand(band):
-    logo = rule("layout.css", ".tbar-logo")
-    assert number(logo["width"]) == number(logo["height"]) == band.MARK
-    assert number(logo["margin-right"]) == band.MARK_GAP
-    assert number(logo["border-radius"]) == band.MARK_RADIUS
-    pad = rule("layout.css", ".tbar-brand")["padding"].split(" ", 3)
-    assert number(pad[1]) == band.BRAND_END
-    assert pad[3] == f"calc(var(--tbar-h) / 2 - {band.MARK_INSET:g}px)"
+# ── every part of the band reads a metric, and band.py writes none ──────────
+def decl(selector: str) -> dict[str, str]:
+    from slantui.css import declarations
+    out = declarations(selector)
+    assert out, f"no stylesheet has a rule for {selector}"
+    return out
 
 
-def test_the_disc(band):
-    disc = rule("layout.css", ".tbar-logo-btn")
-    assert number(disc["width"]) == number(disc["height"]) == band.DISC
+def test_the_mark_and_the_brand():
+    logo = decl(".tbar-logo")
+    assert logo["width"] == logo["height"] == "var(--tbar-mark)"
+    assert logo["margin-right"] == "var(--tbar-mark-gap)"
+    assert logo["border-radius"] == "var(--r)"
+    assert decl(".tbar-brand")["padding"] == \
+        "0 var(--tbar-name-end) 0 calc(var(--tbar-h) / 2 - var(--tbar-mark) / 2)"
+
+
+def test_the_disc_is_the_mark_and_a_ring_and_gives_back_its_room():
+    disc = decl(".tbar-logo-btn")
+    side = "calc(var(--tbar-mark) + 2 * var(--tbar-ring))"
+    assert disc["width"] == disc["height"] == side
+    ring = "calc(0px - var(--tbar-ring))"
+    assert disc["margin"] == f"{ring} calc(var(--tbar-mark-gap) - var(--tbar-ring)) {ring} {ring}"
     assert disc["border-radius"] == "50%"
-    assert role(disc["background"]) == band.ROLE_DISC
-    x, y, blur, colour = disc["box-shadow"].split(" ")
-    assert (number(x), number(y), number(blur)) == (0, band.DISC_SHADOW_Y, band.DISC_SHADOW_BLUR)
-    assert role(colour) == band.ROLE_SHADOW
+    assert disc["box-shadow"] == "0 var(--tbar-lift) var(--tbar-lift-blur) var(--shadow)"
 
 
-def test_the_name(band):
-    name = rule("layout.css", ".tbar-name")
-    assert name["font-family"] == "var(--font-brand)"
-    assert number(name["font-size"]) == band.NAME_SIZE
-    assert int(name["font-weight"]) == band.NAME_WEIGHT
-    assert number(name["letter-spacing"]) == band.NAME_SPACING
-    assert role(name["color"]) == band.ROLE_NAME
-    strong = rule("layout.css", ".tbar-name b")
-    assert int(strong["font-weight"]) == band.STRONG_WEIGHT
-    assert number(strong["letter-spacing"]) == band.STRONG_SPACING
-    assert role(strong["color"]) == band.ROLE_STRONG
-
-
-def test_the_line_height_both_lines_inherit(band):
-    assert float(rule("base.css", "body")["line-height"]) == band.LINE_HEIGHT
-    for sel in (".tbar-name", ".tbar-name b", ".tbar-credit", ".tbar-brand"):
-        assert "line-height" not in rule("layout.css", sel), sel
-
-
-def test_the_credit_line(band):
-    credit = rule("layout.css", ".tbar-credit")
-    assert credit["font-family"] == "var(--font-credit)"
-    assert number(credit["font-size"]) == band.CREDIT_SIZE
-    assert int(credit["font-weight"]) == band.NAME_WEIGHT
-    assert credit["font-style"] == "italic"
-    assert number(credit["letter-spacing"]) == band.CREDIT_SPACING
-    assert role(credit["color"]) == band.ROLE_CREDIT
+def test_the_name_and_the_credit_line():
+    name = decl(".tbar-name")
+    assert (name["font-family"], name["font-size"], name["font-weight"], name["letter-spacing"]) == \
+        ("var(--font-brand)", "var(--fs-brand)", "var(--w)", "var(--ls-brand)")
+    strong = decl(".tbar-name b")
+    assert (strong["font-weight"], strong["letter-spacing"]) == ("var(--w-strong)", "var(--ls-strong)")
+    credit = decl(".tbar-credit")
+    assert (credit["font-family"], credit["font-size"], credit["font-weight"],
+            credit["letter-spacing"], credit["font-style"]) == \
+        ("var(--font-credit)", "var(--fs-credit)", "var(--w)", "var(--ls-credit)", "italic")
     assert credit["height"] == "var(--tbar-thin)"
     assert (credit["left"], credit["transform"]) == ("50%", "translateX(-50%)")
 
 
-def test_the_band_and_the_buttons(band):
-    assert role(rule("layout.css", ".tbar-band")["background"]) == band.ROLE_BAND
-    wbtn = rule("components.css", ".wbtn")
-    assert number(wbtn["width"]) == band.BUTTON
-    assert role(wbtn["color"]) == band.ROLE_GLYPH
-    svg = rule("components.css", ".wbtn svg")
-    assert number(svg["width"]) == number(svg["height"]) == band.GLYPH
-    assert float(svg["stroke-width"]) == band.GLYPH_STROKE
-    hover = rule("components.css", ".wbtn:hover")
-    assert (role(hover["background"]), role(hover["color"])) == (band.ROLE_HOVER,
-                                                                  band.ROLE_HOVER_GLYPH)
-    close = rule("components.css", ".wbtn-close:hover")
-    assert (role(close["background"]), role(close["color"])) == (band.ROLE_CLOSE,
-                                                                  band.ROLE_CLOSE_GLYPH)
-    assert rule("layout.css", ".tbar-btns")["height"] == "var(--tbar-thin)"
-    assert rule("components.css", ".wbtn")["height"] == "100%"
+def test_the_line_height_both_lines_inherit():
+    assert decl("body")["line-height"] == "var(--lh)"
+    for sel in (".tbar-name", ".tbar-name b", ".tbar-credit", ".tbar-brand"):
+        assert "line-height" not in decl(sel), sel
 
 
-def test_the_strips_it_resizes_from(band):
-    assert number(rule("components.css", ".rz-n")["height"]) == band.STRIP
-    assert number(rule("components.css", ".rz-w")["width"]) == band.STRIP
-    nw = rule("components.css", ".rz-nw")
-    assert number(nw["width"]) == number(nw["height"]) == band.CORNER
-    edges = {e for e, _ in band.EDGES}
-    assert edges == {"n", "s", "w", "e", "nw", "ne", "sw", "se"}
+def test_the_buttons_and_the_strips():
+    assert decl(".wbtn")["width"] == "var(--tbar-button)"
+    assert decl(".wbtn")["height"] == "100%"
+    svg = decl(".wbtn svg")
+    assert svg["width"] == svg["height"] == "var(--tbar-glyph)"
+    assert svg["stroke-width"] == "var(--tbar-stroke)"
+    assert decl(".tbar-btns")["height"] == "var(--tbar-thin)"
+    assert decl(".rz-n")["height"] == decl(".rz-w")["width"] == "var(--rz)"
+    nw = decl(".rz-nw")
+    assert nw["width"] == nw["height"] == "var(--rz-corner)"
+
+
+def test_every_part_is_in_one_role_the_stylesheet_names():
+    from slantui.css import BAND_PARTS, band_roles
+    from slantui.tokens.roles import ROLE_NAMES
+    roles = band_roles()
+    assert set(roles) == set(BAND_PARTS)
+    assert set(roles.values()) <= set(ROLE_NAMES)
+
+
+def test_band_py_writes_no_length_and_no_role(band):
+    """No number of the design and no role at module level, and no role name
+    written anywhere in the file: the lengths are asked of the metrics and the
+    roles of the stylesheet where they are used. The one number it keeps is
+    the size a run is shaped at, which is a fact about hinting and not about
+    the band."""
+    import ast
+    from slantui.tokens.roles import ROLE_NAMES
+    tree = ast.parse((ROOT / "slantui" / "shell" / "band.py").read_text(encoding="utf-8"))
+    numbers = [t.id for node in tree.body if isinstance(node, ast.Assign)
+               and isinstance(node.value, ast.Constant) and isinstance(node.value.value, (int, float))
+               and not isinstance(node.value.value, bool)
+               for t in node.targets if isinstance(t, ast.Name)]
+    assert numbers == ["_SHAPE_PX"], numbers
+    roles = sorted({n.value for n in ast.walk(tree) if isinstance(n, ast.Constant)
+                    and isinstance(n.value, str) and n.value in ROLE_NAMES})
+    assert not roles, f"band.py names roles: {roles}"
+
+
+def test_every_band_metric_is_read_by_a_stylesheet():
+    """A metric of the band that the page does not read would be one the page
+    does not draw with, and the window's band and WPF's would draw with it
+    alone. A rule reads it, or titlebar.js does, for the profile it cuts."""
+    from slantui.css import bundle
+    from slantui.tokens.metrics import METRICS
+    code = re.sub(r"/\*.*?\*/", "", bundle(), flags=re.S)
+    script = (JS / "titlebar.js").read_text(encoding="utf-8")
+    for m in METRICS:
+        if m.group in ("band", "frame"):
+            assert f"var(--{m.name})" in code or f"'--{m.name}'" in script, m.name
 
 
 # ── the words and the drawings are the scripts' ─────────────────────────────
@@ -240,6 +260,24 @@ def test_no_mark_no_square(band, tmp_path):
     assert not b.mark and b.runs == (("Only", True), (" words", False))
 
 
+def test_the_words_a_script_writes_are_the_applications(band, tmp_path):
+    """The markup is read by the library; what an empty element will say is
+    the application's, asked with the element's attributes and the page's
+    language. Every element is a run of its own, the lone space included."""
+    page = tmp_path / "index.html"
+    page.write_text(("<!doctype html><html lang=\"it\"><body>" + PAGE.split("<body>", 1)[1]) % (
+        '<div class="tbar-logo"></div>',
+        '<b data-t="a.key"></b> <span data-t="b.key">stale</span>'), encoding="utf-8")
+    asked = []
+
+    def words(attrs, lang):
+        asked.append((attrs.get("data-t"), lang))
+        return {"a.key": "Nome", "b.key": "il resto"}.get(attrs.get("data-t"))
+    b = band.brand_from_page(page, words)
+    assert b.runs == (("Nome", True), (" ", False), ("il resto", False))
+    assert ("a.key", "it") in asked and ("b.key", "it") in asked
+
+
 def test_what_the_application_says(band):
     b = band.Brand.of("Name", " the rest", "mark.svg", True)
     assert b.runs == (("Name", True), (" the rest", False))
@@ -274,16 +312,17 @@ def _px(img, x, y):
 
 
 def test_the_picture_is_the_profile_in_the_palettes_roles(band, app):
+    from slantui.css import band_roles
     from slantui.tokens import PALETTES
-    pal = PALETTES["gold-dark"]
+    pal = {part: PALETTES["gold-dark"][role] for part, role in band_roles().items()}
     img = band.render_band(1280, 1.0, "gold-dark", _brand(band))
     assert (img.width(), img.height()) == (1280, 44)
     lay = band.band_layout(1280, 1.0, _brand(band))
-    assert _px(img, 3, 40) == pal["control"].upper()               # thick, under the name
-    assert _px(img, 900, 12) == pal["control"].upper()             # thin, under the buttons
-    assert _px(img, 900, 36) == pal["surface-0"].upper()           # the strip under it
-    assert _px(img, lay.x1 + 60, 43) == pal["surface-0"].upper()   # past the foot of the oblique
-    assert _px(img, lay.x1 - 12, 43) == pal["control"].upper()     # before it
+    assert _px(img, 3, 40) == pal["band"].upper()               # thick, under the name
+    assert _px(img, 900, 12) == pal["band"].upper()             # thin, under the buttons
+    assert _px(img, 900, 36) == pal["strip"].upper()            # the strip under it
+    assert _px(img, lay.x1 + 60, 43) == pal["strip"].upper()    # past the foot of the oblique
+    assert _px(img, lay.x1 - 12, 43) == pal["band"].upper()     # before it
 
 
 def test_the_oblique_starts_where_the_brand_ends(band, app):
@@ -292,7 +331,8 @@ def test_the_oblique_starts_where_the_brand_ends(band, app):
     b = band.Brand.of("Name", " rest", None)
     lay = band.band_layout(1280, 1.0, b)
     runs = sum(band._lu_up(line.width) for line in lay.name)
-    assert lay.x1 == int(band._round(11 + runs + 16))
+    inset = band.px("tbar-h") / 2 - band.px("tbar-mark") / 2
+    assert lay.x1 == int(band._round(inset + runs + band.px("tbar-name-end")))
     with_mark = band.band_layout(1280, 1.0, band.Brand(runs=b.runs, mark=True))
     assert with_mark.x1 - lay.x1 in (35, 36, 37)
 
@@ -313,15 +353,16 @@ def test_a_weight_is_a_weight(band, app):
 
 
 def test_the_buttons_light_and_the_middle_one_restores(band, app):
+    from slantui.css import band_roles
     from slantui.tokens import PALETTES
-    pal = PALETTES["gold-dark"]
+    pal = {part: PALETTES["gold-dark"][role] for part, role in band_roles().items()}
     b = _brand(band)
     rest = band.render_band(1280, 1.0, "gold-dark", b)
     lit = band.render_band(1280, 1.0, "gold-dark", b, hover=(0.0, 1.0, 0.0))
-    assert _px(lit, 1280 - 84 + 3, 3) == pal["control-hover"].upper()
-    assert _px(rest, 1280 - 84 + 3, 3) == pal["control"].upper()
+    assert _px(lit, 1280 - 84 + 3, 3) == pal["hover"].upper()
+    assert _px(rest, 1280 - 84 + 3, 3) == pal["band"].upper()
     closing = band.render_band(1280, 1.0, "gold-dark", b, hover=(0.0, 0.0, 1.0))
-    assert _px(closing, 1280 - 3, 3) == pal["err"].upper()
+    assert _px(closing, 1280 - 3, 3) == pal["close"].upper()
     maxed = band.render_band(1280, 1.0, "gold-dark", b, maximized=True)
     assert maxed != rest
 
@@ -376,15 +417,12 @@ def _rgb(hex_colour: str) -> str:
     return "rgb(%d, %d, %d)" % tuple(int(v[i:i + 2], 16) for i in (0, 2, 4))
 
 
-@show_window
-def test_the_window_band_is_the_page_band(band, app, tmp_path):
+def _page(tmp_path):
     from slantui.css import STYLESHEETS
     from slantui.css import path as css_path
     from slantui.js import SCRIPTS
     from slantui.js import path as js_path
-    from slantui.geometry import band_path
-    from slantui.shell import Window
-    from slantui.shell.qt import QColor, QEventLoop, QImage, QTimer
+    from slantui.shell.qt import QColor, QImage
     from slantui.tokens import PALETTES
 
     mark = QImage(64, 64, QImage.Format.Format_ARGB32)
@@ -394,12 +432,72 @@ def test_the_window_band_is_the_page_band(band, app, tmp_path):
     scripts = "".join(f'<script src="{js_path(n).as_uri()}"></script>' for n in SCRIPTS)
     page = tmp_path / "index.html"
     page.write_text(WINDOW_PAGE % (links, scripts), encoding="utf-8")
+    return page
 
-    def wait(ms):
-        loop = QEventLoop()
-        QTimer.singleShot(ms, loop.quit)
-        loop.exec()
 
+def _wait(ms):
+    from slantui.shell.qt import QEventLoop, QTimer
+    loop = QEventLoop()
+    QTimer.singleShot(ms, loop.quit)
+    loop.exec()
+
+
+def _text_boxes(lay) -> dict[str, tuple[int, int, int, int]]:
+    """Where the name and the credit line are, in device pixels, with a
+    pixel of air round the glyphs."""
+    def box(first, last):
+        return (int(first.xs[0]) - 2, int(first.y - first.size * 1.2),
+                int(last.xs[0] + last.width) + 2, int(first.y + first.size * 0.4))
+    return {"name": box(lay.name[0], lay.name[-1]), "credit line": box(lay.credit, lay.credit)}
+
+
+def _worst(a, b, x0, y0, x1, y1) -> tuple[int, int, tuple[int, int]]:
+    """The worst channel difference in a box, how many pixels differ by more
+    than two levels, and where the worst one is."""
+    worst, many, where = 0, 0, (x0, y0)
+    for y in range(max(0, y0), min(a.height(), b.height(), y1)):
+        for x in range(max(0, x0), min(a.width(), b.width(), x1)):
+            p, q = a.pixel(x, y), b.pixel(x, y)
+            d = max(abs(((p >> k) & 255) - ((q >> k) & 255)) for k in (0, 8, 16))
+            many += d > 2
+            if d > worst:
+                worst, where = d, (x, y)
+    return worst, many, where
+
+
+def _covered(a, b, x0, y0, x1, y1, level: int = 60) -> int:
+    """How many pixels of a box one picture has changed from another by more
+    than ``level`` in some channel."""
+    many = 0
+    for y in range(max(0, y0), min(a.height(), b.height(), y1)):
+        for x in range(max(0, x0), min(a.width(), b.width(), x1)):
+            p, q = a.pixel(x, y), b.pixel(x, y)
+            many += max(abs(((p >> k) & 255) - ((q >> k) & 255)) for k in (0, 8, 16)) > level
+    return many
+
+
+def _fringes(img, x0, y0, x1, y1) -> int:
+    """The colour fringes in a box, summed: ClearType puts them along every
+    glyph's edges, and grey scale antialiasing puts none."""
+    total = 0
+    for y in range(max(0, y0), min(img.height(), y1)):
+        for x in range(max(0, x0), min(img.width(), x1)):
+            c = img.pixel(x, y)
+            r, g, b = (c >> 16) & 255, (c >> 8) & 255, c & 255
+            total += max(0, max(r, g, b) - min(r, g, b) - 6)
+    return total
+
+
+@show_window
+def test_the_window_band_is_the_page_band(band, app, tmp_path):
+    from slantui.css import band_roles
+    from slantui.geometry import band_path
+    from slantui.shell import Window, glyphs
+    from slantui.shell.qt import QColor, QEventLoop, QTimer
+    from slantui.tokens import PALETTES
+
+    page = _page(tmp_path)
+    wait = _wait
     win = Window(page, title="band test", size=(1100, 700), min_size=(600, 400))
     win.setPosition(90, 70)
     win.show()
@@ -427,11 +525,9 @@ def test_the_window_band_is_the_page_band(band, app, tmp_path):
 
         # the colours
         c = page_band["colours"]
-        assert c["band"] == _rgb(pal[band.ROLE_BAND])
-        assert c["name"] == _rgb(pal[band.ROLE_NAME])
-        assert c["strong"] == _rgb(pal[band.ROLE_STRONG])
-        assert c["credit"] == _rgb(pal[band.ROLE_CREDIT])
-        assert c["glyph"] == _rgb(pal[band.ROLE_GLYPH])
+        roles = band_roles()
+        for part in ("band", "name", "strong", "credit", "glyph"):
+            assert c[part] == _rgb(pal[roles[part]]), part
 
         # the words
         assert page_band["name"] == win.band.brand.text
@@ -460,6 +556,14 @@ def test_the_window_band_is_the_page_band(band, app, tmp_path):
             worst = max(worst, abs(a.red() - b.red()), abs(a.green() - b.green()),
                         abs(a.blue() - b.blue()))
         assert worst == 0, f"the band itself differs by {worst}"
+
+        # and the words, pixel by pixel: the window draws its glyphs the way
+        # the page does (glyphs.py), so the two are the same to a level or two
+        if glyphs.available():
+            for name, (x0, y0, x1, y1) in _text_boxes(lay).items():
+                diff, many, where = _worst(after, before, x0, y0, x1, y1)
+                assert diff <= 3, (f"the {name} differs from the page's by {diff} levels at "
+                                   f"{where}, {many} pixels by more than two")
     finally:
         # closed and destroyed here, while there is an application: a window
         # left to the garbage collector outlives it, and the process died
@@ -468,3 +572,131 @@ def test_the_window_band_is_the_page_band(band, app, tmp_path):
         wait(200)
         win.deleteLater()
         wait(100)
+
+
+@show_window
+def test_the_page_band_keeps_its_cleartype_through_the_reveal(band, app, tmp_path):
+    """The loading screen goes and the page comes into focus under the band,
+    and the band stays as sharp as it was: its text keeps the colour fringes
+    ClearType puts on it in every frame of the reveal. It lost them for the
+    whole reveal while the page's pane moved its blur on the compositor, and
+    the band came into focus with the page as if it had been blurred too.
+
+    Photographed off the screen as it is composed, which is what anybody
+    looking sees, so the window is kept in front for the few seconds this
+    takes."""
+    from slantui.shell import Splash, Window
+    from slantui.shell.qt import QTimer, Qt
+
+    win = Window(_page(tmp_path), title="band test", size=(1100, 700), min_size=(600, 400))
+    win.setFlag(Qt.WindowType.WindowStaysOnTopHint, True)
+    win.setPosition(90, 70)
+    splash = Splash(window=win, text="starting", busy=True)
+    splash.show()
+    win.show()
+    shots = []
+    timer = QTimer()
+
+    def shoot():
+        g = win.geometry()
+        shots.append(win.screen().grabWindow(0, g.x(), g.y(), g.width(), int(band.px("tbar-h"))
+                                             ).toImage())
+    timer.timeout.connect(shoot)
+    try:
+        for _ in range(200):
+            _wait(50)
+            if not win.band_up:
+                break
+        assert not win.band_up, "the page never said its band was drawn"
+        _wait(400)
+        lay = win.band.layout()
+        s = lay.scale
+        shoot()
+        x0, y0, x1, y1 = _text_boxes(lay)["name"]
+        box = (int(x0 / s), int(y0 / s), int(x1 / s) + 1, int(y1 / s))   # on the screen
+        before = _fringes(shots[-1], *box)
+        if before < 1000:
+            pytest.skip("this screen draws text without ClearType, so there are no fringes to keep")
+        shots.clear()
+        timer.start(15)
+        splash.hide()
+        # until the screen has gone, however long it takes to start going
+        for _ in range(int(3 * band.ms("t-reveal") / 50)):
+            _wait(50)
+            if not splash.visible:
+                break
+        assert not splash.visible, "the loading screen never went"
+        _wait(300)
+        timer.stop()
+        after = _fringes(shots[-1], *box)
+        during = [_fringes(img, *box) for img in shots]
+        assert len(during) > 40, f"only {len(during)} frames photographed"
+        assert after >= 0.8 * before, f"the band came out of the reveal with {after} against {before}"
+        worst = min(during)
+        assert worst >= 0.8 * before, (
+            f"the band's name lost its ClearType during the reveal: {worst} against {before} "
+            f"before it and {after} after, over {len(during)} frames")
+    finally:
+        timer.stop()
+        QTimer.singleShot(0, win.close)
+        _wait(200)
+        win.deleteLater()
+        _wait(100)
+
+
+@show_window
+def test_the_window_comes_up_already_sharp(band, app, tmp_path):
+    """No frame of the opening shows the band scaled. Windows brings a new
+    window in with an animation of its own, a little smaller and growing,
+    and for those frames the band's words were soft; the window switches it
+    off for its appearance (window.py, showEvent), so the first frame it is
+    seen in is the frame it stays."""
+    from slantui.shell import Window
+    from slantui.shell.qt import QColor, QQuickView, QRect, QTimer, Qt
+
+    # a backdrop of our own, still, so that what changes on the screen is the
+    # window and not whatever the desktop behind it is doing
+    backdrop = QQuickView()
+    backdrop.setFlag(Qt.WindowType.FramelessWindowHint, True)
+    backdrop.setFlag(Qt.WindowType.WindowStaysOnTopHint, True)
+    backdrop.setColor(QColor(255, 0, 255))
+    backdrop.setGeometry(QRect(70, 50, 660, 100))
+    backdrop.show()
+    win = Window(_page(tmp_path), title="band test", size=(1100, 700), min_size=(600, 400))
+    win.setFlag(Qt.WindowType.WindowStaysOnTopHint, True)
+    win.setPosition(90, 70)
+    screen = win.screen()
+    h = int(band.px("tbar-h"))
+    shots = []
+    timer = QTimer()
+    timer.timeout.connect(lambda: shots.append(screen.grabWindow(0, 90, 70, 600, h).toImage()))
+    try:
+        _wait(400)
+        timer.start(5)
+        _wait(60)
+        before = screen.grabWindow(0, 90, 70, 600, h).toImage()
+        win.show()
+        _wait(700)
+        timer.stop()
+        settled = shots[-1]
+        lay = win.band.layout()
+        x0, y0, x1, y1 = _text_boxes(lay)["name"]
+        s = lay.scale
+        box = (int(x0 / s), int(y0 / s), min(600, int(x1 / s) + 1), int(y1 / s))
+        # a frame the window is in covers the name's box with something that
+        # is not the backdrop: its shadow arriving first, or the backdrop
+        # losing the focus, changes it by a few tens of levels and is not it
+        area = (box[2] - box[0]) * (box[3] - box[1])
+        seen = [img for img in shots if _covered(img, before, *box) > 0.3 * area]
+        assert seen, "the window never came up"
+        worst = max(_worst(img, settled, *box)[0] for img in seen)
+        assert worst <= 3, (f"the band came up {worst} levels away from how it settles, over "
+                            f"{len(seen)} frames: the opening was animated")
+    finally:
+        timer.stop()
+        QTimer.singleShot(0, win.close)
+        backdrop.close()
+        _wait(200)
+        win.deleteLater()
+        backdrop.deleteLater()
+        _wait(100)

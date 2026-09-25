@@ -16,6 +16,7 @@ instead of in the PowerShell keeps the colour maths in one language.
 """
 from __future__ import annotations
 
+from ..css import band_roles
 from ..geometry import band_shape
 from ..tokens.metrics import METRICS
 from ..tokens.palette import Palette
@@ -81,6 +82,13 @@ def as_powershell(palettes: list[Palette] | None = None,
             out.append(f"        {ps_string(m.name):<{pad + 2}} = {_number(m.value)}")
     out.append("    }")
 
+    out.append("    # Plain numbers: weights, a line height, a stroke width.")
+    out.append("    Numbers = @{")
+    for m in METRICS:
+        if m.kind == "number":
+            out.append(f"        {ps_string(m.name):<{pad + 2}} = {float(m.value):g}")
+    out.append("    }")
+
     out.append("    # Durations in milliseconds, for a storyboard or a timer.")
     out.append("    Times = @{")
     for m in METRICS:
@@ -93,6 +101,13 @@ def as_powershell(palettes: list[Palette] | None = None,
         if m.kind == "font":
             out.append(f"        {ps_string(m.name):<{pad + 2}} = "
                        f"{ps_string(wpf_font(m.value))}")
+    out.append("    }")
+
+    out += ["", "    # The role each part of the title band is in, read out of the rule",
+            "    # the page uses for it (slantui.css.BAND_PARTS).",
+            "    BandRoles = @{"]
+    for part, role in band_roles().items():
+        out.append(f"        {ps_string(part):<{pad + 2}} = {ps_string(role)}")
     out.append("    }")
 
     out += ["", "    # The four numbers the oblique band is built from.",

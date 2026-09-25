@@ -69,6 +69,11 @@ BAND_POLL_MS = 50
 # How long a question is waited on before it is taken as lost.
 BAND_ASK_S = 1.0
 
+# How long after the window's first frame the system's transitions come back
+# on. The opening animation is decided when the window first shows content;
+# this is only the margin that keeps it decided, a few frames and no more.
+APPEAR_SETTLE_MS = 100
+
 # What the page is asked: whether it has said its band is drawn, or whether it
 # has finished loading with no band in it at all, in which case there is
 # nothing to wait for. Before the page there is an empty document, loaded and
@@ -109,15 +114,16 @@ class Window(QQuickView):
     then picks a real 16 px icon for the taskbar instead of squashing a
     large one.
 
-    ``bold``, ``name``, ``logo`` and ``brand_action`` are what the page's
-    band will say and show, for the band the window draws until the page has
-    drawn its own: the strong word of the name, the rest of it with its
-    leading space, the mark's picture, and whether the page makes the mark a
-    button with ``setBrandAction``. Left out, they are read from the page's
-    markup (``.tbar-name``, ``<img class="tbar-logo">``), which is enough for
-    a page that writes them there. A page that writes its name from a script,
-    in the language it is showing, passes the same words here, taken from the
-    same place the page takes them.
+    ``words``, ``logo`` and ``brand_action`` are for the band the window
+    draws until the page has drawn its own, which has to say and show what the
+    page's will. What it says is read from the page's markup (``.tbar-name``),
+    which is enough for a page that writes its name there. A page that writes
+    it from a script leaves the elements empty, and ``words(attributes, lang)``
+    is the application saying what each one will hold: it gets the element's
+    attributes and the document's language and answers the text, or None
+    (see :func:`~slantui.shell.band.brand_from_page`). ``logo`` is the mark's
+    picture, for a page that paints it from a stylesheet, and ``brand_action``
+    whether the page makes the mark a button with ``setBrandAction``.
     """
 
     # Defaults on the class, so the event handlers below are safe to run
@@ -134,14 +140,15 @@ class Window(QQuickView):
     _band_asked_at = 0.0
     _band_frames = 0
     _band_fade = None
+    _appeared = False               # the first show has happened
+    _opened = False                 # and its first frame is on screen
 
     def __init__(self, page: str | Path | QUrl, *, bridge: Bridge | None = None,
                  title: str = "", icon: str | Path | None = None,
                  background: str | None = None, palette: str | None = None,
                  size: tuple[int, int] = (1280, 800), min_size: tuple[int, int] = (1024, 640),
-                 object_name: str = "backend", bold: str | None = None,
-                 name: str | None = None, logo: str | Path | None = None,
-                 brand_action: bool | None = None):
+                 object_name: str = "backend", words=None,
+                 logo: str | Path | None = None, brand_action: bool | None = None):
         super().__init__()
         self.setTitle(title)              # the taskbar label
         self.setFlag(Qt.WindowType.FramelessWindowHint, True)
@@ -165,7 +172,7 @@ class Window(QQuickView):
         self._js_token = 0
 
         self._load(page)
-        self._dress_band(page, bold, name, logo, brand_action)
+        self._dress_band(page, words, logo, brand_action)
         self.windowStateChanged.connect(self._on_state_changed)
 
     def _load(self, page: str | Path | QUrl) -> None:
@@ -214,29 +221,19 @@ class Window(QQuickView):
             cb(value)
 
     # ── the band, until the page has drawn its own ───────────────────────
-    def _dress_band(self, page, bold, name, logo, brand_action) -> None:
+    def _dress_band(self, page, words, logo, brand_action) -> None:
         """Lay the window's band over the page, with the resize strips, and
         start asking the page for its own.
 
-        What the band says comes from the page's markup, and what the
-        application passed wins over it: a page that writes its name from a
-        script has an empty ``.tbar-name`` in its markup.
+        What the band says comes from the page's markup, with the words the
+        application gives for the elements the page fills from a script.
 
         Laying the name out like the page takes Qt 6 (a raw font at a
         fractional size, a variable font's axes), so on the Qt 5 fallback the
         window opens as it did before there was a band of its own."""
         if not USE_QT6:
             return
-        brand = brand_from_page(page) if isinstance(page, (str, Path)) else Brand()
-        if bold is not None or name is not None:
-            # a half left out is the markup's half
-            if bold is None:
-                bold = "".join(t for t, strong in brand.runs if strong)
-            if name is None:
-                name = "".join(t for t, strong in brand.runs if not strong)
-            said = Brand.of(bold, name)
-            brand = Brand(runs=said.runs, mark=brand.mark, logo=brand.logo, fill=brand.fill,
-                          action=brand.action)
+        brand = brand_from_page(page, words) if isinstance(page, (str, Path)) else Brand()
         if logo is not None:
             # how the picture sits in its square is the markup's: an <img> is
             # stretched to it, a background is fitted inside it
@@ -573,12 +570,40 @@ class Window(QQuickView):
 
     # ── the native frame ─────────────────────────────────────────────────
     def showEvent(self, event) -> None:
+        """The first time, the window comes up without the system's opening
+        animation. Windows scales a new window in from a little smaller over
+        its first few frames, and a window whose band carries text showed that
+        text soft for those frames, the only frames of the whole start in
+        which the band was not as sharp as it ends up. The window's own band
+        is drawn from the first frame (band.py), so there is nothing to hide
+        behind the animation either. The transition is switched off only
+        around the appearance and back on once the window is on screen, the
+        same switch the state changes below use; closing, minimising and the
+        rest keep Windows' own motion or the window's."""
+        if not self._appeared:
+            self._appeared = True
+            self._dwm_transitions(False)
+            self.frameSwapped.connect(self._on_screen)
         super().showEvent(event)
         if not self._native_frame:
             # nativeEvent() must already answer WM_NCCALCSIZE when the frame
             # change sends it, so the flag goes up first.
             self._native_frame = True
             win32.dress(int(self.winId()))
+
+    def _on_screen(self) -> None:
+        """The first frame is out: the opening, whether it would have been
+        animated or not, has been decided, and the transitions go back on
+        a moment later. frameSwapped arrives queued from the render thread,
+        so a second one can follow the disconnect."""
+        if self._opened:
+            return
+        self._opened = True
+        try:
+            self.frameSwapped.disconnect(self._on_screen)
+        except TypeError:
+            pass
+        QTimer.singleShot(APPEAR_SETTLE_MS, lambda: self._dwm_transitions(True))
 
     def nativeEvent(self, eventType, message):
         """Answer the two messages that make the framed HWND look frameless

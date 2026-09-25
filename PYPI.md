@@ -619,9 +619,12 @@ Until the page has drawn its band, the window draws it: the same profile, the
 same roles, the name laid out where Chromium lays it, and the buttons working,
 from the first frame the window shows. When the page's band is on screen the
 window's fades out under it over `--t-chg`. The words come from the page's
-markup, or, for a page that writes its name from a script, from the
-application: `Window(..., bold="My", name=" App", logo="mark.svg",
-brand_action=True)`. [The window](https://github.com/federicosalerno-phd/SlantUI/blob/main/docs/window.md) has the whole of it.
+markup, which the library reads, and for a page that writes its name from a
+script the application says what its empty elements will hold:
+`Window(..., words=lambda attrs, lang: ..., logo="mark.svg", brand_action=True)`.
+The name and the credit line are drawn the way Chromium draws them, so the
+two bands are the same to a level or two, and the window comes up without
+the system's opening animation, as sharp in its first frame as in its last. [The window](https://github.com/federicosalerno-phd/SlantUI/blob/main/docs/window.md) has the whole of it.
 
 ### The loading screen
 

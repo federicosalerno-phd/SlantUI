@@ -24,17 +24,21 @@ SAME band, and that is most of this file:
   with a raw font at the exact size, with the weight set on the axis;
 * the credit line and the three window buttons are the page's, drawn from the
   same text (``CREDIT_TEXT`` in titlebar.js) and the same four drawings
-  (``win-*`` in icons.js).
+  (``win-*`` in icons.js);
+* the glyphs are the page's pixels: on Windows the name and the credit line
+  are drawn the way Chromium draws them (glyphs.py), because drawn by Qt they
+  came out a fifth lighter along their edges, and the window's band read as
+  the soft one until the page's arrived and brought it into focus.
 
-What it cannot copy is the glyphs' own pixels. Chromium blends ClearType one
-way and Qt another, so the same glyph in the same place comes out a few shades
-apart along its edges. That is why the handover is not a cut: the window's
-band goes over ``--t-chg`` once the page's is on screen under it, and what
-changes in those frames is the fringe of a glyph, a little at a time.
+What is still not the page's own is the window buttons' strokes and the mark,
+which Qt antialiases a few shades apart from Chromium along their edges. That
+is why the handover is not a cut: the window's band goes over ``--t-chg`` once
+the page's is on screen under it.
 
-The numbers below are the stylesheets'. ``tests/test_band.py`` reads every one
-of them back out of layout.css, components.css and base.css, so a change made
-on one side and not on the other fails there and not on a screen.
+No length and no colour of the band is written in this file. The lengths are
+metrics (slantui/tokens/metrics.py), which the stylesheets read too, and the
+role of each part is read out of the rule the page uses for it
+(slantui.css.band_roles), so there is nothing here to fall out of step.
 """
 from __future__ import annotations
 
@@ -48,7 +52,9 @@ from pathlib import Path
 from ..geometry import band_path
 from ..js import path as js_path
 from ..tokens import DEFAULT, PALETTES
-from ..tokens.metrics import ms, px, value
+from ..css import band_roles
+from ..tokens.metrics import ms, number, px, value
+from . import glyphs as page_glyphs
 from .bridge import edges_of
 from .qt import (QApplication, QByteArray, QColor, QCursor, QEasingCurve, QFont,
                  QFontDatabase, QGlyphRun, QImage, QPainter, QPainterPath, QPointF, QQuickItem,
@@ -59,47 +65,29 @@ __all__ = ["Brand", "brand_from_page", "BandLayout", "band_layout", "render_band
            "NativeBand", "Edge", "credit_text", "window_glyphs", "EDGES", "HANDOVER_MS"]
 
 # ── what the stylesheets say ─────────────────────────────────────────────────
-MARK = 22.0              # .tbar-logo: width and height
-MARK_GAP = 14.0          # .tbar-logo: margin-right
-MARK_RADIUS = 5.0        # .tbar-logo: border-radius
-MARK_INSET = 11.0        # .tbar-brand: padding-left is --tbar-h / 2 less this
-BRAND_END = 16.0         # .tbar-brand: padding-right
-DISC = 30.0              # .tbar-logo-btn: width and height, round
-DISC_SHADOW_Y = 1.0      # .tbar-logo-btn: box-shadow 0 1px 3px var(--shadow)
-DISC_SHADOW_BLUR = 3.0
-NAME_SIZE = 14.5         # .tbar-name: font-size
-NAME_WEIGHT = 400        # .tbar-name: font-weight
-NAME_SPACING = 0.15      # .tbar-name: letter-spacing
-STRONG_WEIGHT = 600      # .tbar-name b: font-weight
-STRONG_SPACING = 0.4     # .tbar-name b: letter-spacing
-CREDIT_SIZE = 11.0       # .tbar-credit: font-size
-CREDIT_SPACING = 0.25    # .tbar-credit: letter-spacing
-LINE_HEIGHT = 1.45       # base.css: html,body line-height, which both inherit
-BUTTON = 42.0            # .wbtn: width
-GLYPH = 12.0             # .wbtn svg: width and height
-GLYPH_STROKE = 1.35      # .wbtn svg: stroke-width
+# Every length on the band is a metric and every fill and ink is a role, and
+# none of them is written here: a number copied out of a stylesheet is a second
+# copy of it, however well a test holds the two together. The lengths are
+# read with px() and number() where they are used, and the role of each part
+# out of the rule the page itself uses (slantui.css.band_roles).
+def _role(part: str) -> str:
+    """The role a part of the band is in: "band", "name", "strong",
+    "credit", "disc", "lift", "glyph", "hover", "hover-glyph", "close",
+    "close-glyph", "strip"."""
+    return band_roles()[part]
 
-# Which role each part is filled or written in, with the rule that says so.
-ROLE_BAND = "control"            # .tbar-band background
-ROLE_STRONG = "text-1"           # .tbar-name b color
-ROLE_NAME = "text-2"             # .tbar-name color
-ROLE_CREDIT = "text-4"           # .tbar-credit color
-ROLE_DISC = "control-hover"      # .tbar-logo-btn background
-ROLE_SHADOW = "shadow"           # .tbar-logo-btn box-shadow
-ROLE_GLYPH = "text-3"            # .wbtn color
-ROLE_HOVER = "control-hover"     # .wbtn:hover background
-ROLE_HOVER_GLYPH = "text-1"      # .wbtn:hover color
-ROLE_CLOSE = "err"               # .wbtn-close:hover background
-ROLE_CLOSE_GLYPH = "on-status"   # .wbtn-close:hover color
+
+def _disc_side() -> float:
+    """The round button the mark sits in: the mark and a ring round it."""
+    return px("tbar-mark") + 2 * px("tbar-ring")
+
 
 # The window's band gives way to the page's over this long: a state changing
 # on its own, which is what --t-chg is for.
 HANDOVER_MS = ms("t-chg")
 
-# The resize strips, as components.css draws them in the page: five pixels
-# along an edge, twelve square at a corner. (edge, cursor)
-STRIP = 5.0
-CORNER = 12.0
+# The resize strips, as components.css draws them in the page, --rz deep along
+# an edge and --rz-corner square at a corner. (edge, cursor)
 EDGES = (("n", Qt.CursorShape.SizeVerCursor), ("s", Qt.CursorShape.SizeVerCursor),
          ("w", Qt.CursorShape.SizeHorCursor), ("e", Qt.CursorShape.SizeHorCursor),
          ("nw", Qt.CursorShape.SizeFDiagCursor), ("ne", Qt.CursorShape.SizeBDiagCursor),
@@ -172,26 +160,39 @@ _VOID = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "me
 
 
 class _Markup(HTMLParser):
-    """The brand out of a page's markup, without running it."""
+    """The brand out of a page's markup, without running it.
 
-    def __init__(self):
+    ``words`` is the application's, for a page that writes its name from a
+    script: called with an element's attributes and the document's language,
+    it answers what that element will say, or None. What it says stands for
+    whatever the markup has inside the element."""
+
+    def __init__(self, words=None):
         super().__init__(convert_charrefs=True)
-        self.stack: list[tuple[str, bool]] = []   # (tag, opens the name)
+        # (tag, opens the name, its words came from the application)
+        self.stack: list[tuple[str, bool, bool]] = []
+        self.words = words
+        self.lang = ""
         self.in_name = 0
         self.strong = 0
+        self.said = 0                    # inside an element the application spoke for
         self.runs: list[list] = []
+        self.cut = True                  # the next text starts a run of its own
         self.mark = False
         self.logo: str | None = None
         self.img = False                 # the mark is an <img>, stretched to its square
 
     def handle_starttag(self, tag, attrs):
-        a = dict(attrs)
+        a = {k: (v if v is not None else "") for k, v in attrs}
+        if tag == "html":
+            self.lang = a.get("lang", "")
         classes = (a.get("class") or "").split()
         if "tbar-logo" in classes and not self.mark:
             self.mark = True
             self.img = tag == "img"
             if tag == "img" and a.get("src"):
                 self.logo = a["src"]
+        self.cut = True
         if tag in _VOID:
             return
         opens = "tbar-name" in classes and not self.in_name
@@ -199,30 +200,50 @@ class _Markup(HTMLParser):
             self.in_name += 1
         if self.in_name and tag in ("b", "strong"):
             self.strong += 1
-        self.stack.append((tag, opens))
+        said = None
+        if self.in_name and not self.said and self.words is not None:
+            # the application's own code, and a band is not worth a window
+            # that does not open: a word it cannot give is a word left out
+            try:
+                said = self.words(a, self.lang)
+            except Exception:
+                said = None
+        if said is not None:
+            self.runs.append([str(said), self.strong > 0])
+            self.said += 1
+        self.stack.append((tag, opens, said is not None))
 
     def handle_endtag(self, tag):
         # A void element was never pushed, and `<img .../>` arrives here as
         # well; an end tag nothing opened closes nothing.
-        if tag in _VOID or all(t != tag for t, _ in self.stack):
+        self.cut = True
+        if tag in _VOID or all(t != tag for t, _, _ in self.stack):
             return
         while self.stack:
-            t, opens = self.stack.pop()
+            t, opens, said = self.stack.pop()
             if self.in_name and t in ("b", "strong"):
                 self.strong -= 1
             if opens:
                 self.in_name -= 1
+            if said:
+                self.said -= 1
             if t == tag:
                 break
 
     def handle_data(self, data):
-        if not self.in_name or not data:
+        """Every stretch of text between two tags is a run of its own, even
+        next to another in the same ink: the page lays each one out starting
+        on a whole layout unit, and a name read as one run where the markup
+        has three came out a hundredth of a pixel off, which is enough to put
+        a glyph on the next quarter pixel."""
+        if not self.in_name or self.said or not data:
             return
         strong = self.strong > 0
-        if self.runs and self.runs[-1][1] == strong:
+        if self.runs and not self.cut and self.runs[-1][1] == strong:
             self.runs[-1][0] += data
         else:
             self.runs.append([data, strong])
+        self.cut = False
 
 
 def _collapse(runs) -> tuple[tuple[str, bool], ...]:
@@ -243,17 +264,25 @@ def _collapse(runs) -> tuple[tuple[str, bool], ...]:
     return tuple((t, s) for t, s in out if t)
 
 
-def brand_from_page(page: str | Path) -> Brand:
+def brand_from_page(page: str | Path, words=None) -> Brand:
     """What a page's markup says its band carries, read without running it.
 
-    The words inside ``.tbar-name``, in the strong ink inside ``<b>``; the
+    The words inside ``.tbar-name``, in the strong ink inside ``<b>``, each
+    stretch between two tags a run of its own as the page lays it out; the
     mark's square if there is a ``.tbar-logo``, and its picture if that is an
-    ``<img>`` with a ``src``. A page that writes its name from a script, or
-    paints its mark from a stylesheet, has nothing here to read, and passes
-    both to :class:`~slantui.shell.Window` instead.
+    ``<img>`` with a ``src``.
+
+    A page that writes its name from a script has elements with nothing in
+    them. ``words(attributes, lang)`` is how the application says what they
+    will hold: it is called for every element inside the name with that
+    element's attributes, as a dict, and the ``lang`` of the document's root,
+    and answers the text or None. The markup, its structure and its language
+    stay the library's to read; the only thing the application knows that the
+    library cannot is what its own keys mean. A page that paints its mark from
+    a stylesheet passes the picture to :class:`~slantui.shell.Window`.
     """
     path = Path(page)
-    parser = _Markup()
+    parser = _Markup(words)
     try:
         parser.feed(path.read_text(encoding="utf-8", errors="replace"))
     except OSError:
@@ -275,9 +304,24 @@ def brand_from_page(page: str | Path) -> Brand:
 
 
 # ── the face ─────────────────────────────────────────────────────────────────
-# What a CSS generic family is on Windows, where these windows live.
-_GENERIC = {"system-ui": "Segoe UI", "-apple-system": "", "sans-serif": "Arial",
-            "serif": "Times New Roman", "monospace": "Consolas"}
+# A CSS generic family is whatever the page's engine makes of it, and the
+# engine is asked the way it answers: QtWebEngine fills its generic families
+# from Qt's own style hints, and system-ui is the system's message font. A
+# table of names written here was a second answer, and it was wrong for
+# monospace. A generic the engine does not know (-apple-system, off a Mac) is
+# a family nobody has installed, and is passed over like one.
+_HINTS = {"sans-serif": "SansSerif", "serif": "Serif", "monospace": "Monospace",
+          "cursive": "Cursive", "fantasy": "Fantasy"}
+
+
+def _generic(name: str) -> str | None:
+    if name == "system-ui":
+        return QFontDatabase.systemFont(QFontDatabase.SystemFont.GeneralFont).family()
+    if name in _HINTS:
+        f = QFont()
+        f.setStyleHint(getattr(QFont.StyleHint, _HINTS[name]))
+        return f.defaultFamily()
+    return None
 
 
 @functools.lru_cache(maxsize=None)
@@ -287,7 +331,7 @@ def family(stack: str) -> str:
     installed = {f.lower(): f for f in QFontDatabase.families()}
     for name in stack.split(","):
         name = name.strip().strip("'\"")
-        name = _GENERIC.get(name.lower(), name)
+        name = _generic(name.lower()) or name
         if name and name.lower() in installed:
             return installed[name.lower()]
     return QFont().defaultFamily()
@@ -393,14 +437,14 @@ def _baseline(box_top: float, box: float, size: float, raw: QRawFont) -> float:
     """Where the page puts the baseline of one line of text centred in a box,
     in device pixels, and rounded to one, which is where the glyphs land.
 
-    The line is LINE_HEIGHT of the size tall, cut down to layout units, and
+    The line is --lh of the size tall, cut down to layout units, and
     centred with a layout unit division. The font's ascent and descent are
     rounded to whole pixels, and the baseline sits the rounded ascent plus
     half of what the line has left over, cut to a whole pixel, below the top
     of the line. Worked out from the page and checked against it at 100,
     125, 150, 175 and 200 per cent.
     """
-    lh = LINE_HEIGHT * size
+    lh = number("lh") * size
     top = box_top + _lu((box - _lu(lh)) / 2)
     ascent = _round(raw.ascent())
     descent = _round(raw.descent())
@@ -414,12 +458,13 @@ class _Line:
     glyphs: tuple[int, ...]
     xs: list[float]
     y: float
-    role: str
+    part: str                      # "name", "strong" or "credit"
     width: float
     faces: tuple[str, ...] = ()     # per glyph, the face it comes from ("" for raw)
     weight: int = 400
     italic: bool = False
     size: float = 0.0
+    family: str = ""
 
 
 @dataclass
@@ -441,14 +486,17 @@ class BandLayout:
 
 
 def _line(text: str, stack: str, weight: int, italic: bool, size: float, spacing: float,
-          x: float, role: str) -> _Line:
+          x: float, part: str) -> _Line:
     fam = family(stack)
     glyphs, faces, xs, end = _shape(text, fam, weight)
+    # the face is the one the page's font cache hands out for this size,
+    # which is a hair smaller at some scales (glyphs.page_size)
+    size = page_glyphs.page_size(size)
     # letter-spacing follows every character, the last one included
     pos = [x + g * size + i * spacing for i, g in enumerate(xs)]
-    return _Line(raw=_raw(fam, weight, italic, size), glyphs=glyphs, xs=pos, y=0.0, role=role,
+    return _Line(raw=_raw(fam, weight, italic, size), glyphs=glyphs, xs=pos, y=0.0, part=part,
                  width=end * size + len(text) * spacing, faces=faces, weight=weight,
-                 italic=italic, size=size)
+                 italic=italic, size=size, family=fam)
 
 
 def band_layout(width: float, scale: float, brand: Brand) -> BandLayout:
@@ -458,42 +506,44 @@ def band_layout(width: float, scale: float, brand: Brand) -> BandLayout:
     device pixels too."""
     s = float(scale)
     tall, thin = px("tbar-h") * s, px("tbar-thin") * s
-    inset = (px("tbar-h") / 2 - MARK_INSET) * s
+    side = px("tbar-mark")
+    inset = (px("tbar-h") / 2 - side / 2) * s
     x = inset
     mark = disc = None
     if brand.mark:
-        box = QRectF(x, (tall - MARK * s) / 2, MARK * s, MARK * s)
+        box = QRectF(x, (tall - side * s) / 2, side * s, side * s)
         mark = box                          # snapped where it is drawn, see _logo
         if brand.action:
-            r = DISC * s / 2
+            r = _disc_side() * s / 2
             disc = _snap(QRectF(box.center().x() - r, box.center().y() - r, 2 * r, 2 * r))
-        x += (MARK + MARK_GAP) * s
+        x += (side + px("tbar-mark-gap")) * s
     lines = []
     for text, strong in brand.runs:
-        ln = _line(text, value("font-brand"), STRONG_WEIGHT if strong else NAME_WEIGHT, False,
-                   NAME_SIZE * s, (STRONG_SPACING if strong else NAME_SPACING) * s, x,
-                   ROLE_STRONG if strong else ROLE_NAME)
-        ln.y = _baseline(0.0, tall, NAME_SIZE * s, ln.raw)
+        ln = _line(text, value("font-brand"), int(number("w-strong" if strong else "w")), False,
+                   px("fs-brand") * s, px("ls-strong" if strong else "ls-brand") * s, x,
+                   "strong" if strong else "name")
+        ln.y = _baseline(0.0, tall, px("fs-brand") * s, ln.raw)
         lines.append(ln)
         # a run's box is a whole number of layout units, rounded up
         x += _lu_up(ln.width)
-    x1 = int(_round((x + BRAND_END * s) / s))
+    x1 = int(_round((x + px("tbar-name-end") * s) / s))
 
     w = width * s
-    credit = _line(credit_text(), value("font-credit"), NAME_WEIGHT, True, CREDIT_SIZE * s,
-                   CREDIT_SPACING * s, 0.0, ROLE_CREDIT)
+    credit = _line(credit_text(), value("font-credit"), int(number("w")), True, px("fs-credit") * s,
+                   px("ls-credit") * s, 0.0, "credit")
     # left:50%, then back by half its own width (translateX(-50%))
     shift = _lu(w / 2) - _lu_up(credit.width) / 2
     credit.xs = [v + shift for v in credit.xs]
-    credit.y = _baseline(0.0, thin, CREDIT_SIZE * s, credit.raw)
+    credit.y = _baseline(0.0, thin, px("fs-credit") * s, credit.raw)
 
     buttons, glyphs = [], []
+    button, glyph = px("tbar-button"), px("tbar-glyph")
     for i in range(3):
-        left = w - (3 - i) * BUTTON * s
-        buttons.append(_snap(QRectF(left, 0.0, BUTTON * s, thin)))
+        left = w - (3 - i) * button * s
+        buttons.append(_snap(QRectF(left, 0.0, button * s, thin)))
         # the drawing is centred in the button's box before either is snapped
-        glyphs.append(_snap(QRectF(left + (BUTTON - GLYPH) / 2 * s, (thin - GLYPH * s) / 2,
-                                   GLYPH * s, GLYPH * s)))
+        glyphs.append(_snap(QRectF(left + (button - glyph) / 2 * s, (thin - glyph * s) / 2,
+                                   glyph * s, glyph * s)))
     return BandLayout(width=w, scale=s, height=tall, thin=thin, x1=x1, mark=mark, disc=disc,
                       name=lines, credit=credit, buttons=buttons, glyphs=glyphs)
 
@@ -541,10 +591,10 @@ def _disc(p: QPainter, disc: QRectF, s: float, palette: str) -> None:
     means by a blur radius; across a circle that large the edge of it is the
     normal curve, laid out along the radius."""
     r = disc.width() / 2
-    sigma = DISC_SHADOW_BLUR / 2 * s
+    sigma = px("tbar-lift-blur") / 2 * s
     reach = r + 3 * sigma
-    centre = QPointF(disc.center().x(), disc.center().y() + DISC_SHADOW_Y * s)
-    shade = _colour(palette, ROLE_SHADOW)
+    centre = QPointF(disc.center().x(), disc.center().y() + px("tbar-lift") * s)
+    shade = _colour(palette, _role("lift"))
     grad = QRadialGradient(centre, reach)
     for i in range(33):
         d = reach * i / 32
@@ -554,7 +604,7 @@ def _disc(p: QPainter, disc: QRectF, s: float, palette: str) -> None:
     p.setPen(Qt.PenStyle.NoPen)
     p.setBrush(grad)
     p.drawEllipse(centre, reach, reach)
-    p.setBrush(_colour(palette, ROLE_DISC))
+    p.setBrush(_colour(palette, _role("disc")))
     p.drawEllipse(disc)
 
 
@@ -568,7 +618,7 @@ def _logo(p: QPainter, box: QRectF, logo: Path, fill: bool, s: float) -> None:
     the page's does, and the others are a pixel out somewhere."""
     box = _snap(box)
     clip = QPainterPath()
-    clip.addRoundedRect(box, MARK_RADIUS * s, MARK_RADIUS * s)
+    clip.addRoundedRect(box, px("r") * s, px("r") * s)
     svg = QSvgRenderer(str(logo)) if logo.suffix.lower() == ".svg" else None
     img = None if svg is not None else QImage(str(logo))
     if svg is not None:
@@ -603,13 +653,16 @@ def _logo(p: QPainter, box: QRectF, logo: Path, fill: bool, s: float) -> None:
 def _glyph_svg(name: str, ink: str) -> QSvgRenderer:
     vb, body = window_glyphs()[name]
     doc = (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="{vb}"><g fill="none" '
-           f'stroke="{ink}" stroke-width="{GLYPH_STROKE}" stroke-linecap="round" '
+           f'stroke="{ink}" stroke-width="{number("tbar-stroke"):g}" stroke-linecap="round" '
            f'stroke-linejoin="round">{body}</g></svg>')
     return QSvgRenderer(QByteArray(doc.encode("utf-8")))
 
 
-def _write(p: QPainter, line: _Line, colour: QColor) -> None:
-    """The line's glyphs, a stretch of one face at a time."""
+def _write(p: QPainter, line: _Line, colour: QColor, ground: QColor) -> None:
+    """The line's glyphs, laid on ``ground``: the page's way where that can
+    be done (glyphs.py), and otherwise Qt's, a stretch of one face at a time."""
+    if page_glyphs.draw_line(p, line, colour, ground, family=line.family):
+        return
     p.setPen(colour)
     faces = line.faces or ("",) * len(line.glyphs)
     i = 0
@@ -641,30 +694,31 @@ def render_band(width: float, scale: float, palette: str, brand: Brand, *,
     s = lay.scale
     img = QImage(max(1, math.ceil(lay.width - 1e-6)), max(1, math.ceil(lay.height - 1e-6)),
                  QImage.Format.Format_RGB32)
-    img.fill(QColor(strip) if strip is not None else _colour(palette, "surface-0"))
+    img.fill(QColor(strip) if strip is not None else _colour(palette, _role("strip")))
     p = QPainter(img)
     p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
     p.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
 
-    p.fillPath(_svg_path(band_path(width, lay.x1), s), _colour(palette, ROLE_BAND))
+    ground = _colour(palette, _role("band"))
+    p.fillPath(_svg_path(band_path(width, lay.x1), s), ground)
     if lay.disc is not None:
         _disc(p, lay.disc, s, palette)
     if lay.mark is not None and brand.logo is not None:
         _logo(p, lay.mark, brand.logo, brand.fill, s)
     for line in lay.name:
-        _write(p, line, _colour(palette, line.role))
+        _write(p, line, _colour(palette, _role(line.part)), ground)
     if lay.credit is not None:
-        _write(p, lay.credit, _colour(palette, ROLE_CREDIT))
+        _write(p, lay.credit, _colour(palette, _role("credit")), ground)
 
-    band = _colour(palette, ROLE_BAND)
+    band = ground
     names = ("win-minimise", "win-restore" if maximized else "win-maximise", "win-close")
     for i, (rect, box, name) in enumerate(zip(lay.buttons, lay.glyphs, names)):
         t = hover[i]
         close = i == 2
         if t > 0:
-            p.fillRect(rect, _mix(band, _colour(palette, ROLE_CLOSE if close else ROLE_HOVER), t))
-        ink = _mix(_colour(palette, ROLE_GLYPH),
-                   _colour(palette, ROLE_CLOSE_GLYPH if close else ROLE_HOVER_GLYPH), t)
+            p.fillRect(rect, _mix(band, _colour(palette, _role("close" if close else "hover")), t))
+        ink = _mix(_colour(palette, _role("glyph")),
+                   _colour(palette, _role("close-glyph" if close else "hover-glyph")), t)
         _glyph_svg(name, ink.name()).render(p, box)
     p.end()
     img.setDevicePixelRatio(s)
@@ -680,6 +734,7 @@ def forget() -> None:
     quit."""
     _raw.cache_clear()
     _glyph_svg.cache_clear()
+    page_glyphs.forget()
 
 
 _FORGETS = False
@@ -896,18 +951,19 @@ class Edge(QQuickItem):
 
     def place(self, w: float, h: float) -> None:
         e = self.edge
+        strip, corner = px("rz"), px("rz-corner")
         if e == "n":
-            x, y, ew, eh = CORNER, 0.0, w - 2 * CORNER, STRIP
+            x, y, ew, eh = corner, 0.0, w - 2 * corner, strip
         elif e == "s":
-            x, y, ew, eh = CORNER, h - STRIP, w - 2 * CORNER, STRIP
+            x, y, ew, eh = corner, h - strip, w - 2 * corner, strip
         elif e == "w":
-            x, y, ew, eh = 0.0, CORNER, STRIP, h - 2 * CORNER
+            x, y, ew, eh = 0.0, corner, strip, h - 2 * corner
         elif e == "e":
-            x, y, ew, eh = w - STRIP, CORNER, STRIP, h - 2 * CORNER
+            x, y, ew, eh = w - strip, corner, strip, h - 2 * corner
         else:
-            x = 0.0 if e.endswith("w") else w - CORNER
-            y = 0.0 if e.startswith("n") else h - CORNER
-            ew = eh = CORNER
+            x = 0.0 if e.endswith("w") else w - corner
+            y = 0.0 if e.startswith("n") else h - corner
+            ew = eh = corner
         self.setX(x)
         self.setY(y)
         self.setWidth(max(0.0, ew))

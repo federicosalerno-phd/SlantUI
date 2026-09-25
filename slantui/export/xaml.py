@@ -91,8 +91,9 @@ def _escape(text: str) -> str:
 
 
 def _double(m: Metric) -> str:
-    """A length metric as the number WPF wants, with no unit on it."""
-    return f"{float(m.value[:-2]):g}"
+    """A length metric as the number WPF wants, with no unit on it, and a
+    plain number as it is."""
+    return f"{float(m.value if m.kind == 'number' else m.value[:-2]):g}"
 
 
 def _duration(m: Metric) -> str:

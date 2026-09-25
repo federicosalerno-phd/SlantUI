@@ -29,8 +29,8 @@ from dataclasses import dataclass
 
 __all__ = [
     "Metric", "METRICS", "METRIC_NAMES", "GROUPS", "GROUP_NOTES",
-    "LENGTHS", "FONTS", "TIMES", "BAND_METRICS",
-    "metric", "value", "px", "ms", "as_dict",
+    "LENGTHS", "FONTS", "TIMES", "NUMBERS", "BAND_METRICS",
+    "metric", "value", "px", "ms", "number", "as_dict",
 ]
 
 
@@ -40,7 +40,7 @@ class Metric:
     group: str
     value: str
     purpose: str
-    kind: str = "length"              # "length", "font" or "time"
+    kind: str = "length"              # "length", "font", "time" or "number"
 
 
 # The order is the order the stylesheet is written in, and the order every
@@ -84,6 +84,20 @@ METRICS: tuple[Metric, ...] = (
     Metric("fs-sm", "type", "11.5px", "Captions."),
     Metric("fs-xs", "type", "10px", "Uppercase section labels."),
     Metric("fs-lg", "type", "13.5px", "Panel titles."),
+    Metric("fs-brand", "type", "14.5px", "The application's name in the title band."),
+    Metric("fs-credit", "type", "11px",
+           "The credit line in the title band, which the licence keeps at this size."),
+    Metric("ls-brand", "type", ".15px", "The spacing between the letters of the name."),
+    Metric("ls-strong", "type", ".4px",
+           "The spacing between the letters of the name's strong word, a little wider "
+           "because a heavier face closes up."),
+    Metric("ls-credit", "type", ".25px", "The spacing between the letters of the credit line."),
+    Metric("w", "type", "400", "The weight of text that is not strong.", kind="number"),
+    Metric("w-strong", "type", "600",
+           "Strong text: a label that heads something, a title, the application's own "
+           "word in its name.", kind="number"),
+    Metric("lh", "type", "1.45", "The height of a line of text, as a multiple of its size.",
+           kind="number"),
 
     # ── the title band ──────────────────────────────────────────────────────
     Metric("tbar-h", "band", "44px",
@@ -94,6 +108,26 @@ METRICS: tuple[Metric, ...] = (
            "The horizontal run of the oblique between the two."),
     Metric("tbar-join", "band", "8px",
            "The radius the oblique's two vertices are rounded by."),
+    Metric("tbar-mark", "band", "22px", "The mark's square at the start of the band."),
+    Metric("tbar-mark-gap", "band", "14px", "Between the mark and the name."),
+    Metric("tbar-name-end", "band", "16px",
+           "Between the end of the name and the foot of the oblique."),
+    Metric("tbar-ring", "band", "4px",
+           "How far the round button the mark sits in reaches past the mark, all round."),
+    Metric("tbar-lift", "band", "1px", "How far the shadow under that button falls."),
+    Metric("tbar-lift-blur", "band", "3px", "How soft that shadow is."),
+    Metric("tbar-button", "band", "42px",
+           "The width of a window button, at the thin end: minimise, maximise, close."),
+    Metric("tbar-glyph", "band", "12px", "The drawing on a window button, square."),
+    Metric("tbar-stroke", "band", "1.35",
+           "The width of that drawing's strokes, in its own units, which at --tbar-glyph "
+           "are pixels.", kind="number"),
+
+    # ── the edges the window is resized from ────────────────────────────────
+    Metric("rz", "frame", "5px",
+           "How deep the strip along each edge of the window is that resizes it."),
+    Metric("rz-corner", "frame", "12px",
+           "How far along the edges each corner resizes both ways at once."),
 
     # ── the step rail under it ──────────────────────────────────────────────
     Metric("tab-h", "rail", "42px", "The height of the rail and of a step tab."),
@@ -142,6 +176,7 @@ GROUPS: dict[str, str] = {
     "spacing": "spacing, on one scale: 0, 4, 8, 12",
     "type": "type",
     "band": "the title band",
+    "frame": "the edges the window is resized from",
     "rail": "the step rail under it",
     "panel": "the side panel",
     "comb": "the comb the panel is laid on",
@@ -197,7 +232,11 @@ GROUP_NOTES: dict[str, str] = {
         "--tbar-slant, then --tbar-thin all the way to the right edge (where\n"
         "the window buttons are). The two vertices of that run are rounded by\n"
         "--tbar-join. slantui/geometry.py turns these four into the profile,\n"
-        "and js/titlebar.js cuts the band to it."
+        "and js/titlebar.js cuts the band to it. The rest are what sits on it:\n"
+        "the mark, the round button it becomes, the room after the name and the\n"
+        "window buttons. The window draws the same band itself until the page\n"
+        "has drawn its own (shell/band.py), and WPF draws it for good, both from\n"
+        "these and not from numbers of their own."
     ),
 }
 
@@ -205,6 +244,7 @@ METRIC_NAMES: tuple[str, ...] = tuple(m.name for m in METRICS)
 LENGTHS: tuple[str, ...] = tuple(m.name for m in METRICS if m.kind == "length")
 FONTS: tuple[str, ...] = tuple(m.name for m in METRICS if m.kind == "font")
 TIMES: tuple[str, ...] = tuple(m.name for m in METRICS if m.kind == "time")
+NUMBERS: tuple[str, ...] = tuple(m.name for m in METRICS if m.kind == "number")
 
 # The four the band's profile is built from, in the order geometry.py wants.
 BAND_METRICS: tuple[str, ...] = ("tbar-h", "tbar-thin", "tbar-slant", "tbar-join")
@@ -245,6 +285,14 @@ def ms(name: str) -> float:
     if not m.value.endswith("ms"):
         raise ValueError(f"{name} is not written in milliseconds: {m.value!r}")
     return float(m.value[:-2])
+
+
+def number(name: str) -> float:
+    """A plain number, as a number: a weight, a line height, a stroke."""
+    m = _BY_NAME[name]
+    if m.kind != "number":
+        raise TypeError(f"{name} is a {m.kind}, not a plain number: {m.value!r}")
+    return float(m.value)
 
 
 def as_dict() -> dict[str, str]:

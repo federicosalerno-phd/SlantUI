@@ -12,7 +12,7 @@
 html,body{
   width:100vw;height:100vh;overflow:hidden;
   background:var(--surface-0);color:var(--text-1);
-  font-family:var(--font);font-size:var(--fs);line-height:1.45;
+  font-family:var(--font);font-size:var(--fs);line-height:var(--lh);
   -webkit-font-smoothing:antialiased;
 }
 /* color-scheme is set next to the colours, in palettes.css, so the few
@@ -76,7 +76,7 @@ select{border:none}
    holds one anonymous box and looks exactly as it did. */
 .sec-lbl{
   display:flex;align-items:center;gap:6px;
-  font-size:var(--fs-xs);font-weight:600;letter-spacing:.8px;text-transform:uppercase;
+  font-size:var(--fs-xs);font-weight:var(--w-strong);letter-spacing:.8px;text-transform:uppercase;
   color:var(--text-4);
 }
 

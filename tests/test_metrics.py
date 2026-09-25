@@ -14,7 +14,7 @@ import pytest
 
 from slantui.css import path
 from slantui.tokens.css import metrics_stylesheet
-from slantui.tokens.metrics import (BAND_METRICS, FONTS, GROUPS, LENGTHS,
+from slantui.tokens.metrics import (BAND_METRICS, FONTS, GROUPS, LENGTHS, NUMBERS, number,
                                     METRIC_NAMES, METRICS, TIMES, as_dict,
                                     metric, ms, px, value)
 from slantui.tokens.roles import ROLE_NAMES
@@ -68,10 +68,20 @@ def test_every_group_has_a_title():
         assert m.group in GROUPS, m.group
 
 
-def test_a_metric_is_a_length_a_font_or_a_duration():
-    assert set(LENGTHS) | set(FONTS) | set(TIMES) == set(METRIC_NAMES)
+def test_a_metric_is_a_length_a_font_a_duration_or_a_number():
+    assert set(LENGTHS) | set(FONTS) | set(TIMES) | set(NUMBERS) == set(METRIC_NAMES)
     assert not set(LENGTHS) & set(FONTS)
     assert not set(LENGTHS) & set(TIMES)
+    assert not set(NUMBERS) & (set(LENGTHS) | set(FONTS) | set(TIMES))
+
+
+def test_a_number_is_a_bare_number():
+    """A weight, a line height, a stroke: no unit, and number() reads it."""
+    for name in NUMBERS:
+        assert re.fullmatch(r"\d*\.?\d+", value(name)), name
+        assert number(name) == float(value(name))
+    with pytest.raises(TypeError):
+        number("tbar-h")
 
 
 def test_every_duration_is_written_in_milliseconds():

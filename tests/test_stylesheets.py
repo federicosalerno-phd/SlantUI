@@ -39,6 +39,10 @@ ALLOWED_BORDERS = ("border:2px solid var(--control)", "border:3px solid transpar
 _COMMENT = re.compile(r"/\*.*?\*/", re.DOTALL)
 _VAR = re.compile(r"var\(--([a-z0-9-]+)(,)?")
 _DEF = re.compile(r"--([a-z0-9-]+)\s*:")
+# A property the stylesheet registers itself, with a type and a starting
+# value, so that the page can move it frame by frame (layout.css says why).
+# Its starting value is its fallback, and it needs no other.
+_REGISTERED = re.compile(r"@property\s+--([a-z0-9-]+)")
 
 
 def _source(name: str) -> str:
@@ -116,14 +120,45 @@ def test_every_property_read_is_defined():
     metrics = _metrics()
     bad = []
     for name in ROLE_READERS:
+        registered = set(_REGISTERED.findall(_code(name)))
         for n, line in _lines(name):
             for prop, fallback in _VAR.findall(line):
-                if prop in roles or prop in metrics:
+                if prop in roles or prop in metrics or prop in registered:
                     continue
                 if prop in LOCAL and fallback:
                     continue
                 bad.append(f"{name}:{n}  --{prop}")
     assert not bad, "not a role, not a metric:\n" + "\n".join(bad)
+
+
+def test_no_filter_moves_on_the_compositor():
+    """A transition or an animation of filter or backdrop-filter runs on the
+    engine's compositor, and while one runs the engine draws every piece of
+    text in the page in grey scale instead of ClearType, the title band's
+    included: the loading screen's reveal made the band look out of focus for
+    a second and a half. A filter that has to move reads a registered
+    property, and the property is what moves (layout.css, under the loading
+    screen)."""
+    bad = []
+    for name in ROLE_READERS:
+        code = _code(name)
+        for m in re.finditer(r"(transition(?:-property)?|animation(?:-name)?)\s*:([^;{}]*)", code):
+            if re.search(r"(?<![\w-])(backdrop-)?filter\b", m.group(2)):
+                line = code.count("\n", 0, m.start()) + 1
+                bad.append(f"{name}:{line}  {m.group(0).strip()}")
+        for m in re.finditer(r"@keyframes\s+([\w-]+)\s*\{(.*?)\}\s*\}", code, re.S):
+            if re.search(r"(?<![\w-])(backdrop-)?filter\s*:", m.group(2)):
+                bad.append(f"{name}: @keyframes {m.group(1)} moves a filter")
+    assert not bad, "\n" + "\n".join(bad)
+
+
+def test_a_registered_property_is_read():
+    """A property registered and never read is a registration for nothing."""
+    for name in ROLE_READERS:
+        code = _code(name)
+        read = {prop for prop, _ in _VAR.findall(code)}
+        for prop in _REGISTERED.findall(code):
+            assert prop in read, f"{name} registers --{prop} and never reads it"
 
 
 def test_every_role_is_read_somewhere():
@@ -163,62 +198,71 @@ def test_the_shell_is_classes():
         assert re.search(rf"(^|[\s,}}]){re.escape(cls)}[\s{{.:>,]", code, re.M), cls
 
 
+def _length(expr: str) -> float:
+    """A length the stylesheet writes with metrics, worked out: every
+    var(--metric) is its number, calc() is the arithmetic it says."""
+    from slantui.tokens.metrics import px as metric
+    text = re.sub(r"var\(--([a-z0-9-]+)\)", lambda m: repr(metric(m.group(1))), expr)
+    text = text.replace("calc(", "(").replace("px", "")
+    assert re.fullmatch(r"[\d.\s()+\-*/]+", text), f"not arithmetic: {expr!r}"
+    return float(eval(text, {"__builtins__": {}}))
+
+
+def _sides(value: str) -> list[float]:
+    """The four lengths of a margin or a padding, top right bottom left."""
+    parts, depth, cur = [], 0, ""
+    for ch in value + " ":
+        if ch == " " and depth == 0:
+            if cur:
+                parts.append(cur)
+            cur = ""
+            continue
+        depth += (ch == "(") - (ch == ")")
+        cur += ch
+    assert len(parts) == 4, value
+    return [_length(v) for v in parts]
+
+
 def test_the_credit_line_has_a_size_and_takes_no_pointer():
     """The licence says the line keeps the size SlantUI sets, so SlantUI has
     to set one. And the bar has to drag under it."""
-    m = re.search(r"\.tbar-credit\{([^}]*)\}", _code("layout.css"))
-    assert m
-    assert re.search(r"font-size:\s*11px", m.group(1))
-    assert "pointer-events:none" in m.group(1)
+    from slantui.css import declarations
+    credit = declarations(".tbar-credit")
+    assert _length(credit["font-size"]) > 0
+    assert credit["pointer-events"] == "none"
 
 
 def test_the_ring_round_the_mark_gives_back_the_room_it_takes():
     """The width of .tbar-brand is where the taper starts, so a button put
     around the mark may not widen the block, and may not move the mark inside
-    it either. The rule is read and the arithmetic done here, so the day
-    someone writes 32 where it says 30 the shape of the band does not move
-    quietly behind them."""
-    code = _code("layout.css")
-    logo = re.search(r"\.tbar-logo\{([^}]*)\}", code)
-    button = re.search(r"\.tbar-logo-btn\{([^}]*)\}", code)
-    assert logo and button
-
-    def px(rule: str, prop: str) -> float:
-        m = re.search(rf"(?:^|;)\s*{prop}:\s*(-?[\d.]+)px", rule)
-        assert m, f"{prop} is not a plain length: {rule!r}"
-        return float(m.group(1))
-
-    sides = re.search(r"margin:\s*(-?[\d.]+)px\s+(-?[\d.]+)px\s+(-?[\d.]+)px\s+(-?[\d.]+)px",
-                      button.group(1))
-    assert sides, "the button does not write its four margins out"
-    top, right, bottom, left = (float(v) for v in sides.groups())
-
-    assert left + px(button.group(1), "width") + right == \
-        px(logo.group(1), "width") + px(logo.group(1), "margin-right")
-    assert top + px(button.group(1), "height") + bottom == px(logo.group(1), "height")
+    it either. The rules are read and the arithmetic done here on the metrics,
+    so the day someone writes the ring into one side and not the other the
+    shape of the band does not move quietly behind them."""
+    from slantui.css import declarations
+    logo, button = declarations(".tbar-logo"), declarations(".tbar-logo-btn")
+    top, right, bottom, left = _sides(button["margin"])
+    assert left + _length(button["width"]) + right == \
+        _length(logo["width"]) + _length(logo["margin-right"])
+    assert top + _length(button["height"]) + bottom == _length(logo["height"])
     # and the mark stops holding the name away from itself once it is inside
-    assert re.search(r"\.tbar-logo-btn>\.tbar-logo\{[^}]*margin-right:0", code)
+    assert declarations(".tbar-logo-btn>.tbar-logo")["margin-right"] == "0"
 
 
 def test_the_mark_is_as_far_from_the_left_as_from_the_top_and_the_bottom():
     """The mark's centre is half the band in and half the band down, so the
     disc round it is 7 px from the left edge, the top and the bottom of the
     band, and the name stays 47 px in, where the taper is measured from."""
+    from slantui.css import declarations
     from slantui.tokens.metrics import px as metric
-
-    code = _code("layout.css")
-    brand = re.search(r"\.tbar-brand\{([^}]*)\}", code).group(1)
-    logo = re.search(r"\.tbar-logo\{([^}]*)\}", code).group(1)
-    button = re.search(r"\.tbar-logo-btn\{([^}]*)\}", code).group(1)
+    brand, logo = declarations(".tbar-brand"), declarations(".tbar-logo")
+    button = declarations(".tbar-logo-btn")
     half = metric("tbar-h") / 2
-    mark = float(re.search(r"(?:^|;)\s*width:(\d+)px", logo).group(1))
-    disc = float(re.search(r"(?:^|;)\s*width:(\d+)px", button).group(1))
-    pad = re.search(r"padding:0 16px 0 calc\(var\(--tbar-h\) / 2 - ([\d.]+)px\)", brand)
-    assert pad and float(pad.group(1)) == mark / 2           # centre at half the band
-    assert "align-items:center" in brand                      # and half way down
+    mark, disc = _length(logo["width"]), _length(button["width"])
+    left = _sides(brand["padding"])[3]
+    assert left + mark / 2 == half                            # centre at half the band
+    assert brand["align-items"] == "center"                   # and half way down
     assert half - disc / 2 == 7                               # left, top, bottom
-    gap = float(re.search(r"margin-right:(\d+)px", logo).group(1))
-    assert half - mark / 2 + mark + gap == 47                 # the name did not move
+    assert left + mark + _length(logo["margin-right"]) == 47  # the name did not move
 
 
 def test_hidden_scrim_means_display_none():
