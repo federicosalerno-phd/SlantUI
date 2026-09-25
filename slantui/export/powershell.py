@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from ..css import band_roles
 from ..geometry import band_shape
-from ..tokens.metrics import METRICS
+from ..tokens.metrics import METRICS, curve
 from ..tokens.palette import Palette
 from ..tokens.palettes import DEFAULT, PALETTES
 from ..tokens.roles import ROLE_NAMES
@@ -94,6 +94,15 @@ def as_powershell(palettes: list[Palette] | None = None,
     for m in METRICS:
         if m.kind == "time":
             out.append(f"        {ps_string(m.name):<{pad + 2}} = {_number(m.value)}")
+    out.append("    }")
+
+    out.append("    # Curves as a WPF KeySpline reads them: the two control points.")
+    out.append("    Curves = @{")
+    for m in METRICS:
+        if m.kind == "curve":
+            x1, y1, x2, y2 = curve(m.name)
+            out.append(f"        {ps_string(m.name):<{pad + 2}} = "
+                       f"{ps_string(f'{x1:g},{y1:g} {x2:g},{y2:g}')}")
     out.append("    }")
 
     out.append("    Fonts = @{")

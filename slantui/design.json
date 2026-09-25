@@ -577,6 +577,41 @@
       "value": "1600ms",
       "purpose": "The loading screen handing the window over: the ring leaves and the page comes into focus.",
       "kind": "time"
+    },
+    {
+      "name": "t-scene",
+      "group": "motion",
+      "value": "850ms",
+      "purpose": "One screen of the window giving way to the next, with something carried across from the one to the other.",
+      "kind": "time"
+    },
+    {
+      "name": "ease-travel",
+      "group": "motion",
+      "value": "cubic-bezier(.65,0,.35,1)",
+      "purpose": "Something going from one place to another: it leaves slowly and arrives slowly.",
+      "kind": "curve"
+    },
+    {
+      "name": "ease-arrive",
+      "group": "motion",
+      "value": "cubic-bezier(.22,1,.36,1)",
+      "purpose": "Something arriving: quick at first, then settling into its place.",
+      "kind": "curve"
+    },
+    {
+      "name": "ease-leave",
+      "group": "motion",
+      "value": "cubic-bezier(.4,0,1,1)",
+      "purpose": "Something leaving: it gathers speed as it goes and is gone at full speed.",
+      "kind": "curve"
+    },
+    {
+      "name": "ease-resize",
+      "group": "motion",
+      "value": "cubic-bezier(.45,0,.2,1)",
+      "purpose": "The size of something travelling: it changes ahead of the travel, so the thing lands already the size it will be.",
+      "kind": "curve"
     }
   ],
   "band": {

@@ -30,7 +30,7 @@ from __future__ import annotations
 
 from ..geometry import band_shape
 from ..tokens import color
-from ..tokens.metrics import METRICS, Metric
+from ..tokens.metrics import METRICS, Metric, curve
 from ..tokens.palette import Palette
 from ..tokens.palettes import DEFAULT
 from ..tokens.roles import role as _role
@@ -152,7 +152,7 @@ def as_xaml(palette: Palette | list[Palette] | None = None,
 
     out.append("")
     out.append("  <!-- metrics: lengths as Double, radii also as CornerRadius,"
-               " fonts as FontFamily, durations as Duration -->")
+               " fonts as FontFamily, durations as Duration, curves as KeySpline -->")
     for m in METRICS:
         key = xaml_key(m.name)
         if m.kind == "font":
@@ -161,6 +161,10 @@ def as_xaml(palette: Palette | list[Palette] | None = None,
             continue
         if m.kind == "time":
             out.append(f'  <Duration x:Key="{key}">{_duration(m)}</Duration>')
+            continue
+        if m.kind == "curve":
+            x1, y1, x2, y2 = curve(m.name)
+            out.append(f'  <KeySpline x:Key="{key}">{x1:g},{y1:g} {x2:g},{y2:g}</KeySpline>')
             continue
         out.append(f'  <sys:Double x:Key="{key}">{_double(m)}</sys:Double>')
         if m.group == "radius":

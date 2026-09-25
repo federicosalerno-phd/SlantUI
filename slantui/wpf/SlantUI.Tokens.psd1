@@ -106,6 +106,11 @@
         't-out'                  = '180ms'
         't-chg'                  = '140ms'
         't-reveal'               = '1600ms'
+        't-scene'                = '850ms'
+        'ease-travel'            = 'cubic-bezier(.65,0,.35,1)'
+        'ease-arrive'            = 'cubic-bezier(.22,1,.36,1)'
+        'ease-leave'             = 'cubic-bezier(.4,0,1,1)'
+        'ease-resize'            = 'cubic-bezier(.45,0,.2,1)'
     }
     MetricNumbers = @{
         'r-xs'                   = 4
@@ -161,6 +166,14 @@
         't-out'                  = 180
         't-chg'                  = 140
         't-reveal'               = 1600
+        't-scene'                = 850
+    }
+    # Curves as a WPF KeySpline reads them: the two control points.
+    Curves = @{
+        'ease-travel'            = '0.65,0 0.35,1'
+        'ease-arrive'            = '0.22,1 0.36,1'
+        'ease-leave'             = '0.4,0 1,1'
+        'ease-resize'            = '0.45,0 0.2,1'
     }
     Fonts = @{
         'font'                   = 'Segoe UI'

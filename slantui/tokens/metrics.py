@@ -29,8 +29,8 @@ from dataclasses import dataclass
 
 __all__ = [
     "Metric", "METRICS", "METRIC_NAMES", "GROUPS", "GROUP_NOTES",
-    "LENGTHS", "FONTS", "TIMES", "NUMBERS", "BAND_METRICS",
-    "metric", "value", "px", "ms", "number", "as_dict",
+    "LENGTHS", "FONTS", "TIMES", "NUMBERS", "CURVES", "BAND_METRICS",
+    "metric", "value", "px", "ms", "number", "curve", "as_dict",
 ]
 
 
@@ -40,7 +40,7 @@ class Metric:
     group: str
     value: str
     purpose: str
-    kind: str = "length"              # "length", "font", "time" or "number"
+    kind: str = "length"              # "length", "font", "time", "number" or "curve"
 
 
 # The order is the order the stylesheet is written in, and the order every
@@ -168,6 +168,21 @@ METRICS: tuple[Metric, ...] = (
     Metric("t-reveal", "motion", "1600ms",
            "The loading screen handing the window over: the ring leaves and "
            "the page comes into focus.", kind="time"),
+    Metric("t-scene", "motion", "850ms",
+           "One screen of the window giving way to the next, with something "
+           "carried across from the one to the other.", kind="time"),
+    Metric("ease-travel", "motion", "cubic-bezier(.65,0,.35,1)",
+           "Something going from one place to another: it leaves slowly and "
+           "arrives slowly.", kind="curve"),
+    Metric("ease-arrive", "motion", "cubic-bezier(.22,1,.36,1)",
+           "Something arriving: quick at first, then settling into its place.",
+           kind="curve"),
+    Metric("ease-leave", "motion", "cubic-bezier(.4,0,1,1)",
+           "Something leaving: it gathers speed as it goes and is gone at full "
+           "speed.", kind="curve"),
+    Metric("ease-resize", "motion", "cubic-bezier(.45,0,.2,1)",
+           "The size of something travelling: it changes ahead of the travel, "
+           "so the thing lands already the size it will be.", kind="curve"),
 )
 
 # What each group is, for the comment the stylesheet carries over it.
@@ -181,7 +196,7 @@ GROUPS: dict[str, str] = {
     "panel": "the side panel",
     "comb": "the comb the panel is laid on",
     "overlay": "what opens over the page",
-    "motion": "motion. One material, three durations and one handover",
+    "motion": "motion. One material, three durations, a handover, a scene and four curves",
 }
 
 # A note printed above a group where the numbers need the picture.
@@ -200,7 +215,14 @@ GROUP_NOTES: dict[str, str] = {
         "overrides the duration to --t-in. --t-reveal is ten times longer on\n"
         "purpose: it is the one moment the whole window changes at once, the\n"
         "loading screen going and the page arriving in focus, and a change\n"
-        "that large read in two hundred milliseconds reads as a cut."
+        "that large read in two hundred milliseconds reads as a cut.\n"
+        "--t-scene sits between the two: one screen giving way to the next\n"
+        "while something is carried across, which is long enough for the eye\n"
+        "to follow the thing that travels and short enough not to wait for it.\n"
+        "Every delay inside such a scene is a fraction of it, so a scene made\n"
+        "longer or shorter keeps its order. The four curves are the four ways\n"
+        "a thing moves in it: it travels, it arrives, it leaves, or it changes\n"
+        "size on the way."
     ),
     "overlay": (
         "One blur and two widths. The blur is the loading screen's, which is\n"
@@ -245,6 +267,7 @@ LENGTHS: tuple[str, ...] = tuple(m.name for m in METRICS if m.kind == "length")
 FONTS: tuple[str, ...] = tuple(m.name for m in METRICS if m.kind == "font")
 TIMES: tuple[str, ...] = tuple(m.name for m in METRICS if m.kind == "time")
 NUMBERS: tuple[str, ...] = tuple(m.name for m in METRICS if m.kind == "number")
+CURVES: tuple[str, ...] = tuple(m.name for m in METRICS if m.kind == "curve")
 
 # The four the band's profile is built from, in the order geometry.py wants.
 BAND_METRICS: tuple[str, ...] = ("tbar-h", "tbar-thin", "tbar-slant", "tbar-join")
@@ -293,6 +316,20 @@ def number(name: str) -> float:
     if m.kind != "number":
         raise TypeError(f"{name} is a {m.kind}, not a plain number: {m.value!r}")
     return float(m.value)
+
+
+def curve(name: str) -> tuple[float, float, float, float]:
+    """A curve as its four numbers, the two control points of a cubic Bezier
+    from (0, 0) to (1, 1): what a storyboard or a timer outside a browser
+    wants, since only a browser reads ``cubic-bezier()``."""
+    m = _BY_NAME[name]
+    if m.kind != "curve":
+        raise TypeError(f"{name} is a {m.kind}, not a curve: {m.value!r}")
+    inside = m.value.strip()
+    if not (inside.startswith("cubic-bezier(") and inside.endswith(")")):
+        raise ValueError(f"{name} is not written as cubic-bezier(): {m.value!r}")
+    x1, y1, x2, y2 = (float(v) for v in inside[len("cubic-bezier("):-1].split(","))
+    return x1, y1, x2, y2
 
 
 def as_dict() -> dict[str, str]:

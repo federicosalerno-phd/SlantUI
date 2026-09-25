@@ -17,6 +17,11 @@ USS takes both in the units the stylesheet writes.
 **``color-scheme``.** It tells a browser engine how to paint the controls it
 draws itself. Unity draws all of its own, so there is nothing to tell.
 
+**The curves.** USS names its timing functions with keywords and takes no
+``cubic-bezier()``, so the four curves stay out: written here they would be
+values Unity rejects. A project that animates from code has them as numbers in
+every other target.
+
 This target has not been opened in a Unity project. The syntax is USS and the
 values are the same ones every other target gets, and that is as far as the
 claim goes until someone builds with it.
@@ -69,7 +74,7 @@ def _metrics_block(indent: str = "    ") -> str:
     lines = ["/* metrics. The same on every palette. */", ":root {"]
     group = None
     for m in METRICS:
-        if m.kind == "font":
+        if m.kind in ("font", "curve"):
             continue
         if m.group != group:
             group = m.group

@@ -14,9 +14,9 @@ import pytest
 
 from slantui.css import path
 from slantui.tokens.css import metrics_stylesheet
-from slantui.tokens.metrics import (BAND_METRICS, FONTS, GROUPS, LENGTHS, NUMBERS, number,
-                                    METRIC_NAMES, METRICS, TIMES, as_dict,
-                                    metric, ms, px, value)
+from slantui.tokens.metrics import (BAND_METRICS, CURVES, FONTS, GROUPS, LENGTHS, NUMBERS,
+                                    number, METRIC_NAMES, METRICS, TIMES, as_dict,
+                                    curve, metric, ms, px, value)
 from slantui.tokens.roles import ROLE_NAMES
 
 _DEF = re.compile(r"--([a-z0-9-]+)\s*:")
@@ -68,11 +68,30 @@ def test_every_group_has_a_title():
         assert m.group in GROUPS, m.group
 
 
-def test_a_metric_is_a_length_a_font_a_duration_or_a_number():
-    assert set(LENGTHS) | set(FONTS) | set(TIMES) | set(NUMBERS) == set(METRIC_NAMES)
-    assert not set(LENGTHS) & set(FONTS)
-    assert not set(LENGTHS) & set(TIMES)
-    assert not set(NUMBERS) & (set(LENGTHS) | set(FONTS) | set(TIMES))
+def test_a_metric_is_a_length_a_font_a_duration_a_number_or_a_curve():
+    kinds = (LENGTHS, FONTS, TIMES, NUMBERS, CURVES)
+    assert set().union(*map(set, kinds)) == set(METRIC_NAMES)
+    assert sum(len(k) for k in kinds) == len(METRIC_NAMES)
+
+
+def test_a_curve_is_a_cubic_bezier_a_timer_can_read():
+    """Two control points between 0 and 1 in time, which is what makes it a
+    curve over a duration and not a path; curve() gives the four numbers to
+    whatever animates outside a browser."""
+    assert CURVES
+    for name in CURVES:
+        assert re.fullmatch(r"cubic-bezier\((-?\d*\.?\d+,){3}-?\d*\.?\d+\)", value(name)), name
+        x1, _, x2, _ = curve(name)
+        assert 0 <= x1 <= 1 and 0 <= x2 <= 1, name
+    with pytest.raises(TypeError):
+        curve("t-in")
+
+
+def test_a_scene_is_longer_than_a_control_and_shorter_than_the_handover():
+    """A scene carries something across the window: the eye has to follow
+    it, so it is several times a control's change, and it must not keep the
+    person waiting the way the one handover of a start is allowed to."""
+    assert ms("t-out") * 3 < ms("t-scene") < ms("t-reveal")
 
 
 def test_a_number_is_a_bare_number():
