@@ -86,6 +86,16 @@ const POSES = {
     keep: ['.combopop'],
     rect: function (r) { return union(r, ink('.combopop')); },
   },
+  /* The picker's list, the same way: a child of the body, closed by a press
+     anywhere else. */
+  'picker-open': {
+    show: function () { $('pickerOpen').click(); },
+    hide: function () {
+      document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    },
+    keep: ['.pickerpop'],
+    rect: function (r) { return union(r, ink('.pickerpop')); },
+  },
   'toast': {
     show: function () { showToast('A line at the bottom, and then gone'); },
     hide: function () { $('toast').classList.remove('show'); },
@@ -564,9 +574,22 @@ function buildIcons() {
   }).join('');
 }
 
+/* The picker's rows: a tag, a name, and on one of them a note, so the four
+   columns all show. */
+// `flag: null` is a flag box with no image in it: the tag, dimmed, in the box.
+// An application passes the path of its flag's file.
+const PICKER_ROWS = [
+  { code: 'en', tag: 'EN', label: 'English', flag: null },
+  { code: 'it', tag: 'IT', label: 'Italiano', flag: null },
+  { code: 'fr', tag: 'FR', label: 'Français', flag: null },
+  { code: 'xq', tag: 'XQ', label: 'Added by hand', note: 'output only', flag: null },
+];
+
 function boot() {
   Bridge.init();
   initSelects();
+  setPicker($('picker'), PICKER_ROWS, 'it');
+  setPicker($('pickerOpen'), PICKER_ROWS, 'it');
   initTitlebar();
 
   Theme.read();

@@ -51,6 +51,9 @@ _CLASS_ATTR = re.compile(r'class="([^"]+)"')
 SCRIPT_ONLY = {
     "combopop", "combo-opt", "combo-on", "open",   # the dropdown's popup
     "combo-c",                                     # widgets.js puts the arrow there
+    "pickerpop", "picker-row", "picker-tag",       # setPicker() builds the button and its list
+    "picker-label", "picker-note", "picker-c",
+    "flagbox", "bare",                             # and a row's flag box, with its image or bare
     "dzover",                                      # a file is over the card
     "maximized",                                   # the window state, on body
     "tbar-credit",                                 # titlebar.js writes it

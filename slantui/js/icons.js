@@ -25,11 +25,11 @@
    has to know which of its signs are finished.
 
    The set is drawn on a 24 by 24 grid, stroked, never filled, so one
-   `stroke-width` in the stylesheet governs the lot. Six entries carry a `vb`
+   `stroke-width` in the stylesheet governs the lot. Seven entries carry a `vb`
    of their own and are exceptions on purpose: the four window buttons, which
-   are finished and drawn for a twelve pixel button, and the two stepper
-   arrows, which fill a strip nine pixels by five where a square drawing would
-   come out five pixels tall.
+   are finished and drawn for a twelve pixel button, the two stepper arrows,
+   which fill a strip nine pixels by five where a square drawing would come out
+   five pixels tall, and the picker's arrow, for the same reason.
 
    Leaves on the window: ICONS, icon, setIcon, iconReport.
    ========================================================================== */
@@ -62,6 +62,10 @@ const ICONS = {
      own: see the note at the top. */
   'step-up': { vb: '0 0 10 6', s: '<path d="M5 0.7 9.2 5.5 0.8 5.5z"/>' },
   'step-down': { vb: '0 0 10 6', s: '<path d="M5 5.3 0.8 0.5 9.2 0.5z"/>' },
+  /* The picker's arrow: the same filled triangle New-SlantPicker draws in the
+     WPF half ("M 0,0 L 7,0 L 3.5,4.5 Z"), on a strip of its own for the same
+     reason as the stepper's. */
+  'picker-down': { vb: '0 0 7 4.5', s: '<path d="M0 0 7 0 3.5 4.5z"/>' },
 
   /* ── files ─────────────────────────────────────────────────────────── */
   open: 'M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z',

@@ -33,6 +33,7 @@ from __future__ import annotations
 
 from .application import Application, chromium_flags, configure_environment, set_app_user_model_id
 from .bridge import Bridge, edges_of
+from .printing import print_to_pdf
 from .qt import USE_QT6, pyqtSignal, pyqtSlot
 from .splash import SPLASH_QML, Splash
 from .window import SHELL_QML, STATE_ANIM_MS, Window
@@ -41,5 +42,5 @@ __all__ = [
     "Application", "Bridge", "Window", "Splash",
     "pyqtSignal", "pyqtSlot", "USE_QT6",
     "chromium_flags", "configure_environment", "set_app_user_model_id", "edges_of",
-    "SHELL_QML", "STATE_ANIM_MS",
+    "print_to_pdf", "SHELL_QML", "STATE_ANIM_MS",
 ]

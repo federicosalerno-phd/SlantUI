@@ -254,7 +254,12 @@ html[data-splash=lifting] body::after{
    sum. With the card's own --sp-1 inset inside its block, what shows between
    the head and the first card is --sp-3. */
 .rp-scroll{flex:1;min-height:0;overflow-x:hidden;overflow-y:auto;
-           padding:var(--sp-2) 13px var(--sp-3)}
+           padding:var(--sp-2) 13px var(--sp-3);
+           scrollbar-gutter:stable}
+/* The track's place is kept whether or not there is anything to scroll: a
+   panel that grew a scrollbar used to take its width out of every card, so the
+   same card was 218 px wide on a short page and 207 on a long one, and a
+   translation that made a page long enough to scroll made it narrower. */
 /* 5px of the track are given away so the thumb never ends up under the
    window's right resize strip. */
 .rp-scroll::-webkit-scrollbar{width:11px}
@@ -342,5 +347,9 @@ html[data-splash=lifting] body::after{
   display:flex;flex-direction:column;
 }
 .rp-foot>*+*{margin-top:7px}
+/* Back is its sign, square (.btn-sq), and Next takes the rest of the row.
+   Back used to carry its word and be as wide as it: "Indietro", "Zurück",
+   "Précédent" narrowed Next on every panel, and in a window that speaks
+   forty-five languages a button may not change size with what it says. */
 .rp-nav{display:flex}
 .rp-nav>*+*{margin-left:8px}

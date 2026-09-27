@@ -59,6 +59,10 @@ function go(i) {
     t.classList.toggle('active', n === i);
     t.classList.toggle('done', n < i);
   });
+  // the phase the open step belongs to is lit
+  document.querySelectorAll('.tab-phase').forEach(function (p) {
+    p.classList.toggle('on', i >= Number(p.dataset.from) && i <= Number(p.dataset.to));
+  });
   document.querySelectorAll('.rp-page').forEach(function (p) {
     p.classList.toggle('show', Number(p.dataset.step) === i);
   });
@@ -433,6 +437,11 @@ function boot() {
   wireDropZone();
 
   $('palette').onchange = function () { setPalette($('palette').value); };
+  // A picker: its rows are data, its value is a code, and it says so with a
+  // tag in a place of one width. Here it sets the page's language attribute.
+  setPicker($('lang'), [{ code: 'en', tag: 'EN', label: 'English' },
+                        { code: 'it', tag: 'IT', label: 'Italiano' }], 'en', { maxHeight: 300 });
+  $('lang').onchange = function () { document.documentElement.lang = $('lang').value; };
   window.addEventListener('resize', draw);
 
   paint();

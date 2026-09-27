@@ -26,7 +26,7 @@ input,textarea{user-select:text}
 
 ::selection{background:var(--accent);color:var(--on-accent)}
 
-button,input,select{font-family:inherit;font-size:inherit;color:inherit;outline:none}
+button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit;outline:none}
 
 /* The engine's own number stepper is a small box with two triangles on it,
    painted in the platform's colours, and its fill cannot be styled away. It is

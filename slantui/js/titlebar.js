@@ -52,7 +52,8 @@
    `win-maximise` and `win-restore` in icons.js, like every other sign.
 
    Leaves on the window: initTitlebar, shapeTitleBar, setBrandAction,
-   onWindowMaximized, roundedPolyPath, CREDIT_TEXT, BAND_TIMING, BAND_LATE_MS.
+   setWindowHints, onWindowMaximized, roundedPolyPath, CREDIT_TEXT, BAND_TIMING,
+   BAND_LATE_MS.
    ========================================================================== */
 
 /* The licence's one condition. The text is fixed here and the size in
@@ -424,14 +425,32 @@ function _watchUnder(bar) {
   }
 }
 
+/* The words on the maximise button, in the application's language. The
+   button is one control with two meanings, so it carries two hints and shows
+   the one that is true now. They are the application's words, like the brand
+   button's: a library that wrote "Restore" itself would write it in English
+   over a page speaking any of forty-five languages. Called again whenever the
+   language changes. With no hints given the button keeps whatever title the
+   page put on it. */
+let _winHints = null;
+function setWindowHints(hints) {
+  _winHints = hints || null;
+  _maxHint(document.body.classList.contains('maximized'));
+}
+function _maxHint(max) {
+  const btn = document.querySelector('.titlebar .wbtn-max');
+  const hint = _winHints && _winHints[max ? 'restore' : 'maximise'];
+  if (!btn || !hint) return;
+  btn.title = hint;
+  btn.setAttribute('aria-label', hint);
+}
+
 /* Qt says when the window was maximised or restored, including when it was
    Windows that did it (snap, Win+Up, double click). */
 function onWindowMaximized(max) {
   document.body.classList.toggle('maximized', !!max);
   const btn = document.querySelector('.titlebar .wbtn-max');
-  if (btn) {
-    btn.title = max ? 'Restore' : 'Maximise';
-    setIcon(btn, max ? 'win-restore' : 'win-maximise');
-  }
+  if (btn) setIcon(btn, max ? 'win-restore' : 'win-maximise');
+  _maxHint(!!max);
   shapeTitleBar();
 }

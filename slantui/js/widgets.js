@@ -37,6 +37,11 @@
       if it is still too long does it drop the middle, keeping the start and
       the extension. The full text is always in the tooltip.
 
+   1b. `.picker`, the dropdown with a picture on every row, for a setting that
+      holds for the whole application: the language, with its flag. It is
+      New-SlantPicker of the WPF half, drawn in the page. See the block over
+      `setPicker` below.
+
    4. `openSheet`, the one surface that says what a control is for. A page
       that explains its controls inside its own panels ends up with panels
       that are mostly prose; this puts every explanation in one place and
@@ -47,7 +52,7 @@
       again. See the block over `openSheet` below for the markup and the one
       function a page hands over.
 
-   Leaves on the window: initSelects, setOptions, numStep, fitOneLine,
+   Leaves on the window: initSelects, setOptions, setPicker, numStep, fitOneLine,
    initSheets, openSheet, closeSheet, sheetIsOpen, showSheet, hideSheet.
    ========================================================================== */
 
@@ -105,7 +110,12 @@ function setOptions(el, labels, values) {
 }
 
 /* Open under the trigger, or above it when there is no room below. Fixed
-   positioning, so no scroll container can clip it. */
+   positioning, so no scroll container can clip it.
+
+   A list longer than the room on either side is capped at the larger of the
+   two and scrolls inside, with the chosen row brought into view: forty-five
+   languages are a list a window cannot hold, and a popup that ran past the
+   bottom edge left the last rows where no pointer could reach them. */
 function _cbOpen(el) {
   if (_cbOwner === el) { _cbClose(); return; }
   _cbClose();
@@ -126,11 +136,17 @@ function _cbOpen(el) {
   pop.style.width = Math.round(r.width) + 'px';
   pop.style.visibility = 'hidden';
   document.body.appendChild(pop);
+  const below = window.innerHeight - r.bottom - 10;
+  const above = r.top - 10;
+  const whole = pop.offsetHeight;
+  const room = Math.max(below, above);
+  if (whole > room) pop.style.maxHeight = Math.floor(room) + 'px';
   const h = pop.offsetHeight;
-  const below = window.innerHeight - r.bottom - 6;
-  pop.style.top = (below >= h || r.top < h + 6)
+  pop.style.top = (below >= h || below >= above)
     ? Math.round(r.bottom + 4) + 'px'
     : Math.round(r.top - h - 4) + 'px';
+  const on = pop.querySelector('.combo-on');
+  if (on && whole > room) pop.scrollTop = on.offsetTop - (h - on.offsetHeight) / 2;
   pop.style.visibility = '';
   el.classList.add('open');
   _cbPop = pop;
@@ -170,7 +186,6 @@ function initSelects() {
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); _cbOpen(el); }
       else if (e.key === 'ArrowDown' && i < items.length - 1) { e.preventDefault(); _cbSet(el, items[i + 1].value, true); }
       else if (e.key === 'ArrowUp' && i > 0) { e.preventDefault(); _cbSet(el, items[i - 1].value, true); }
-      else if (e.key === 'Escape') _cbClose();
     });
   });
 
@@ -186,7 +201,223 @@ function initSelects() {
     _cbClose();
   }, true);
   window.addEventListener('resize', function () { _cbClose(); });
-  window.addEventListener('keydown', function (e) { if (e.key === 'Escape') _cbClose(); }, true);
+  // Esc on an open list closes the list and nothing else. It is marked as used,
+  // so a page that takes Esc as "one step back" (checking defaultPrevented)
+  // does not also go back: one key, one thing. With no list open it passes on.
+  window.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape' || !_cbPop) return;
+    _cbClose();
+    e.preventDefault();
+  }, true);
+}
+
+/* ── picker ───────────────────────────────────────────────────────────────── */
+/* The dropdown with a picture on every row: a setting that holds for the whole
+   application and is changed rarely, the language or the engine. It is the web
+   twin of New-SlantPicker in wpf/SlantUI.psm1, and the two draw one design: the
+   same button (the picture, a tag in a place of fixed width, a small filled
+   arrow), the same list (picture, tag, name and note in columns shared by every
+   row, the current row lit), the same cap on its height with the current row
+   brought into view, and the same way in and out, in the same milliseconds.
+
+     <div class="picker" tabindex="0"></div>
+
+     setPicker(el, [{ code: 'it', tag: 'IT', label: 'Italiano', note: '',
+                      flag: 'flags/it.svg' }, ...],
+               'it', { maxHeight: 300 });
+
+   `flag` is the path of a flag's image, and the picker draws it the way
+   New-FlagBox does: 18 by 13.5, inside a thread of fill so the white of a
+   tricolour does not melt into the surface, and the tag in its place when the
+   path is null. `visual`, instead, is a function that returns an Element (a
+   logo, anything else): it is called anew every time one is needed, because an
+   element has one parent and the button and the list each want their own. The tag has one width whatever it says, so choosing
+   another entry never moves the row the button sits in. It answers to `.value`
+   and fires `change`, like a <select> and like `.combo`. */
+let _pkPop = null;        // the open list, or null
+let _pkOwner = null;      // the .picker it belongs to
+let _pkGoing = null;      // the timer that removes a list on its way out
+
+// The movement, in the numbers New-SlantPicker uses: the fade in is short and
+// the travel almost twice as long, so the list does not seem to slide in
+// already opaque. Out is one short movement, and the list is removed by a timer
+// and not by the animation's end, which might not arrive.
+const _PK_IN_FADE = 110, _PK_IN_MOVE = 210, _PK_OUT = 120, _PK_GONE = 130;
+const _PK_EASE_QUAD_OUT = 'cubic-bezier(0.5, 1, 0.89, 1)';
+const _PK_EASE_QUINT_OUT = 'cubic-bezier(0.22, 1, 0.36, 1)';
+const _PK_EASE_QUAD_IN = 'cubic-bezier(0.11, 0, 0.5, 0)';
+
+function _pkItem(el, code) {
+  const items = el._pkItems || [];
+  for (let i = 0; i < items.length; i++) if (items[i].code === code) return items[i];
+  return items[0] || null;
+}
+
+// A flag in its box (New-FlagBox). An image with the corners of a picture
+// would not be a mark of 18 px, so it is the box's background; without a file,
+// the tag, dimmed, in the same box.
+function _pkFlag(it) {
+  const b = document.createElement('span');
+  b.className = 'flagbox';
+  const i = document.createElement('i');
+  if (it.flag) i.style.backgroundImage = 'url("' + it.flag + '")';
+  else { b.classList.add('bare'); i.textContent = it.tag || String(it.code).toUpperCase(); }
+  b.appendChild(i);
+  return b;
+}
+function _pkVisual(it) {
+  if (it.visual) return it.visual();
+  return it.flag !== undefined ? _pkFlag(it) : null;
+}
+
+function _pkShow(el) {
+  const it = _pkItem(el, el._pkValue);
+  while (el.firstChild) el.removeChild(el.firstChild);
+  if (!it) return;
+  const v = _pkVisual(it);
+  if (v) el.appendChild(v);
+  const tag = document.createElement('span');
+  tag.className = 'picker-tag';
+  tag.textContent = it.tag || String(it.code).toUpperCase();
+  el.appendChild(tag);
+  const a = document.createElement('span');
+  a.innerHTML = icon('picker-down', { class: 'picker-c' });
+  if (a.firstChild) el.appendChild(a.firstChild);
+}
+
+function _pkClose(now) {
+  const pop = _pkPop, owner = _pkOwner;
+  _pkPop = null;
+  _pkOwner = null;
+  if (owner) owner.classList.remove('open');
+  if (!pop) return;
+  if (_pkGoing) { clearTimeout(_pkGoing); _pkGoing = null; }
+  const gone = function () { if (pop.parentNode) pop.parentNode.removeChild(pop); };
+  if (now || !pop.animate) { gone(); return; }
+  try {
+    pop.animate([{ opacity: 1, transform: 'none' },
+                 { opacity: 0, transform: 'translateY(-5px) scale(0.985)' }],
+                { duration: _PK_OUT, easing: _PK_EASE_QUAD_IN, fill: 'forwards' });
+  } catch (e) { /* no animation, no matter: the timer removes it */ }
+  _pkGoing = setTimeout(function () { _pkGoing = null; gone(); }, _PK_GONE);
+}
+
+function _pkOpen(el) {
+  if (_pkOwner === el) { _pkClose(); return; }
+  _pkClose(true);
+  _cbClose();
+  const items = el._pkItems || [];
+  if (!items.length) return;
+  const pop = document.createElement('div');
+  pop.className = 'pickerpop';
+  pop.setAttribute('role', 'listbox');
+  let on = null;
+  items.forEach(function (it) {
+    const row = document.createElement('div');
+    row.className = 'picker-row' + (it.code === el._pkValue ? ' on' : '');
+    row.setAttribute('role', 'option');
+    row.setAttribute('data-code', it.code);
+    const v = _pkVisual(it);
+    row.appendChild(v || document.createElement('span'));
+    const tag = document.createElement('span');
+    tag.className = 'picker-tag';
+    tag.textContent = it.tag || String(it.code).toUpperCase();
+    const lab = document.createElement('span');
+    lab.className = 'picker-label';
+    lab.textContent = it.label || '';
+    const note = document.createElement('span');
+    note.className = 'picker-note';
+    note.textContent = it.note || '';
+    row.appendChild(tag);
+    row.appendChild(lab);
+    row.appendChild(note);
+    row.onmousedown = function (e) { e.preventDefault(); };
+    row.onclick = function () { _pkClose(); _pkSet(el, it.code, true); };
+    if (it.code === el._pkValue) on = row;
+    pop.appendChild(row);
+  });
+  const r = el.getBoundingClientRect();
+  pop.style.visibility = 'hidden';
+  document.body.appendChild(pop);
+  // Under the button if it fits, above it otherwise; and if it fits neither,
+  // capped at the larger room and scrolling, never past the window's edge.
+  const margin = 10, gap = 4;
+  const below = window.innerHeight - r.bottom - margin - gap;
+  const above = r.top - margin - gap;
+  let cap = Math.max(below, above);
+  if (el._pkMax > 0) cap = Math.min(cap, el._pkMax);
+  const whole = pop.offsetHeight;
+  if (whole > cap) pop.style.maxHeight = Math.floor(cap) + 'px';
+  const h = pop.offsetHeight, w = pop.offsetWidth;
+  const up = h > below && above > below;
+  pop.style.top = Math.round(up ? r.top - gap - h : r.bottom + gap) + 'px';
+  let left = r.left;
+  if (left + w > window.innerWidth - margin) left = window.innerWidth - margin - w;
+  pop.style.left = Math.round(Math.max(margin, left)) + 'px';
+  if (on && whole > cap) pop.scrollTop = on.offsetTop - (h - on.offsetHeight) / 2;
+  pop.style.visibility = '';
+  el.classList.add('open');
+  _pkPop = pop;
+  _pkOwner = el;
+  if (pop.animate) {
+    try {
+      pop.animate([{ opacity: 0 }, { opacity: 1 }],
+                  { duration: _PK_IN_FADE, easing: _PK_EASE_QUAD_OUT });
+      pop.animate([{ transform: 'translateY(-7px) scale(0.965)' }, { transform: 'none' }],
+                  { duration: _PK_IN_MOVE, easing: _PK_EASE_QUINT_OUT });
+    } catch (e) { /* shown still, just without the movement */ }
+  }
+}
+
+function _pkSet(el, code, fire) {
+  el._pkValue = String(code);
+  _pkShow(el);
+  if (fire) el.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+function setPicker(el, items, value, opts) {
+  el._pkItems = (items || []).slice();
+  el._pkMax = (opts && opts.maxHeight) || 0;
+  el._pkValue = String(value !== undefined ? value
+                       : (el._pkValue !== undefined ? el._pkValue
+                          : (el._pkItems[0] ? el._pkItems[0].code : '')));
+  _pkShow(el);
+  if (el._pkWired) return;
+  el._pkWired = true;
+  el.setAttribute('role', 'button');
+  el.setAttribute('aria-haspopup', 'listbox');
+  Object.defineProperty(el, 'value', {
+    get: function () { return el._pkValue || ''; },
+    set: function (v) { _pkSet(el, v, false); },
+    configurable: true,
+  });
+  el.addEventListener('mousedown', function (e) { e.preventDefault(); });
+  el.addEventListener('click', function (e) { e.stopPropagation(); _pkOpen(el); });
+  el.addEventListener('keydown', function (e) {
+    const list = el._pkItems || [];
+    let i = -1;
+    for (let n = 0; n < list.length; n++) if (list[n].code === el._pkValue) { i = n; break; }
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); _pkOpen(el); }
+    else if (e.key === 'ArrowDown' && i < list.length - 1) { e.preventDefault(); _pkSet(el, list[i + 1].code, true); }
+    else if (e.key === 'ArrowUp' && i > 0) { e.preventDefault(); _pkSet(el, list[i - 1].code, true); }
+  });
+  if (setPicker._global) return;
+  setPicker._global = true;
+  // The same three ways out as the combo: a press anywhere else, Esc (which is
+  // used up, so a page that takes Esc as a step back does not also step back),
+  // and the window changing size.
+  window.addEventListener('mousedown', function (e) {
+    if (!_pkPop) return;
+    if (_pkPop.contains(e.target)) return;
+    if (_pkOwner && _pkOwner.contains(e.target)) return;
+    _pkClose();
+  }, true);
+  window.addEventListener('resize', function () { _pkClose(true); });
+  window.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape' || !_pkPop) return;
+    _pkClose();
+    e.preventDefault();
+  }, true);
 }
 
 /* ── number stepper ───────────────────────────────────────────────────────── */

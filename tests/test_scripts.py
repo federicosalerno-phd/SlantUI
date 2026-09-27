@@ -314,10 +314,11 @@ def test_bridge_says_when_the_object_is_not_there(js):
 def test_the_icon_set_is_on_one_grid(js):
     """Every sign on 24 by 24, so one stroke-width governs the lot.
 
-    Six entries are exceptions and carry a `vb` of their own to say so: the
+    Seven entries are exceptions and carry a `vb` of their own to say so: the
     four window buttons, which are finished and drawn for a twelve pixel
-    button, and the two stepper arrows, which fill a strip nine pixels by five
-    where a square drawing would come out five pixels tall.
+    button, the two stepper arrows, which fill a strip nine pixels by five
+    where a square drawing would come out five pixels tall, and the picker's
+    arrow, for the same reason.
 
     To see it fail, give a new entry a `vb` of its own.
     """
@@ -325,7 +326,7 @@ def test_the_icon_set_is_on_one_grid(js):
     odd = J(js, """(function(){var o=[];for(var n in ICONS){var e=ICONS[n];
       if(e&&e.vb&&e.vb!=='0 0 24 24')o.push(n);}return o;})()""")
     assert sorted(odd) == sorted(["win-minimise", "win-maximise", "win-restore",
-                                  "win-close", "step-up", "step-down"]), odd
+                                  "win-close", "step-up", "step-down", "picker-down"]), odd
 
 
 def test_an_entry_comes_back_as_markup_whatever_shape_it_is(js):
@@ -548,7 +549,13 @@ def test_the_title_bar_writes_the_credit_and_wires_the_window(js):
     # it asked Qt for the state and subscribed to changes of it
     assert J(js, "Bridge.subs") == ["windowMaximized"]
     assert J(js, "CALLS") == [["winIsMaximized", None]]
-    assert J(js, "bMax.title") == "Maximise"
+    # the library writes no word of its own on the button: the words are the
+    # application's, in its language (setWindowHints), and until it gives them
+    # the button keeps what the page put there
+    assert J(js, "bMax.title") == ""
+    js.eval("setWindowHints({ maximise: 'Ingrandisci', restore: 'Ripristina' })")
+    assert J(js, "bMax.title") == "Ingrandisci"
+    assert J(js, "bMax.getAttribute('aria-label')") == "Ingrandisci"
 
     # a press on the bar moves the window; on a button, or with another
     # button of the mouse, it does not
@@ -575,11 +582,11 @@ def test_the_title_bar_writes_the_credit_and_wires_the_window(js):
     # come back here: the two drawings are `win-restore` and `win-maximise`.
     js.eval("onWindowMaximized(true)")
     assert J(js, "document.body.classList.contains('maximized')") is True
-    assert J(js, "bMax.title") == "Restore"
+    assert J(js, "bMax.title") == "Ripristina"
     assert J(js, "bMax.innerHTML") == J(js, "icon('win-restore')")
     js.eval("onWindowMaximized(false)")
     assert J(js, "document.body.classList.contains('maximized')") is False
-    assert J(js, "bMax.title") == "Maximise"
+    assert J(js, "bMax.title") == "Ingrandisci"
     assert J(js, "bMax.innerHTML") == J(js, "icon('win-maximise')")
 
 

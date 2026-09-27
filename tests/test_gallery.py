@@ -52,6 +52,9 @@ _SHOT_NAME = re.compile(r"^[a-z][a-z0-9-]*$")
 SCRIPT_ONLY = {
     "combopop", "combo-opt", "combo-on", "open",   # the dropdown, while it is open
     "combo-c",                                     # widgets.js puts the arrow there
+    "pickerpop", "picker-row", "picker-tag",       # setPicker() builds the button and its list
+    "picker-label", "picker-note", "picker-c",
+    "flagbox", "bare",                             # and the flag's box, with its image or bare
     "maximized",                                   # the window state, on body
     "tbar-credit",                                 # titlebar.js writes it
 }
@@ -186,9 +189,9 @@ def test_the_name_printed_under_a_cell_is_the_name_of_the_shot():
 
 
 def test_every_pose_is_a_shot_and_every_posed_cell_has_a_button():
-    """The five states a shot cannot hold by itself."""
+    """The states a shot cannot hold by itself."""
     poses = set(_POSE_KEY.findall(GALLERY_JS))
-    assert poses == {"dropdown-open", "toast", "spinner", "progress", "sheet",
+    assert poses == {"dropdown-open", "picker-open", "toast", "spinner", "progress", "sheet",
                      "sheet-side", "titlebar-mark"}
     assert poses <= set(_shots())
     assert set(_POSE_ATTR.findall(PAGE)) <= poses

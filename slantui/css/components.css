@@ -76,6 +76,11 @@
 
 .btn-wide{width:100%}
 .btn-grow{flex:1}
+/* A button that is only its sign, square whatever height its row gives it.
+   Its word is its tooltip and its accessible name: for the few commands every
+   reader knows by the sign alone (Back), in every language the same width. */
+.btn-sq{flex:none;aspect-ratio:1/1;padding:0}
+.btn-sq svg{margin:0}
 .btn-sm{height:27px;padding:0 10px;font-size:var(--fs-sm)}
 /* The word next to a glyph goes in a .btn-label span. A page that runs out
    of width hides those in a media query of its own and keeps the glyphs; the
@@ -161,6 +166,19 @@ body.maximized .rz{display:none}
 }
 .tab.active .tn{background:var(--accent);color:var(--on-accent)}
 .tab.done .tn{background:var(--accent-surface-hover);color:var(--accent-text)}
+/* A rail with more steps than whole names can hold on one row, in any
+   language, shows each step as its number, every one of one width, and says
+   its PHASES in words: a few words, each in a place of one width, so that no
+   language moves a pixel of the rail. A step's own name is its tooltip and the
+   heading of the panel it opens. The phase of the open step is lit. */
+.tab.num{width:var(--slot);min-width:0;padding:0;justify-content:center;flex:none}
+.tab.num .tn{margin-right:0}
+.tab-phase{
+  flex:none;width:var(--block);display:flex;align-items:center;justify-content:center;
+  font-size:var(--fs);font-weight:500;color:var(--text-4);
+  white-space:nowrap;overflow:hidden;transition:color var(--t-chg);
+}
+.tab-phase.on{color:var(--text-2)}
 
 /* -- toolbar buttons ------------------------------------------------------- */
 .ct{
@@ -218,6 +236,10 @@ body.maximized .rz{display:none}
 }
 .input:focus{box-shadow:inset 0 0 0 1px var(--accent-text)}
 .input::placeholder{color:var(--text-4)}
+/* A field of several lines, for a note: the same fill and ring, as tall as the
+   rows it asks for, and no grip. A panel's sections are all one width, and a
+   field that can be dragged wider or taller breaks that for the rest. */
+textarea.input{height:auto;display:block;padding:7px 12px;line-height:var(--lh);resize:none}
 .input-unit{font-size:var(--fs);color:var(--text-3);margin-left:8px;flex-shrink:0}
 
 /* Number stepper: two triangles on the input's own fill, nothing behind them.
@@ -256,17 +278,65 @@ body.maximized .rz{display:none}
        stroke-linecap:round;stroke-linejoin:round;opacity:.75}
 .combo.open .combo-c{transform:rotate(180deg)}
 /* Fixed position: no scroll container can clip it. A fill and a shadow tell it
-   from the panel behind, never an outline. */
+   from the panel behind, never an outline. A list taller than the room around
+   its trigger is capped by widgets.js and scrolls here. */
 .combopop{
   position:fixed;z-index:10002;
   background:var(--surface-3);border-radius:var(--r-md);
   padding:4px;box-shadow:0 10px 26px var(--shadow);
+  overflow-y:auto;overscroll-behavior:contain;
 }
 .combo-opt{
   padding:6px 10px;border-radius:var(--r-xs);cursor:pointer;
   font-size:var(--fs);color:var(--text-2);white-space:nowrap;
   overflow:hidden;text-overflow:ellipsis;
 }
+/* -- picker ----------------------------------------------------------------
+   The dropdown with a picture on every row (widgets.js, setPicker), the web
+   twin of New-SlantPicker in wpf/SlantUI.psm1: the same button, 26 high with
+   its picture, a tag in a place of one width and a filled arrow; the same list
+   on the overlay fill, its four columns shared by every row (subgrid), the
+   current row lit. Its sizes are the WPF half's, so one design reads the same
+   in both. */
+.picker{
+  display:inline-flex;align-items:center;flex:none;height:26px;padding:0 9px;
+  border-radius:var(--r);background:var(--surface-3);cursor:pointer;
+  transition:background var(--t-out);
+}
+.picker:hover,.picker.open{background:var(--control-hover);transition-duration:var(--t-in)}
+.picker-tag{
+  width:26px;margin-left:7px;flex:none;white-space:nowrap;
+  font-size:var(--fs-sm);color:var(--text-2);
+}
+.picker-c{width:7px;height:4.5px;margin:1px 0 0 9px;flex:none;fill:var(--text-3);stroke:none}
+.pickerpop{
+  position:fixed;z-index:10002;display:grid;grid-template-columns:repeat(4,auto);
+  align-content:start;padding:4px;border-radius:var(--r-md);background:var(--overlay);
+  box-shadow:0 0 18px var(--shadow);overflow-y:auto;overscroll-behavior:contain;
+  transform-origin:50% 0;
+}
+.picker-row{
+  grid-column:1/-1;display:grid;grid-template-columns:subgrid;align-items:center;
+  padding:5px 12px 5px 8px;border-radius:var(--r-xs);cursor:pointer;
+  transition:background var(--t-out);
+}
+.picker-row:hover{background:var(--control-hover);transition-duration:var(--t-in)}
+.picker-row.on{background:var(--surface-3)}
+.picker-row .picker-tag{width:auto;min-width:26px;margin-left:8px}
+.picker-label{margin-left:8px;white-space:nowrap;font-size:var(--fs-sm);color:var(--text-3)}
+.picker-note{margin-left:18px;justify-self:end;white-space:nowrap;font-size:10.5px;color:var(--text-4)}
+.picker-note:empty{display:none}
+/* A flag, as New-FlagBox draws it: 18 by 13.5 with a thread around it, so the
+   white of a tricolour does not melt into the surface. The thread is a FILL,
+   not an outline: the box in the thread's colour, and the flag inside it, one
+   pixel in. Without an image, the tag in the same box. */
+.flagbox{display:flex;align-items:center;justify-content:center;flex:none;box-sizing:border-box;
+         width:18px;height:13.5px;padding:1px;border-radius:2px;background:var(--control-active)}
+.flagbox i{display:block;width:100%;height:100%;border-radius:1.5px;
+           background-position:center;background-size:100% 100%;background-repeat:no-repeat}
+.flagbox.bare{padding:0;background:var(--surface-3);font-size:9px;color:var(--text-3);
+              font-style:normal;line-height:1}
+
 .combo-opt:hover{background:var(--control);color:var(--text-1)}
 .combo-opt.combo-on{background:var(--accent-surface);color:var(--accent-text);font-weight:var(--w-strong)}
 .combo-opt.combo-on:hover{background:var(--accent-surface-hover)}
@@ -290,7 +360,11 @@ input[type=range]::-webkit-slider-thumb{
    the label: it is sized like one and it never pushes the name onto a second
    line, which is what an <svg> with no width given does, since it is laid out
    as a word and a word is what wraps. */
-.sl-l{font-size:var(--fs);color:var(--text-3);min-width:58px;flex-shrink:0;
+/* The label has ONE width, like the value: a longer word ("Sollevamento",
+   "Deckkraft") used to push the track shorter on that one row, and in a window
+   that speaks forty-five languages the track would have been a different
+   length in each. The word has to fit the width, never the other way round. */
+.sl-l{font-size:var(--fs);color:var(--text-3);width:72px;flex:none;
       display:flex;align-items:center;gap:6px}
 .sl-l svg{width:13px;height:13px;flex-shrink:0;
           stroke:currentColor;fill:none;stroke-width:1.8;
@@ -323,10 +397,14 @@ input[type=range]::-webkit-slider-thumb{
 .toggle input{margin-right:9px;accent-color:var(--accent);flex-shrink:0}
 .toggle b{font-weight:var(--w-strong)}
 /* The dimmed line that belongs to the control above it: what the choice costs,
-   where the folder has to be, what the other setting does. Beside a switch it
-   runs on the same line; on its own it is a line under what it explains. */
+   where the folder has to be, what the other setting does. It is a line of its
+   own, under the name it explains, beside a switch as much as anywhere else:
+   running on the same line, name and aside wrapped wherever the length of the
+   words said, so a switch was one line in one language and two in the next.
+   Under the name, a switch is one line, or two with its aside, in all of them. */
 .aside{color:var(--text-3);font-size:var(--fs-sm)}
-.toggle .aside{margin-left:5px}
+.toggle{flex-wrap:wrap}
+.toggle .aside{flex-basis:100%;padding-left:22px}
 
 /* -- a line of state that is a path ---------------------------------------- */
 /* A folder somebody chose. It is a note like any other except that it has no
@@ -376,6 +454,12 @@ input[type=range]::-webkit-slider-thumb{
 .mitem.sel{background:var(--accent-surface)}
 .mitem.sel:hover{background:var(--accent-surface-hover)}
 .mitem.off{opacity:.45;cursor:not-allowed}
+/* The slim list: the same rows with less air above and below, for a list that
+   sits right above fields and buttons of its own height and would otherwise
+   read as one block with them (the cases of a module, above the fields of a
+   new one). The badge sets the height, so a row is as tall as its badge and a
+   little more. */
+.mlist.slim .mitem{padding-top:4px;padding-bottom:4px}
 /* The name is the part that gives way. A flex item will not go below its own
    content unless it is told it may, and without that the badge is the one
    pushed out of the row. */

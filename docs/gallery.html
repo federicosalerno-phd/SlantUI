@@ -212,9 +212,8 @@
                     <span class="btn-label">Say it worked</span>
                   </button>
                   <div class="rp-nav">
-                    <button class="btn btn-2 btn-grow">
+                    <button class="btn btn-2 btn-sq" title="Back" aria-label="Back">
                       <svg viewBox="0 0 24 24"><polyline points="14.5 5 7.5 12 14.5 19"/></svg>
-                      <span class="btn-label">Back</span>
                     </button>
                     <button class="btn btn-2 btn-grow">
                       <span class="btn-label">Next</span>
@@ -302,6 +301,14 @@
               </div>
 
               <div class="gal-cell">
+                <div class="sec-lbl">Note field, several lines</div>
+                <div data-shot="note">
+                  <textarea class="input" rows="3" spellcheck="false">A note the reader writes, kept with the document.</textarea>
+                </div>
+                <div class="gal-name hidden">note</div>
+              </div>
+
+              <div class="gal-cell">
                 <div class="sec-lbl">Number field, with its own stepper</div>
                 <div class="row" data-shot="number">
                   <div class="numwrap">
@@ -350,6 +357,30 @@
                   <span class="btn-label">Open it here</span>
                 </button>
                 <div class="gal-name hidden">dropdown-open</div>
+              </div>
+
+              <div class="gal-cell">
+                <div class="sec-lbl">Picker</div>
+                <div class="row">
+                  <div class="picker" id="picker" tabindex="0" data-shot="picker"
+                       title="A setting for the whole window"></div>
+                </div>
+                <p class="note">
+                  A tag in a place of one width, so choosing another entry never
+                  moves the row. The WPF half draws the same one.
+                </p>
+                <div class="gal-name hidden">picker</div>
+              </div>
+
+              <div class="gal-cell">
+                <div class="sec-lbl">The same one, open</div>
+                <div class="row">
+                  <div class="picker" id="pickerOpen" tabindex="0" data-shot="picker-open"></div>
+                </div>
+                <button class="btn btn-2 btn-sm btn-wide" data-pose="picker-open">
+                  <span class="btn-label">Open it here</span>
+                </button>
+                <div class="gal-name hidden">picker-open</div>
               </div>
 
               <div class="gal-cell">
@@ -428,6 +459,19 @@ meshing: 1 of 3
                 <div class="gal-name hidden">chooser</div>
               </div>
 
+              <div class="gal-cell">
+                <div class="sec-lbl">The same list, slim</div>
+                <div data-shot="chooser-slim" class="mlist slim">
+                  <div class="mitem">
+                    <span class="mitem-name">March report <span class="mitem-det">2026-08-30</span></span><span class="mbadge">R9KZM</span>
+                  </div>
+                  <div class="mitem">
+                    <span class="mitem-name">Untitled <span class="mitem-det">2026-09-11</span></span><span class="mbadge">P3WTD</span>
+                  </div>
+                </div>
+                <div class="gal-name hidden">chooser-slim</div>
+              </div>
+
               <div class="gal-cell wide">
                 <div class="sec-lbl">Step tabs, in their three states</div>
                 <div class="tabbar" data-shot="tabs">
@@ -436,6 +480,21 @@ meshing: 1 of 3
                   <div class="tab"><div class="tn">3</div><span>Not yet</span></div>
                 </div>
                 <div class="gal-name hidden">tabs</div>
+              </div>
+
+              <div class="gal-cell wide">
+                <div class="sec-lbl">Steps in phases</div>
+                <div class="tabbar" data-shot="tabs-phases">
+                  <span class="tab-phase">Prepare</span>
+                  <div class="tab num done" title="Open the files"><div class="tn">1</div></div>
+                  <div class="tab num done" title="Line them up"><div class="tn">2</div></div>
+                  <span class="tab-phase on">Work</span>
+                  <div class="tab num active" title="Place the marks"><div class="tn">3</div></div>
+                  <div class="tab num" title="Fit the parts"><div class="tn">4</div></div>
+                  <span class="tab-phase">Finish</span>
+                  <div class="tab num" title="Write it out"><div class="tn">5</div></div>
+                </div>
+                <div class="gal-name hidden">tabs-phases</div>
               </div>
 
               <div class="gal-cell wide">

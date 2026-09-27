@@ -45,11 +45,17 @@
        The window's own title bar already carries the name, so there is
        nothing to put in a second band above this one. ===================== -->
   <div class="topbar">
+    <!-- The rail in phases: a step is its number, of one width, and its name
+         is its tooltip; the words are the phases, each in a place of one
+         width, so no language moves the rail. The phase of the open step is
+         lit (app.js, go()). -->
     <div class="tabbar">
-      <div class="tab active" data-step="0"><div class="tn">1</div><span>Start</span></div>
-      <div class="tab" data-step="1"><div class="tn">2</div><span>Controls</span></div>
-      <div class="tab" data-step="2"><div class="tn">3</div><span>Run</span></div>
-      <div class="tab" data-step="3"><div class="tn">4</div><span>Results</span></div>
+      <span class="tab-phase on" data-from="0" data-to="1">Set up</span>
+      <div class="tab num active" data-step="0" title="Start"><div class="tn">1</div></div>
+      <div class="tab num" data-step="1" title="Controls"><div class="tn">2</div></div>
+      <span class="tab-phase" data-from="2" data-to="3">Use</span>
+      <div class="tab num" data-step="2" title="Run"><div class="tn">3</div></div>
+      <div class="tab num" data-step="3" title="Results"><div class="tn">4</div></div>
     </div>
 
     <div class="tb-gap"></div>
@@ -58,6 +64,10 @@
       <!-- The palette switcher. Theme.setPalette() puts the slug on <html>,
            where palettes.css keys on it, and tells the window through a slot
            so the colour behind the page follows. -->
+      <!-- A picker: the dropdown with a tag in a place of one width, the one
+           a setting for the whole window uses (widgets.js, setPicker). Its
+           rows are written by app.js. -->
+      <div class="picker" id="lang" tabindex="0" title="The language of the page"></div>
       <div class="palette-pick">
         <div class="combo" id="palette" tabindex="0" role="button" aria-haspopup="listbox"
              data-options="Gold Dark|Gold Light|Teal Dark|Blue Dark|Purple Dark|Green Dark|Slate Light|High Contrast"
@@ -243,7 +253,7 @@ meshing: 1 of 3
           </p>
 
           <div class="sec-lbl">Corner</div>
-          <div class="mlist">
+          <div class="mlist slim">
             <div class="mitem sel" data-corner="round">
               <span class="mitem-name">Rounded <span class="mitem-det">what the band is cut to</span></span><span class="mbadge">DEFAULT</span>
             </div>
@@ -274,9 +284,8 @@ meshing: 1 of 3
             <span class="btn-label">Back to the metrics</span>
           </button>
           <div class="rp-nav">
-            <button class="btn btn-2 btn-grow" data-go="0">
+            <button class="btn btn-2 btn-sq" data-go="0" title="Back" aria-label="Back">
               <svg viewBox="0 0 24 24"><polyline points="14.5 5 7.5 12 14.5 19"/></svg>
-              <span class="btn-label">Back</span>
             </button>
             <button class="btn btn-primary btn-grow" data-go="2">
               <span class="btn-label">Run</span>
