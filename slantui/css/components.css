@@ -372,6 +372,53 @@ input[type=range]::-webkit-slider-thumb{
 .sl-v{font-size:var(--fs);font-weight:var(--w-strong);width:56px;text-align:right;
       color:var(--text-1);flex-shrink:0;white-space:nowrap;font-variant-numeric:tabular-nums}
 
+/* -- jog ------------------------------------------------------------------- */
+/* A number that is dragged and not placed: a tape of ticks under a fixed
+   index, in the place a slider's track takes in its row, between the label and
+   the value. The hand drags the tape and the number follows by a set amount for
+   every pixel (widgets.js, setJog), so a wide gesture is a small, gradual
+   change and the range is as fine as the page wants it. The tape is there only
+   between the two ends of the range, so the tape running out under the index
+   is the end of the range; a range that is a whole turn has no ends.
+   Nothing about it covers or lights the label, which is not inside it, and
+   nothing fills the strip: the ticks come up when the pointer is on it and are
+   all there while it is dragged, and the index is its one accent.
+   Three properties are the state of one jog, and setJog writes them on it:
+   where the tape stands (--jog-x) and how far it reaches to the left and to the
+   right of the index (--jog-l, --jog-r). They are registered so that the two
+   pseudo-elements, which draw the tape and the index, inherit them. */
+@property --jog-x{syntax:'<length>';inherits:true;initial-value:0px}
+@property --jog-l{syntax:'<length>';inherits:true;initial-value:100000px}
+@property --jog-r{syntax:'<length>';inherits:true;initial-value:100000px}
+.jog{
+  position:relative;display:block;flex:1;min-width:0;height:var(--jog-h);
+  border-radius:var(--r-xs);cursor:ew-resize;touch-action:none;user-select:none;
+}
+.jog::before{
+  content:'';position:absolute;left:0;right:0;top:0;bottom:0;
+  background:
+    linear-gradient(90deg,transparent calc(50% - .5px),var(--text-3) calc(50% - .5px)
+                    calc(50% + .5px),transparent calc(50% + .5px))
+      calc(50% + var(--jog-x)) 50%/var(--jog-mark) 50% repeat-x,
+    linear-gradient(90deg,transparent calc(50% - .5px),var(--text-4) calc(50% - .5px)
+                    calc(50% + .5px),transparent calc(50% + .5px))
+      calc(50% + var(--jog-x)) 50%/var(--jog-tick) 25% repeat-x;
+  -webkit-mask-image:linear-gradient(90deg,transparent,var(--text-1) 30%,var(--text-1) 70%,transparent);
+  clip-path:inset(0 max(0px,calc(50% - var(--jog-r))) 0 max(0px,calc(50% - var(--jog-l))));
+  opacity:.55;transition:opacity var(--t-out);
+}
+.jog:hover::before,.jog:focus-visible::before{opacity:.85;transition-duration:var(--t-in)}
+.jog.drag::before{opacity:1;transition:none}
+.jog::after{
+  content:'';position:absolute;left:calc(50% - 1px);top:4px;bottom:4px;width:2px;
+  border-radius:1px;background:var(--accent);
+}
+.jog:focus-visible{box-shadow:inset 0 0 0 1px var(--accent-text)}
+.jog[aria-disabled=true]{opacity:.4;cursor:default}
+/* While a jog is held the pointer says so everywhere, since the hand travels
+   well past the strip. */
+html.jog-drag,html.jog-drag *{cursor:ew-resize !important}
+
 /* -- controls side by side ------------------------------------------------- */
 /* Two or three controls that belong on one line: a choice between two, a pair
    of actions, a value with the button that clears it. They share the width

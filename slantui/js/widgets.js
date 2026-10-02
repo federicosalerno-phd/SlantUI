@@ -32,6 +32,18 @@
    2. `numStep`, the number field's up and down arrows, done by hand, since
       the engine's own stepper cannot be styled (see base.css).
 
+   2b. `.jog`, a number that is dragged and not placed: a tape of ticks
+      under a fixed index, where a slider's track would be. A slider maps the
+      width of its track onto its whole range, so a short track is a coarse
+      one; a jog moves its number by a set amount for every pixel the hand
+      travels, so a wide gesture is a small, gradual change. It answers to
+      `.value`, `.min`, `.max` and `.step` exactly like an
+      <input type="range"> does, fires `input` while it is dragged and
+      `change` when it is let go, so the code around it does not know the
+      difference. See the block over `setJog` below.
+
+        <div class="jog" data-min="0" data-max="360" data-wrap data-gain="0.28"></div>
+
    3. `fitOneLine`, text that must never spill out of its box. A file name
       can run to fifty characters; the label shrinks until it fits, and only
       if it is still too long does it drop the middle, keeping the start and
@@ -52,8 +64,9 @@
       again. See the block over `openSheet` below for the markup and the one
       function a page hands over.
 
-   Leaves on the window: initSelects, setOptions, setPicker, numStep, fitOneLine,
-   initSheets, openSheet, closeSheet, sheetIsOpen, showSheet, hideSheet.
+   Leaves on the window: initSelects, setOptions, setPicker, numStep, setJog,
+   initJogs, fitOneLine, initSheets, openSheet, closeSheet, sheetIsOpen,
+   showSheet, hideSheet.
    ========================================================================== */
 
 /* ── dropdown ─────────────────────────────────────────────────────────────── */
@@ -438,6 +451,232 @@ function numStep(field, dir) {
   const dec = (String(step).split('.')[1] || '').length;
   el.value = dec ? v.toFixed(dec) : String(Math.round(v));
   el.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+/* ── jog ──────────────────────────────────────────────────────────────────── */
+/* A jog is wired once and configured by its attributes, so a page can write
+   one in markup and call initJogs(), or build one in code and call
+   setJog(el, opts), which writes the attributes for it and wires it:
+
+     data-min, data-max   the range. At an end the jog stops, and the tape
+                          runs out under the index (components.css).
+     data-wrap            the range is a whole turn: past one end the number
+                          comes in at the other, and the tape has no ends.
+     data-gain            how far the number moves for one pixel of travel.
+                          Without it, the whole range takes --jog-run pixels.
+     data-step            how far an arrow key moves it. Without it, ten
+                          times the finest step a pixel makes.
+     data-value           where it starts.
+
+   A number made by the hand is rounded to the finest power of ten that one
+   pixel can still move (a gain of 0.28 rounds to 0.1, one of 0.011 to 0.01),
+   so the number written is the number shown and no pixel of travel is lost.
+   Inside a drag the jog keeps the number unrounded, so a slow hand never
+   sticks. A number set from code is kept exactly as it was given.
+
+   The hand: a press takes the pointer and fires `jogstart`, every pixel of
+   travel moves the number and fires `input` when it changes, and letting go
+   fires `change` if anything did and then `jogend`. The two ends of the
+   gesture are events of their own, and bubble, because a page that holds its
+   work back while a hand is down needs to know exactly when the hand went down
+   and came up, and a press the jog refuses (another button, a jog switched
+   off) is neither. While it is held, <html> carries `jog-drag`, which keeps
+   the pointer's shape when the hand leaves the strip.
+
+   Setting `.value` to the number it already holds does nothing, so a page
+   that writes the value back into the jog while the hand is moving it does not
+   cost the hand the part of a pixel it has not been paid for yet. "The number
+   it already holds" is the same number give or take the last digits of a
+   floating point sum: a page that wraps an angle with ((v % 360) + 360) % 360
+   writes back 0.30000000000001 for 0.3, and that is not a new number. */
+function _jogNum(el, name) {
+  const v = parseFloat(el.getAttribute('data-' + name));
+  return isNaN(v) ? null : v;
+}
+
+function _jogRange(el) {
+  const lo = _jogNum(el, 'min'), hi = _jogNum(el, 'max');
+  return {
+    lo: lo === null ? -Infinity : lo,
+    hi: hi === null ? Infinity : hi,
+    wrap: el.getAttribute('data-wrap') !== null && lo !== null && hi !== null && hi > lo,
+  };
+}
+
+function _jogGain(el) {
+  const g = _jogNum(el, 'gain');
+  if (g !== null && g > 0) return g;
+  const r = _jogRange(el);
+  if (!(isFinite(r.lo) && isFinite(r.hi) && r.hi > r.lo)) return 1;
+  const run = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--jog-run'));
+  return (r.hi - r.lo) / (run > 0 ? run : 400);
+}
+
+// The finest power of ten one pixel of travel still moves the number by.
+function _jogFine(el) {
+  return Math.pow(10, Math.floor(Math.log10(_jogGain(el)) + 1e-9));
+}
+
+function _jogStep(el) {
+  const s = _jogNum(el, 'step');
+  return s !== null && s > 0 ? s : _jogFine(el) * 10;
+}
+
+function _jogFit(el, v) {
+  const r = _jogRange(el);
+  if (r.wrap) {
+    if (v >= r.lo && v < r.hi) return v;           // in the turn: not a digit touched
+    const span = r.hi - r.lo;
+    return r.lo + (((v - r.lo) % span) + span) % span;
+  }
+  return Math.min(r.hi, Math.max(r.lo, v));
+}
+
+function _jogRound(el, v) {
+  const f = _jogFine(el);
+  const dec = Math.max(0, -Math.round(Math.log10(f)));
+  return +(Math.round(v / f) * f).toFixed(dec);
+}
+
+function _jogSet(style, name, value) {
+  if (value === null) style.removeProperty(name);
+  else style.setProperty(name, value);
+}
+
+// The tape: where it stands, and how far it reaches either side of the index.
+// It moves with the hand, so what lies to the left of the index is the larger
+// numbers and what lies to the right the smaller ones.
+function _jogDraw(el) {
+  const j = el._jog, g = _jogGain(el), r = _jogRange(el);
+  _jogSet(el.style, '--jog-x', Math.round(j.raw / g) + 'px');
+  const reach = function (d) { return Math.round(Math.max(0, d / g) * 100) / 100 + 'px'; };
+  _jogSet(el.style, '--jog-l', r.wrap || !isFinite(r.hi) ? null : reach(r.hi - j.raw));
+  _jogSet(el.style, '--jog-r', r.wrap || !isFinite(r.lo) ? null : reach(j.raw - r.lo));
+  el.setAttribute('aria-valuenow', String(j.v));
+}
+
+// Move by `d`, as the hand or a key would: `input` if the number changed.
+function _jogMove(el, d) {
+  const j = el._jog, r = _jogRange(el);
+  let raw = j.raw + d;
+  if (!r.wrap) raw = Math.min(r.hi, Math.max(r.lo, raw));
+  j.raw = raw;
+  // fitted, then rounded, then fitted again: a number that rounds up onto the
+  // end of a turn is its start
+  const v = _jogFit(el, _jogRound(el, _jogFit(el, raw)));
+  _jogDraw(el);
+  if (v === j.v) return;
+  j.v = v;
+  j.moved = true;
+  el.setAttribute('aria-valuenow', String(v));
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+function _jogEnd(el) {
+  const j = el._jog;
+  if (!j.drag) return;
+  j.drag = false;
+  el.classList.remove('drag');
+  document.documentElement.classList.remove('jog-drag');
+  j.raw = j.v;
+  _jogDraw(el);
+  if (j.moved) el.dispatchEvent(new Event('change', { bubbles: true }));
+  el.dispatchEvent(new Event('jogend', { bubbles: true }));
+}
+
+function _jogWire(el) {
+  if (el._jog) return;
+  const v0 = _jogNum(el, 'value');
+  el._jog = { v: 0, raw: 0, x: 0, drag: false, moved: false };
+  el._jog.v = el._jog.raw = _jogFit(el, v0 === null ? 0 : v0);
+  el.setAttribute('role', 'slider');
+  if (el.getAttribute('tabindex') === null) el.setAttribute('tabindex', '0');
+  Object.defineProperty(el, 'value', {
+    get: function () { return String(el._jog.v); },
+    set: function (x) {
+      const n = parseFloat(x);
+      if (isNaN(n) || Math.abs(n - el._jog.v) <= 1e-9 * Math.max(1, Math.abs(n))) return;
+      el._jog.v = el._jog.raw = _jogFit(el, n);
+      _jogDraw(el);
+    },
+    configurable: true,
+  });
+  ['min', 'max', 'step'].forEach(function (k) {
+    Object.defineProperty(el, k, {
+      get: function () { return el.getAttribute('data-' + k) || ''; },
+      set: function (x) {
+        el.setAttribute('data-' + k, String(x));
+        if (k !== 'step') el.setAttribute('aria-value' + k, String(x));
+        el._jog.v = el._jog.raw = _jogFit(el, el._jog.v);
+        _jogDraw(el);
+      },
+      configurable: true,
+    });
+  });
+  Object.defineProperty(el, 'disabled', {
+    get: function () { return el.getAttribute('aria-disabled') === 'true'; },
+    set: function (x) { if (x) el.setAttribute('aria-disabled', 'true'); else el.removeAttribute('aria-disabled'); },
+    configurable: true,
+  });
+  el.addEventListener('pointerdown', function (e) {
+    if (e.button !== 0 || el.disabled) return;
+    e.preventDefault();
+    try { el.setPointerCapture(e.pointerId); } catch (_) { /* a pointer already gone */ }
+    if (el.focus) el.focus({ preventScroll: true });
+    el._jog.x = e.clientX;
+    el._jog.drag = true;
+    el._jog.moved = false;
+    el.classList.add('drag');
+    document.documentElement.classList.add('jog-drag');
+    el.dispatchEvent(new Event('jogstart', { bubbles: true }));
+  });
+  el.addEventListener('pointermove', function (e) {
+    const j = el._jog;
+    if (!j.drag) return;
+    const dx = e.clientX - j.x;
+    j.x = e.clientX;
+    if (dx) _jogMove(el, dx * _jogGain(el));
+  });
+  ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(function (t) {
+    el.addEventListener(t, function () { _jogEnd(el); });
+  });
+  el.addEventListener('keydown', function (e) {
+    if (el.disabled) return;
+    const s = _jogStep(el);
+    const d = { ArrowRight: s, ArrowUp: s, ArrowLeft: -s, ArrowDown: -s,
+                PageUp: 10 * s, PageDown: -10 * s }[e.key];
+    if (!d) return;
+    e.preventDefault();
+    el._jog.moved = false;
+    _jogMove(el, d);
+    el._jog.raw = el._jog.v;
+    if (el._jog.moved) el.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  _jogDraw(el);
+}
+
+/* Wire every `.jog` under `root` (the page when it is left out) that is not
+   wired yet. */
+function initJogs(root) {
+  (root || document).querySelectorAll('.jog').forEach(_jogWire);
+}
+
+/* Configure one jog from code and wire it: `opts` takes min, max, gain, step,
+   wrap and value, the attributes above without their prefix. */
+function setJog(el, opts) {
+  if (!el) return null;
+  const o = opts || {};
+  ['min', 'max', 'gain', 'step', 'value'].forEach(function (k) {
+    if (o[k] !== undefined && o[k] !== null) el.setAttribute('data-' + k, String(o[k]));
+  });
+  if (o.wrap !== undefined) {
+    if (o.wrap) el.setAttribute('data-wrap', ''); else el.removeAttribute('data-wrap');
+  }
+  if (o.min !== undefined && o.min !== null) el.setAttribute('aria-valuemin', String(o.min));
+  if (o.max !== undefined && o.max !== null) el.setAttribute('aria-valuemax', String(o.max));
+  _jogWire(el);
+  el.value = (o.value !== undefined && o.value !== null) ? o.value : el._jog.v;
+  return el;
 }
 
 /* ── text that has to fit ─────────────────────────────────────────────────── */

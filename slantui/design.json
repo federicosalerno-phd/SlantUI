@@ -530,6 +530,34 @@
       "kind": "length"
     },
     {
+      "name": "jog-h",
+      "group": "jog",
+      "value": "24px",
+      "purpose": "How tall the strip of a jog is, which is what the hand takes hold of. Its tape and its index are drawn in the middle of it, thinner.",
+      "kind": "length"
+    },
+    {
+      "name": "jog-tick",
+      "group": "jog",
+      "value": "4px",
+      "purpose": "Between two ticks of a jog's tape.",
+      "kind": "length"
+    },
+    {
+      "name": "jog-mark",
+      "group": "jog",
+      "value": "20px",
+      "purpose": "Between two long ticks of the tape: one tick in five is long.",
+      "kind": "length"
+    },
+    {
+      "name": "jog-run",
+      "group": "jog",
+      "value": "400px",
+      "purpose": "How far the hand travels to run a jog from one end of its range to the other, when the page does not say what one pixel is worth.",
+      "kind": "length"
+    },
+    {
       "name": "blur",
       "group": "overlay",
       "value": "14px",

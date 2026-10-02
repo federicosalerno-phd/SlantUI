@@ -65,7 +65,8 @@ WORDS = {20: "twenty", 21: "twenty one", 29: "twenty nine", 30: "thirty",
          34: "thirty four", 35: "thirty five", 36: "thirty six",
          37: "thirty seven", 38: "thirty eight", 39: "thirty nine",
          40: "forty", 41: "forty one", 42: "forty two", 43: "forty three",
-         44: "forty four", 45: "forty five"}
+         44: "forty four", 45: "forty five",
+         46: "forty six"}
 
 
 def fences(page: Path, lang: str | None = None) -> list[str]:

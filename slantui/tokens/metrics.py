@@ -147,6 +147,17 @@ METRICS: tuple[Metric, ...] = (
            "How tall a block of controls is. A block that needs more is two "
            "of these, or three."),
 
+    # ── the jog ─────────────────────────────────────────────────────────────
+    Metric("jog-h", "jog", "24px",
+           "How tall the strip of a jog is, which is what the hand takes hold "
+           "of. Its tape and its index are drawn in the middle of it, thinner."),
+    Metric("jog-tick", "jog", "4px", "Between two ticks of a jog's tape."),
+    Metric("jog-mark", "jog", "20px",
+           "Between two long ticks of the tape: one tick in five is long."),
+    Metric("jog-run", "jog", "400px",
+           "How far the hand travels to run a jog from one end of its range to "
+           "the other, when the page does not say what one pixel is worth."),
+
     # ── what opens over the page ────────────────────────────────────────────
     Metric("blur", "overlay", "14px",
            "How far the page behind a veil goes out of focus."),
@@ -195,6 +206,7 @@ GROUPS: dict[str, str] = {
     "rail": "the step rail under it",
     "panel": "the side panel",
     "comb": "the comb the panel is laid on",
+    "jog": "the jog, a number that is dragged",
     "overlay": "what opens over the page",
     "motion": "motion. One material, three durations, a handover, a scene and four curves",
 }
@@ -223,6 +235,14 @@ GROUP_NOTES: dict[str, str] = {
         "longer or shorter keeps its order. The four curves are the four ways\n"
         "a thing moves in it: it travels, it arrives, it leaves, or it changes\n"
         "size on the way."
+    ),
+    "jog": (
+        "A jog is a tape of ticks under a fixed index. The hand drags the tape\n"
+        "and the number follows by a set amount for every pixel, so a wide\n"
+        "gesture makes a small change and a range is as fine as the page wants\n"
+        "it. --jog-run is that amount when the page does not give one: the whole\n"
+        "range in four hundred pixels of travel. The strip is --jog-h tall so\n"
+        "the hand finds it, and the tape drawn inside it is thinner than that."
     ),
     "overlay": (
         "One blur and two widths. The blur is the loading screen's, which is\n"

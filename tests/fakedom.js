@@ -51,6 +51,10 @@ function El(tag, cls) {
   this.className = cls || '';
   this.children = [];
   this.style = {};
+  // custom properties go through these two in a real engine; not enumerable,
+  // so a test that lists the style still sees only what was written on it
+  Object.defineProperty(this.style, 'setProperty', { value: function (k, v) { this[k] = String(v); } });
+  Object.defineProperty(this.style, 'removeProperty', { value: function (k) { delete this[k]; } });
   this.attrs = {};
   this.dataset = {};
   this.listeners = {};

@@ -1,7 +1,7 @@
 /* ============================================================================
    The tour's own script. Everything it calls that is not in this file comes
    from SlantUI: Bridge and be() and beJson() from bridge.js, Theme from
-   theme.js, initSelects() numStep() fitOneLine() from widgets.js, and
+   theme.js, initSelects() numStep() initJogs() fitOneLine() from widgets.js, and
    initTitlebar() setBrandAction() roundedPolyPath() from titlebar.js.
 
    The page is a classic script, like the library's four, because the window
@@ -422,6 +422,7 @@ function wireDropZone() {
 function boot() {
   Bridge.init();          // the channel, with everything queued until it is up
   initSelects();          // the dropdowns answer to .value from here on
+  initJogs();             // and so does the jog of the joints
   initTitlebar();         // the band, the window buttons, the credit line
 
   Bridge.on('progress', onProgress);

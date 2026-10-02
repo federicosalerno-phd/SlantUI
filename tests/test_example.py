@@ -59,6 +59,7 @@ SCRIPT_ONLY = {
     "tbar-credit",                                 # titlebar.js writes it
     "tbar-logo-btn",                               # setBrandAction() makes it
     "busy", "ok", "warn", "err", "on", "done",     # states of a pill, a tab, a toggle
+    "drag", "jog-drag",                            # a jog while the hand holds it
 }
 
 

@@ -57,6 +57,7 @@ SCRIPT_ONLY = {
     "flagbox", "bare",                             # and the flag's box, with its image or bare
     "maximized",                                   # the window state, on body
     "tbar-credit",                                 # titlebar.js writes it
+    "drag", "jog-drag",                            # a jog while the hand holds it
 }
 
 

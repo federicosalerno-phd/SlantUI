@@ -110,7 +110,7 @@ different colours on a light palette.
 
 | Role | What it is | Where it is drawn |
 |---|---|---|
-| `accent` | The fill of the primary action | `.btn-primary`, the slider thumb, the active step's number |
+| `accent` | The fill of the primary action | `.btn-primary`, the slider thumb, the index of a jog, the active step's number |
 | `accent-hover` | The accent fill under the pointer | `.btn-primary:hover` |
 | `accent-active` | The accent fill while pressed | `.btn-primary:active`, the progress fill |
 | `on-accent` | Text and glyphs on an accent fill | the label of `.btn-primary`, `::selection` |

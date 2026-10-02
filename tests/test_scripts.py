@@ -820,6 +820,113 @@ def test_the_stepper_keeps_the_decimals_of_the_step(js):
     assert J(js, "f.value") == "5"
 
 
+JOG_PAGE = """
+  CSS_VARS = { '--jog-run': '400px' };
+  const jog = document.body.appendChild(new El('div', 'jog'));
+  const SEEN = [];
+  jog.addEventListener('input', function () { SEEN.push('input ' + jog.value); });
+  jog.addEventListener('change', function () { SEEN.push('change ' + jog.value); });
+  const ENDS = [];
+  jog.addEventListener('jogstart', function () { ENDS.push('start'); });
+  jog.addEventListener('jogend', function () { ENDS.push('end'); });
+  function drag(px, steps) {
+    fire(jog, 'pointerdown', { button: 0, clientX: 100, pointerId: 1 });
+    for (let i = 1; i <= steps; i++) fire(jog, 'pointermove', { clientX: 100 + px * i / steps });
+    fire(jog, 'pointerup', {});
+  }
+"""
+
+
+def test_the_jog_answers_like_a_range(js):
+    js.eval(JOG_PAGE)
+    js.eval(_runnable("widgets.js"))
+
+    # a whole turn at a set gain: every pixel moves it by the gain, rounded
+    # to the finest power of ten a pixel can still move
+    js.eval("setJog(jog, { min: 0, max: 360, wrap: true, gain: 0.28, value: 10 })")
+    assert J(js, "jog.value") == "10"
+    assert J(js, "jog.getAttribute('role')") == "slider"
+    js.eval("drag(100, 50)")
+    assert J(js, "jog.value") == "38"
+    assert J(js, "SEEN[SEEN.length - 1]") == "change 38"
+    assert J(js, "SEEN.filter(function (s) { return s.indexOf('change') === 0; }).length") == 1
+    assert J(js, "SEEN.length") == 51              # an input for every pixel, one change
+    assert J(js, "ENDS") == ["start", "end"]
+    # the page writing back the number the jog holds, while the hand moves it,
+    # does not cost the hand the part of a pixel not yet paid: still 0.28 a pixel
+    js.eval("jog.value = 0; jog.addEventListener('input', function () { jog.value = jog.value; });"
+            "fire(jog, 'pointerdown', { button: 0, clientX: 0, pointerId: 1 });"
+            "for (let i = 1; i <= 10; i++) fire(jog, 'pointermove', { clientX: i });"
+            "fire(jog, 'pointerup', {})")
+    assert J(js, "jog.value") == "2.8"
+    # and nor does a number written back with the noise of a wrapped angle
+    js.eval("jog.value = 0; jog.addEventListener('input', function () {"
+            "  jog.value = String(((+jog.value % 360) + 360) % 360); });"
+            "fire(jog, 'pointerdown', { button: 0, clientX: 0, pointerId: 1 });"
+            "for (let i = 1; i <= 40; i++) fire(jog, 'pointermove', { clientX: i });"
+            "fire(jog, 'pointerup', {})")
+    assert J(js, "jog.value") == "11.2"
+    # pixel by pixel the rounding does not add up: thirty pixels are 8.4
+    js.eval("SEEN.length = 0; jog.value = 0; fire(jog, 'pointerdown', { button: 0, clientX: 0, pointerId: 1 });"
+            "for (let i = 1; i <= 30; i++) fire(jog, 'pointermove', { clientX: i });"
+            "fire(jog, 'pointerup', {})")
+    assert J(js, "jog.value") == "8.4"
+    # past the end of a turn it comes in at the other, and the tape has no ends
+    js.eval("jog.value = 350; drag(100, 10)")
+    assert J(js, "jog.value") == "18"
+    assert J(js, "jog.style['--jog-l'] === undefined") is True
+    assert J(js, "jog.style['--jog-r'] === undefined") is True
+    # a value set from code fires nothing and is kept as it was given
+    js.eval("SEEN.length = 0; jog.value = '12.345'")
+    assert J(js, "jog.value") == "12.345"
+    assert J(js, "SEEN") == []
+    # a press that does not move changes nothing and says nothing
+    js.eval("fire(jog, 'pointerdown', { button: 0, clientX: 5, pointerId: 1 }); fire(jog, 'pointerup', {})")
+    assert J(js, "SEEN") == []
+
+
+def test_the_jog_stops_at_the_ends_of_its_range(js):
+    js.eval(JOG_PAGE)
+    js.eval(_runnable("widgets.js"))
+    # no gain given: the whole range takes --jog-run pixels
+    js.eval("setJog(jog, { min: 2, max: 6, value: 5 })")
+    js.eval("drag(200, 40)")
+    assert J(js, "jog.value") == "6"
+    # the tape reaches as far as the range does on either side of the index:
+    # nothing left of it at the top end, the whole range right of it
+    assert J(js, "jog.style['--jog-l']") == "0px"
+    assert J(js, "jog.style['--jog-r']") == "400px"
+    # the hand turning back moves it at once, with no dead travel at the end
+    js.eval("drag(-10, 10)")
+    assert J(js, "jog.value") == "5.9"
+    # out of range from code is held at the end, like a range input
+    js.eval("jog.value = 99")
+    assert J(js, "jog.value") == "6"
+    js.eval("jog.max = 4")
+    assert J(js, "jog.value") == "4"
+    assert J(js, "jog.max") == "4"
+
+
+def test_the_jog_takes_the_arrow_keys_and_can_be_switched_off(js):
+    js.eval(JOG_PAGE)
+    js.eval(_runnable("widgets.js"))
+    js.eval("setJog(jog, { min: 0, max: 100, step: 0.5, value: 10 })")
+    js.eval("fire(jog, 'keydown', { key: 'ArrowRight' }); fire(jog, 'keydown', { key: 'PageDown' })")
+    assert J(js, "jog.value") == "5.5"
+    assert J(js, "SEEN") == ["input 10.5", "change 10.5", "input 5.5", "change 5.5"]
+    js.eval("SEEN.length = 0; ENDS.length = 0; jog.disabled = true; drag(80, 8);"
+            "fire(jog, 'keydown', { key: 'ArrowUp' })")
+    assert J(js, "jog.value") == "5.5"
+    assert J(js, "SEEN") == []
+    assert J(js, "ENDS") == []                     # a press refused is not a gesture
+    # markup that names it is wired by initJogs, once
+    js.eval("const j2 = document.body.appendChild(new El('div', 'jog'));"
+            "j2.setAttribute('data-min', '0'); j2.setAttribute('data-max', '40'); j2.setAttribute('data-value', '6');"
+            "initJogs(); initJogs()")
+    assert J(js, "j2.value") == "6"
+    assert J(js, "j2.listeners.pointerdown.length") == 1
+
+
 def test_fit_one_line_shrinks_then_drops_the_middle(js):
     js.eval(_runnable("widgets.js"))
     js.eval("const box = new El('div', 'fit'); box.clientWidth = 120;")

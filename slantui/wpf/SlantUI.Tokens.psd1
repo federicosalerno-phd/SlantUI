@@ -99,6 +99,10 @@
         'rp-w'                   = '244px'
         'slot'                   = '32px'
         'block'                  = '96px'
+        'jog-h'                  = '24px'
+        'jog-tick'               = '4px'
+        'jog-mark'               = '20px'
+        'jog-run'                = '400px'
         'blur'                   = '14px'
         'sheet-w'                = '520px'
         'sheet-wide'             = '660px'
@@ -149,6 +153,10 @@
         'rp-w'                   = 244
         'slot'                   = 32
         'block'                  = 96
+        'jog-h'                  = 24
+        'jog-tick'               = 4
+        'jog-mark'               = 20
+        'jog-run'                = 400
         'blur'                   = 14
         'sheet-w'                = 520
         'sheet-wide'             = 660

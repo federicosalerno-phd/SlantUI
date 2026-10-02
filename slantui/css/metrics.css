@@ -127,6 +127,22 @@
   /* How tall a block of controls is. A block that needs more is two of these, or three. */
   --block:96px;
 
+  /* the jog, a number that is dragged */
+  /* A jog is a tape of ticks under a fixed index. The hand drags the tape */
+  /* and the number follows by a set amount for every pixel, so a wide */
+  /* gesture makes a small change and a range is as fine as the page wants */
+  /* it. --jog-run is that amount when the page does not give one: the whole */
+  /* range in four hundred pixels of travel. The strip is --jog-h tall so */
+  /* the hand finds it, and the tape drawn inside it is thinner than that. */
+  /* How tall the strip of a jog is, which is what the hand takes hold of. Its tape and */
+  /* its index are drawn in the middle of it, thinner. */
+  --jog-h:24px;
+  --jog-tick:4px;        /* Between two ticks of a jog's tape. */
+  --jog-mark:20px;       /* Between two long ticks of the tape: one tick in five is long. */
+  /* How far the hand travels to run a jog from one end of its range to the other, when */
+  /* the page does not say what one pixel is worth. */
+  --jog-run:400px;
+
   /* what opens over the page */
   /* One blur and two widths. The blur is the loading screen's, which is */
   /* the one thing that does put the page out of focus, because until it */
