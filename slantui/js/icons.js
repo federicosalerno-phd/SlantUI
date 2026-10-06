@@ -14,7 +14,7 @@
 
      undo:   'M4 12a8 8 0 1 1 2.3 5.6'     one path's `d`
      close:  { s: '<rect .../>' }          the <svg>'s contents, verbatim
-     info:   { g: '?' }                    still a character, not yet drawn
+     jog:    { g: '⇄' }                    still a character, not yet drawn
 
    The third shape is the point of the file. A sign that a page draws with a
    character out of the font has no stroke, no grid and no weight of its own:
@@ -31,7 +31,8 @@
    which fill a strip nine pixels by five where a square drawing would come out
    five pixels tall, and the picker's arrow, for the same reason.
 
-   Leaves on the window: ICONS, icon, setIcon, iconReport.
+   Leaves on the window: ICONS, icon, setIcon, iconReport, iconInkShift,
+   iconCentred, iconInkAttrs.
    ========================================================================== */
 
 /* eslint no-unused-vars: 0 */
@@ -87,25 +88,29 @@ const ICONS = {
   /* ── acting ────────────────────────────────────────────────────────── */
   undo: { s: '<path d="M4 12a8 8 0 1 1 2.3 5.6"/><path d="M4 12V7M4 12h5"/>' },
   redo: { s: '<path d="M20 12a8 8 0 1 0 -2.3 5.6"/><path d="M20 12V7M20 12h-5"/>' },
-  reset: { g: '⟳' },
+  reset: { s: '<polyline points="4 5.5 4 11 9.5 11"/><path d="M4.6 15a8 8 0 1 0 1.2-7"/>' },
   run: 'M13 2L4 14h7l-1 8 9-12h-7z',
-  add: { g: '＋' },
-  remove: { g: '－' },
+  play: 'M7 4.6 19 12 7 19.4z',
+  stop: { s: '<rect x="6.5" y="6.5" width="11" height="11" rx="1.5"/>' },
+  add: 'M12 5v14M5 12h14',
+  remove: 'M5 12h14',
 
   /* ── saying how it went ────────────────────────────────────────────── */
   check: 'M5 13l4 4L19 7',
   warning: { g: '⚠' },
-  info: { g: '?' },
+  info: { s: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5.5M12 7.6v.4"/>' },
 
   /* ── going back to the start ────────────────────────────────── */
   home: { s: '<path d="M3 11l9-7 9 7"/><path d="M6 10v9h12v-9"/>'
     + '<path d="M10 19v-5h4v5"/>' },
 
   /* ── the stage ─────────────────────────────────────────────────────── */
-  /* TODO `zoom-in` and `add` are the same character, and so are `zoom-out`
-     and `remove`. Four ideas, two signs. */
+  /* TODO still characters: a magnifier with a plus and with a minus is what
+     they want to be, and not `add` and `remove`, which they used to share. */
   'zoom-in': { g: '＋' },
   'zoom-out': { g: '－' },
+  grid: { s: '<rect x="4.5" y="4.5" width="6" height="6" rx="1"/><rect x="13.5" y="4.5" width="6" height="6" rx="1"/>'
+    + '<rect x="4.5" y="13.5" width="6" height="6" rx="1"/><rect x="13.5" y="13.5" width="6" height="6" rx="1"/>' },
   fit: { s: '<circle cx="12" cy="12" r="5.5"/>'
     + '<path d="M12 1.5v4.5M12 18v4.5M1.5 12h4.5M18 12h4.5"/>' },
   jog: { g: '⇄' }
@@ -186,31 +191,56 @@ function _iconRuler() {
    application keeps its own registry of its own signs (a cutting plane, a
    guide, a bone) and must centre them by the same measure, not by a second
    copy of this. */
-function iconInkShift(key, inside, viewBox) {
+function _ink(key, inside, viewBox) {
   if (_inkShift[key] !== undefined) return _inkShift[key];
   const r = _iconRuler();
-  if (!r) return '';
+  if (!r) return null;
   const vb = String(viewBox || ICON_GRID).split(/[\s,]+/).map(Number);
-  if (vb.length !== 4 || vb.some(isNaN)) return '';
+  if (vb.length !== 4 || vb.some(isNaN)) return null;
   r.setAttribute('viewBox', String(viewBox || ICON_GRID));
   r.innerHTML = inside;
   let b;
-  try { b = r.getBBox(); } catch (_) { r.innerHTML = ''; return ''; }
+  try { b = r.getBBox(); } catch (_) { r.innerHTML = ''; return null; }
   r.innerHTML = '';
-  if (!b || (!b.width && !b.height)) { _inkShift[key] = ''; return ''; }
+  if (!b || (!b.width && !b.height)) { _inkShift[key] = { t: '', w: 0, h: 0 }; return _inkShift[key]; }
   const dx = (vb[0] + vb[2] / 2) - (b.x + b.width / 2);
   const dy = (vb[1] + vb[3] / 2) - (b.y + b.height / 2);
   /* under a hundredth of a unit is not an offset, it is measurement noise */
-  const v = (Math.abs(dx) < 0.01 && Math.abs(dy) < 0.01) ? ''
+  const t = (Math.abs(dx) < 0.01 && Math.abs(dy) < 0.01) ? ''
           : (Math.round(dx * 1000) / 1000) + ' ' + (Math.round(dy * 1000) / 1000);
-  _inkShift[key] = v;
-  return v;
+  _inkShift[key] = { t: t, w: b.width / vb[2], h: b.height / vb[3] };
+  return _inkShift[key];
+}
+
+function iconInkShift(key, inside, viewBox) {
+  const k = _ink(key, inside, viewBox);
+  return k ? k.t : '';
 }
 
 /* The drawing, wrapped in that move when there is one. */
 function iconCentred(key, inside, viewBox) {
   const t = iconInkShift(key, inside, viewBox);
   return t ? '<g transform="translate(' + t + ')">' + inside + '</g>' : inside;
+}
+
+/* HOW BIG THE INK IS, WRITTEN ON THE SIGN.
+
+   The same measure says how much of its box the ink fills, across and down,
+   and a sign carries it as data-ink-w and data-ink-h. A button reads them
+   (components.css): it sizes the sign so that its ink is as tall as the
+   capitals of the word next to it, and lets the empty part of the box hang
+   out on either side, so the space between the ink and the word is the
+   gap, and the button centres the ink with the word and not the box. Measured
+   before this, the ink was 74 to 119 % of the capitals depending on the
+   drawing, and a group of sign and word sat up to 6 px off the middle of its
+   button. An application writes the same two on its own signs with this. '' when
+   the ink cannot be measured yet. */
+function iconInkAttrs(key, inside, viewBox) {
+  const k = _ink(key, inside, viewBox);
+  /* a straight line has no height (or no width): it still has a size, its
+     length, and the button sizes it by its larger side */
+  if (!k || (!k.w && !k.h)) return '';
+  return ' data-ink-w="' + k.w.toFixed(4) + '" data-ink-h="' + k.h.toFixed(4) + '"';
 }
 
 function icon(name, attrs) {
@@ -228,7 +258,7 @@ function icon(name, attrs) {
      therefore measures the drawings, and counts the characters as what they
      are: the part of the set that has not been drawn yet. */
   return '<svg viewBox="' + (def.vb || ICON_GRID) + '" data-segno="' + name + '"'
-    + (def.g ? ' data-carattere=""' : '') + ICON_DEFAULTS + a
+    + (def.g ? ' data-carattere=""' : '') + iconInkAttrs(name, inside, def.vb) + ICON_DEFAULTS + a
     + '>' + iconCentred(name, inside, def.vb) + '</svg>';
 }
 

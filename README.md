@@ -557,7 +557,7 @@ drawn yet, and `icon()` returns markup for all three:
 ```js
 undo:  'M4 12a8 8 0 1 1 2.3 5.6'
 close: { s: '<rect x="5" y="5" width="14" height="14" rx="2"/>' }
-info:  { g: '?' }
+jog:   { g: '⇄' }
 ```
 
 The third shape is the useful one. A sign drawn with a character out of the
@@ -569,6 +569,16 @@ Everything is on a 24 by 24 grid, stroked and never filled, so one
 `stroke-width` per context governs the lot. `.wbtn svg` carries its own,
 because a twelve pixel button showing a twenty-four unit drawing halves every
 line it is given.
+
+In a button a sign and its word are placed by their ink, not by their boxes.
+`icon()` writes on the sign how much of its box the ink fills (`data-ink-w`,
+`data-ink-h`), the word goes in a `.btn-label`, and the button sizes the sign
+so that its ink is as tall as the word's capitals, trims the word to its
+capitals, and lets the empty sides of both hang out of the group:
+`fitButtonWords()` measures the word's own, and keeps measuring as words
+change. The group then sits in the middle of the button to half a pixel. An
+application with signs of its own writes the same measure on them with
+`iconInkAttrs()`.
 
 ## Shell
 

@@ -585,7 +585,19 @@ const PICKER_ROWS = [
   { code: 'xq', tag: 'XQ', label: 'Added by hand', note: 'output only', flag: null },
 ];
 
+/* A button's sign is named in the markup, not drawn there:
+   <svg data-icon="play"></svg> becomes the library's own, measured and
+   centred like every other, so the buttons in the catalogue are the buttons
+   an application gets. */
+function nameSigns() {
+  document.querySelectorAll('svg[data-icon]').forEach(function (s) {
+    const c = s.getAttribute('class');
+    s.outerHTML = icon(s.getAttribute('data-icon'), c ? { class: c } : null);
+  });
+}
+
 function boot() {
+  nameSigns();
   Bridge.init();
   initSelects();
   initJogs();

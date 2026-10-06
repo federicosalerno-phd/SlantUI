@@ -65,8 +65,8 @@
       function a page hands over.
 
    Leaves on the window: initSelects, setOptions, setPicker, numStep, setJog,
-   initJogs, fitOneLine, initSheets, openSheet, closeSheet, sheetIsOpen,
-   showSheet, hideSheet.
+   initJogs, fitOneLine, fitButtonWords, initSheets, openSheet, closeSheet,
+   sheetIsOpen, showSheet, hideSheet.
    ========================================================================== */
 
 /* ── dropdown ─────────────────────────────────────────────────────────────── */
@@ -708,6 +708,108 @@ function fitOneLine(el, text, maxPx, minPx) {
     if (el.scrollWidth <= box) return;
   }
 }
+
+/* ── the word beside a sign, placed by its ink ───────────────────────────── */
+/* A button with a sign centres the INK of the sign and of its word, not their
+   boxes (components.css). The sign carries the measure of its ink from icon();
+   the word's ink is measured here, because a letter does not fill its own
+   advance either: measured in the gallery, the N of "Next" starts a pixel into
+   its box and the d of "Grid" ends short of it, and that was what was left of a
+   group sitting off the middle of its button, up to 0.8 px CSS. The engine's
+   own measureText rounds those to whole pixels, so the word is drawn, four
+   times over, on a canvas of its own, and the columns that carry ink are read
+   back. The answer goes on the word as data-ink-l and data-ink-r (what is empty
+   before the first and after the last inked column, in CSS px), once per text
+   and font; and the stylesheet lets that much hang out of the group, the same
+   way the empty part of the sign's box does.
+
+   A word changes: the language, a panel written later, a label set from code.
+   So the library watches the document for text that changes inside a button
+   with a sign and measures it again, a frame later, at most once a frame. A
+   page does nothing. */
+const _inkWords = {};
+let _inkCanvas = null;
+
+function _wordInk(text, font, size) {
+  const key = font + '|' + text;
+  if (_inkWords[key]) return _inkWords[key];
+  if (!_inkCanvas) _inkCanvas = document.createElement('canvas');
+  let g = _inkCanvas.getContext('2d', { willReadFrequently: true });
+  if (!g) return null;
+  g.font = font;
+  const adv = g.measureText(text).width;
+  const S = 4, pad = Math.ceil(size);
+  const W = Math.ceil((adv + 2 * pad) * S), H = Math.ceil(size * 3 * S);
+  if (!W || !H) return null;
+  _inkCanvas.width = W;
+  _inkCanvas.height = H;
+  g = _inkCanvas.getContext('2d', { willReadFrequently: true });
+  g.setTransform(S, 0, 0, S, 0, 0);
+  g.font = font;
+  g.textBaseline = 'middle';
+  g.fillText(text, pad, size * 1.5);
+  const a = g.getImageData(0, 0, W, H).data;
+  let lo = -1, hi = -1;
+  for (let x = 0; x < W && lo < 0; x++) {
+    for (let y = 0; y < H; y++) if (a[(y * W + x) * 4 + 3] >= 128) { lo = x; break; }
+  }
+  for (let x = W - 1; x >= 0 && hi < 0; x--) {
+    for (let y = 0; y < H; y++) if (a[(y * W + x) * 4 + 3] >= 128) { hi = x; break; }
+  }
+  if (lo < 0) return null;
+  const r = { l: lo / S - pad, r: pad + adv - (hi + 1) / S };
+  _inkWords[key] = r;
+  return r;
+}
+
+/* The words of the buttons with a sign under `root` (or the whole page). */
+function fitButtonWords(root) {
+  if (typeof document === 'undefined' || typeof document.createElement !== 'function') return;
+  const r = root || document;
+  if (typeof r.querySelectorAll !== 'function') return;
+  const words = r.querySelectorAll('.btn > .btn-label');
+  for (let i = 0; i < words.length; i++) {
+    const w = words[i], b = w.parentElement;
+    if (!b || !b.querySelector('svg')) continue;
+    const text = (w.textContent || '').trim();
+    if (!text) { w.removeAttribute('data-ink-l'); w.removeAttribute('data-ink-r'); continue; }
+    const cs = getComputedStyle(w);
+    const size = parseFloat(cs.fontSize) || 13;
+    const ink = _wordInk(text, cs.fontStyle + ' ' + cs.fontWeight + ' ' + cs.fontSize + ' ' + cs.fontFamily, size);
+    if (!ink) continue;
+    w.setAttribute('data-ink-l', ink.l.toFixed(2));
+    w.setAttribute('data-ink-r', ink.r.toFixed(2));
+  }
+}
+
+let _wordsAsked = false;
+function _askWords() {
+  if (_wordsAsked) return;
+  _wordsAsked = true;
+  requestAnimationFrame(function () { _wordsAsked = false; fitButtonWords(); });
+}
+
+(function _watchWords() {
+  if (typeof document === 'undefined' || typeof MutationObserver !== 'function'
+      || typeof document.addEventListener !== 'function') return;
+  const start = function () {
+    new MutationObserver(function (list) {
+      for (let i = 0; i < list.length; i++) {
+        const t = list[i].target, el = t.nodeType === 1 ? t : t.parentElement;
+        if (el && el.closest && el.closest('.btn')) { _askWords(); return; }
+        const added = list[i].addedNodes;
+        for (let k = 0; k < added.length; k++) {
+          const n = added[k];
+          if (n.nodeType === 1 && (n.matches('.btn') || n.querySelector('.btn'))) { _askWords(); return; }
+        }
+      }
+    }).observe(document.documentElement, { subtree: true, childList: true, characterData: true });
+    _askWords();
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(_askWords);
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
+  else start();
+})();
 
 /* ── the sheet ────────────────────────────────────────────────────────────── */
 /* One surface that says what a control is for. There is one in the document

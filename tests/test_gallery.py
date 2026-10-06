@@ -388,3 +388,140 @@ def test_nothing_in_the_page_throws_when_every_control_is_clicked(capture, win):
 
     capture.run_js(win, "unpose(); setPalette('gold-dark'); 1")
     capture.wait(capture.PALETTE_MS)
+
+
+# ── a button's sign and word, centred on their ink, on the window's pixels ──
+# What a button's face is measured against: half a pixel of the display, the
+# least a reader can see move. Its sign and its word are placed by their ink
+# (components.css, icons.js iconInkAttrs, widgets.js fitButtonWords).
+INK_HALF_PX = 0.5
+# The sign's larger side, its stroke included, against the capitals. A size
+# is a rule of the drawing, so it is read from the layout and not counted in
+# pixels: at a scale of 1 a stroke one pixel wide spreads its edge over two,
+# and adds a pixel in nine to whatever is counted.
+SIGN_TO_CAPITALS = (0.97, 1.03)
+
+BUTTONS = r"""(function(name){
+  var cell = shotEl(name), out = [];
+  if (!cell) return JSON.stringify(out);
+  cell.querySelectorAll('.btn').forEach(function(b){
+    var svg = b.querySelector('svg'), w = b.querySelector(':scope > .btn-label');
+    if (!svg || !w || !w.textContent.trim()) return;
+    function box(e){ var r = e.getBoundingClientRect(); return [r.left, r.top, r.right, r.bottom]; }
+    var cs = getComputedStyle(b);
+    out.push({text: w.textContent.trim(), sign: svg.getAttribute('data-segno'),
+              btn: box(b), svg: box(svg), word: box(w), fg: cs.color, bg: cs.backgroundColor,
+              ink: svg.hasAttribute('data-ink-w')
+                     ? Math.max(+svg.getAttribute('data-ink-w'), +svg.getAttribute('data-ink-h')) : 1,
+              stroke: parseFloat(getComputedStyle(svg).strokeWidth),
+              measured: svg.hasAttribute('data-ink-w'), wordMeasured: w.hasAttribute('data-ink-l')});
+  });
+  return JSON.stringify(out); })(%s)"""
+
+
+def _rgb(css):
+    v = [float(x) for x in css[css.index("(") + 1:css.index(")")].split(",")]
+    return v[:3]
+
+
+def _ink(image, box, fg, bg, k, skip=None):
+    """The ink of the button's own colour inside `box` (CSS px), in device
+    pixels: [left, top, right, bottom], each edge where the coverage crosses
+    one half, interpolated between the two pixels around it. `skip` is a box
+    whose columns are not looked at."""
+    d = [fg[i] - bg[i] for i in range(3)]
+    dd = sum(x * x for x in d) or 1.0
+    x0, y0 = int(box[0] * k) - 2, int(box[1] * k) - 2
+    x1, y1 = int(box[2] * k + 0.999) + 2, int(box[3] * k + 0.999) + 2
+    s0, s1 = (int(skip[0] * k), int(skip[2] * k + 0.999)) if skip else (0, -1)
+    cols, rows = {}, {}
+    for y in range(max(0, y0), min(image.height(), y1)):
+        for x in range(max(0, x0), min(image.width(), x1)):
+            if s0 <= x <= s1:
+                continue
+            c = image.pixelColor(x, y)
+            a = ((c.red() - bg[0]) * d[0] + (c.green() - bg[1]) * d[1] + (c.blue() - bg[2]) * d[2]) / dd
+            a = max(0.0, min(1.0, a))
+            cols[x] = max(cols.get(x, 0.0), a)
+            rows[y] = max(rows.get(y, 0.0), a)
+
+    def edges(cov):
+        keys = sorted(cov)
+        inked = [i for i in keys if cov[i] >= 0.5]
+        if not inked:
+            return None
+        lo, hi = inked[0], inked[-1]
+        # the edge sits where the coverage crosses one half
+        a, b = cov.get(lo - 1, 0.0), cov[lo]
+        left = lo - (b - 0.5) / (b - a) if b > a else lo
+        a, b = cov[hi], cov.get(hi + 1, 0.0)
+        right = hi + 1 + (a - 0.5) / (a - b) if a > b else hi + 1
+        return left, right
+    h, v = edges(cols), edges(rows)
+    return [h[0], v[0], h[1], v[1]] if h and v else None
+
+
+@show_window
+def test_a_button_centres_its_sign_and_its_word_on_their_ink(capture, win):
+    """Measured on the window's own pixels, the way a reader sees it. In every
+    button of the gallery with a sign and a word: the sign's ink and the word's
+    capitals sit in the middle of the button from top to bottom, the group of
+    the two inks in the middle from side to side, each within half a pixel of
+    the display; and the sign is as tall as the capitals. Measured before the
+    library placed them by their ink: capitals 0.75 px low in every button, a
+    sign 74 to 119 % of the capitals, a group up to 6 px off the middle.
+
+    The engine paints an <svg> on whole pixels, up to half a pixel from its box;
+    that move is worked out from the box and taken off (measured at scales 1 and
+    1.5: then the sign sits within 0.23 px).
+
+    To see it fail, move a sign: in components.css add 2px to the margin-left
+    of `.btn:has(> .btn-label) svg` inside the @supports block, or keep
+    widgets.js from measuring the words."""
+    k = float(capture.run_js(win, "devicePixelRatio"))
+    wrong, seen = [], 0
+    for shot in ("buttons", "buttons-off", "buttons-wide"):
+        capture.run_js(win, "pose(%s)" % json.dumps(shot))
+        capture.wait(capture.POSE_MS + 300)
+        image = win.grabWindow()
+        for b in json.loads(capture.run_js(win, BUTTONS % json.dumps(shot))):
+            fg, bg = _rgb(b["fg"]), _rgb(b["bg"])
+            if sum((fg[i] - bg[i]) ** 2 for i in range(3)) < 400:
+                continue
+            sign = _ink(image, b["svg"], fg, bg, k)
+            word = _ink(image, b["word"], fg, bg, k, skip=b["svg"])
+            if not b["measured"]:
+                wrong.append("%s (%s): the sign carries no measure of its ink" % (b["text"], b["sign"]))
+            if not b["wordMeasured"]:
+                wrong.append("%s: the word carries no measure of its ink" % b["text"])
+            if not sign or not word:
+                wrong.append("%s: no ink found" % b["text"])
+                continue
+            seen += 1
+            # The engine paints an <svg> on whole pixels of the display: where its
+            # box falls between two, the drawing moves to the nearer, up to half a
+            # pixel. That move is the display's and not the button's, and it is
+            # worked out from the box and taken off the sign before it is judged.
+            snap_x = round(b["svg"][0] * k) - b["svg"][0] * k
+            snap_y = round(b["svg"][1] * k) - b["svg"][1] * k
+            sign = [sign[0] - snap_x, sign[1] - snap_y, sign[2] - snap_x, sign[3] - snap_y]
+            bx0, by0, bx1, by1 = [v * k for v in b["btn"]]
+            cy = (by0 + by1) / 2
+            caps0, caps1 = b["word"][1] * k, b["word"][3] * k
+            group = ((min(sign[0], word[0]) + max(sign[2], word[2])) / 2) - (bx0 + bx1) / 2
+            down = (sign[1] + sign[3]) / 2 - cy
+            caps = (caps0 + caps1) / 2 - cy
+            tall = (b["ink"] * (b["svg"][3] - b["svg"][1]) + b["stroke"]) / (b["word"][3] - b["word"][1])
+            print("  %-20s %-14s group %+.2f  sign %+.2f  capitals %+.2f  tall %.3f  (snap %+.2f %+.2f, device px)"
+                  % (b["text"][:20], b["sign"], group, down, caps, tall, snap_x, snap_y))
+            if abs(group) > INK_HALF_PX:
+                wrong.append("%s (%s): the group of ink %+.2f px off the middle" % (b["text"], b["sign"], group))
+            if abs(down) > INK_HALF_PX:
+                wrong.append("%s (%s): the sign's ink %+.2f px off the middle" % (b["text"], b["sign"], down))
+            if abs(caps) > INK_HALF_PX:
+                wrong.append("%s: the capitals %+.2f px off the middle" % (b["text"], caps))
+            if not SIGN_TO_CAPITALS[0] <= tall <= SIGN_TO_CAPITALS[1]:
+                wrong.append("%s (%s): the sign is %.0f %% of the capitals" % (b["text"], b["sign"], 100 * tall))
+    capture.run_js(win, "unpose()")
+    assert seen >= 8, f"only {seen} buttons with a sign and a word were measured"
+    assert not wrong, "\n".join(wrong)

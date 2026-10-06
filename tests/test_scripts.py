@@ -388,8 +388,10 @@ def test_the_report_counts_what_is_left_to_draw(js):
     # save and export are the one drawing that two names share today
     shared = sorted(sorted(g) for g in r["shared"])
     assert ["export", "save"] in shared, shared
-    # and the glyphs are named, not anonymous
-    assert "info" in r["glyphs"] and "reset" in r["glyphs"]
+    # and the glyphs are named, not anonymous; the plus and the minus a button
+    # carries are drawn, so the button can size them by their ink
+    assert "warning" in r["glyphs"] and "jog" in r["glyphs"]
+    assert not {"add", "remove", "info", "reset"} & set(r["glyphs"])
 
 
 def test_no_page_of_the_library_draws_a_sign_of_its_own():
