@@ -239,6 +239,38 @@ body.maximized .rz{display:none}
 }
 .tab-phase.on{color:var(--text-2)}
 
+/* A PHASE IS ONE BLOCK: its word and its steps on one fill.
+
+   Said as a word in a place of one width and centred there, a phase name
+   stood halfway between the steps before it and its own, and nothing said
+   whose steps were whose: measured on a rail of an application, 42 px from
+   the step before and 41 from its own. So a phase is a block (.tab-group):
+   the word at the end of its place, against its steps, on a fill of its own
+   that goes round it on both sides (the place keeps its width: the room is
+   outside it), more room between two blocks than inside one, and the block of
+   the open step a step lighter than the others, so the reader knows where
+   they are with the rail standing still. The steps count again from 1 in
+   every phase. No width moves with the language: the word keeps its place of
+   one width. Inside the open block a step not reached keeps its disc a step
+   lighter than the fill, and a step under the pointer, the open one apart,
+   takes the hover fill.
+
+   A block that lights up does it in place, never by moving: its fill rises
+   quickly when its phase opens (--t-in, --ease-arrive) and lets go more
+   slowly when it closes (--t-out, --ease-leave), the way a lamp does. It is a
+   transition, so the page keeps the blocks and moves only .on: a block made
+   anew is born lit or unlit and never lights up, and a phase changed again
+   half way turns back from where it is. Nobody who has asked the system for
+   less motion sees it. */
+.tab-group{display:flex;align-items:center;flex:none;padding-left:var(--sp-2);border-radius:var(--r);
+  background:var(--surface-2);transition:background-color var(--t-out) var(--ease-leave)}
+.tab-group.on{background:var(--control);transition:background-color var(--t-in) var(--ease-arrive)}
+.tab-group + .tab-group{margin-left:var(--sp-2)}
+.tab-group > .tab-phase{justify-content:flex-end;margin-right:var(--sp-2)}
+.tab-group .tab.num:not(.active):hover{background:var(--control-hover)}
+.tab-group.on .tab.num:not(.active):not(.done) .tn{background:var(--control-hover)}
+@media (prefers-reduced-motion: reduce){.tab-group,.tab-group.on{transition:none}}
+
 /* -- toolbar buttons ------------------------------------------------------- */
 .ct{
   width:24px;height:24px;border-radius:var(--r-xs);flex-shrink:0;
