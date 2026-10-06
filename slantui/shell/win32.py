@@ -42,7 +42,9 @@ __all__ = [
     "SC_RESTORE", "WS_FRAME", "GWL_STYLE", "SWP_FRAMECHANGED",
     "DWMWA_WINDOW_CORNER_PREFERENCE", "DWMWCP_ROUND", "DWMWA_BORDER_COLOR",
     "DWMWA_COLOR_NONE", "DWMWA_TRANSITIONS_FORCEDISABLED",
-    "IS_WINDOWS", "dress", "set_transitions", "answer", "syscommand",
+    "WM_ENTERSIZEMOVE", "WM_EXITSIZEMOVE", "VENDOR_INTEL",
+    "IS_WINDOWS", "dress", "set_transitions", "answer", "syscommand", "sizemove",
+    "first_adapter_vendor", "is_arranged",
 ]
 
 IS_WINDOWS = sys.platform == "win32"
@@ -50,6 +52,9 @@ IS_WINDOWS = sys.platform == "win32"
 WM_NCCALCSIZE = 0x0083
 WM_NCACTIVATE = 0x0086
 WM_SYSCOMMAND = 0x0112
+WM_ENTERSIZEMOVE = 0x0231
+WM_EXITSIZEMOVE = 0x0232
+VENDOR_INTEL = 0x8086          # the PCI vendor id DXGI reports for Intel's adapters
 SC_MINIMIZE = 0xF020
 SC_MAXIMIZE = 0xF030
 SC_RESTORE = 0xF120
@@ -195,3 +200,104 @@ def syscommand(message: int) -> int | None:
     except Exception:
         pass
     return None
+
+
+def sizemove(message: int) -> bool | None:
+    """True when Windows opens its move or size loop on the window
+    (WM_ENTERSIZEMOVE), False when it closes it (WM_EXITSIZEMOVE), ``None``
+    for every other message. Between the two the window is Windows' to move,
+    and the page is told so (``Window``, ``windowMoving``)."""
+    if not IS_WINDOWS:
+        return None
+    try:
+        from ctypes import wintypes
+
+        msg = wintypes.MSG.from_address(message)
+        if msg.message == WM_ENTERSIZEMOVE:
+            return True
+        if msg.message == WM_EXITSIZEMOVE:
+            return False
+    except Exception:
+        pass
+    return None
+
+
+def first_adapter_vendor() -> int | None:
+    """The PCI vendor id of the first adapter DXGI lists, or ``None`` when it
+    cannot be read (not Windows, no DXGI, an error).
+
+    It is the adapter both halves of a window draw on unless told otherwise:
+    Qt's Direct3D 11 scene graph takes adapter 0, and Chromium's ANGLE takes
+    the same one. Which adapter is first is Windows' choice, the one driving
+    the main display: on a laptop with an Intel and an NVIDIA adapter it was
+    the NVIDIA with a 4K display on it as the main one, and the Intel with
+    only the 1080p one. Read through DXGI's own interfaces, with ctypes and
+    nothing else, because it has to be known before Qt starts."""
+    if not IS_WINDOWS:
+        return None
+    try:
+        import ctypes
+        import uuid
+        from ctypes import wintypes
+
+        class _LUID(ctypes.Structure):
+            _fields_ = [("LowPart", wintypes.DWORD), ("HighPart", wintypes.LONG)]
+
+        class _DESC1(ctypes.Structure):
+            _fields_ = [("Description", wintypes.WCHAR * 128), ("VendorId", wintypes.UINT),
+                        ("DeviceId", wintypes.UINT), ("SubSysId", wintypes.UINT),
+                        ("Revision", wintypes.UINT), ("DedicatedVideoMemory", ctypes.c_size_t),
+                        ("DedicatedSystemMemory", ctypes.c_size_t),
+                        ("SharedSystemMemory", ctypes.c_size_t), ("AdapterLuid", _LUID),
+                        ("Flags", wintypes.UINT)]
+
+        def method(obj, index, *argtypes):
+            table = ctypes.cast(obj, ctypes.POINTER(ctypes.POINTER(ctypes.c_void_p))).contents
+            return ctypes.WINFUNCTYPE(ctypes.c_long, ctypes.c_void_p, *argtypes)(table[index])
+
+        iid = (ctypes.c_ubyte * 16).from_buffer_copy(
+            uuid.UUID("770aae78-f26f-4dba-a829-253c83d1b387").bytes_le)      # IDXGIFactory1
+        factory = ctypes.c_void_p()
+        if _lib("dxgi").CreateDXGIFactory1(ctypes.byref(iid), ctypes.byref(factory)) != 0:
+            return None
+        try:
+            adapter = ctypes.c_void_p()
+            # IDXGIFactory1::EnumAdapters1 is the thirteenth entry of its table
+            if method(factory, 12, wintypes.UINT, ctypes.POINTER(ctypes.c_void_p))(
+                    factory, 0, ctypes.byref(adapter)) != 0:
+                return None
+            try:
+                desc = _DESC1()
+                # IDXGIAdapter1::GetDesc1, the eleventh
+                if method(adapter, 10, ctypes.POINTER(_DESC1))(adapter, ctypes.byref(desc)) != 0:
+                    return None
+                return int(desc.VendorId)
+            finally:
+                method(adapter, 2)(adapter)                                   # Release
+        finally:
+            method(factory, 2)(factory)
+    except Exception:
+        return None
+
+
+def is_arranged(hwnd: int) -> bool:
+    """Whether Windows has the window snapped (arranged): to a half or a
+    quarter of the screen, by a drag to an edge, Win+arrow or a snap layout.
+    Such a window has a size of its own to go back to, and Windows gives it
+    back when a drag starts from the snapped place; a window moved by a
+    program first is no longer snapped, and keeps the half screen size.
+    ``IsWindowArranged`` is user32's, from Windows 10; where it is missing
+    the answer is False."""
+    if not IS_WINDOWS or not hwnd:
+        return False
+    try:
+        from ctypes import wintypes
+
+        fn = getattr(_lib("user32"), "IsWindowArranged", None)
+        if fn is None:
+            return False
+        fn.argtypes = [wintypes.HWND]
+        fn.restype = wintypes.BOOL
+        return bool(fn(wintypes.HWND(hwnd)))
+    except Exception:
+        return False

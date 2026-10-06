@@ -129,6 +129,7 @@ class Window(QQuickView):
     # Defaults on the class, so the event handlers below are safe to run
     # before __init__ has finished.
     _maximized = False              # covers the work area and says so; never zoomed
+    _moving = False                 # inside Windows' move or size loop
     _anim = None                    # the running geometry animation, if any
     _normal_rect = None             # where to come back to from maximised
     _pre_min = None                 # (rect, was maximised) before a minimise
@@ -367,7 +368,7 @@ class Window(QQuickView):
         length of the animation and puts it back afterwards, and a width set
         the other way would be lost on the first zoom.
 
-        The slot that calls this is the application's. The six chrome slots
+        The slot that calls this is the application's. The seven chrome slots
         on :class:`Bridge` are the contract ``titlebar.js`` calls and nothing
         else belongs in that list, the same way ``set_palette`` is reached
         through a slot of the application's own.
@@ -416,6 +417,25 @@ class Window(QQuickView):
                 self.band.set_maximized(on)
                 for strip in self._edges:
                     strip.setVisible(self.band_up and not on)
+
+    # ── moved by Windows ─────────────────────────────────────────────────
+    def _set_moving(self, on: bool) -> None:
+        """Windows opened or closed its move or size loop on the window, and
+        the page is told (``windowMoving``).
+
+        A page that keeps drawing while the window is dragged pays for it on
+        screen. Measured on an Intel UHD 630 from outside the process: with a
+        WebGL view that redraws ten times a second at rest, the screen lost 1
+        to 20 % of the page's frames during a drag, against 0 to 2 % for a
+        page where only the DOM changes, and the older frames that the
+        Direct3D hand over shows (``scene_graph_api``) came only where the
+        canvas had just drawn. So the page is told, and holds what animates
+        by itself until the loop closes: a pulse, a breathing model, a
+        heartbeat. What the user changes still draws, and so does a resize,
+        which is the same loop."""
+        if self._moving != on:
+            self._moving = on
+            self.bridge.windowMoving.emit(on)
 
     def _track_normal(self) -> None:
         """Remember the last geometry the window had as a normal window, for
@@ -607,11 +627,16 @@ class Window(QQuickView):
 
     def nativeEvent(self, eventType, message):
         """Answer the two messages that make the framed HWND look frameless
-        (``win32.answer``) and take over the three system commands that would
-        change the window's state (``win32.syscommand``). Everything else
+        (``win32.answer``), take over the three system commands that would
+        change the window's state (``win32.syscommand``), and tell the page
+        when Windows opens and closes its move loop (``win32.sizemove``,
+        which is only watched: the message goes on). Everything else
         answers (False, 0), which is what the base implementation answers.
         It is not called: in PyQt6, calling ``super().nativeEvent()`` from an
         override crashes the process."""
+        moving = win32.sizemove(int(message))
+        if moving is not None:
+            self._set_moving(moving)
         if self._native_frame:
             answer = win32.answer(int(message))
             if answer is not None:

@@ -161,22 +161,33 @@ initTitlebar();
 ```
 
 `initTitlebar()` wires the band, the three window buttons and the eight `.rz`
-strips, and subscribes to the one signal the window sends back. The six slots
+strips, and subscribes to the two signals the window sends back. The seven slots
 it calls are already on `Bridge`:
 
 | Slot | What it does |
 |---|---|
 | `winDrag` | Hands the drag to the window manager |
+| `winDragFrom(x, y)` | The same, with the point the press landed on put back under the cursor first; the bar calls this one, once the press has travelled |
 | `winResize(edge)` | The same for one of n, s, e, w, ne, nw, se, sw |
 | `winMinimize` | |
 | `winMaximizeToggle` | |
 | `winClose` | |
 | `winIsMaximized` | What the page asks once, on start |
 
-The signal is `windowMaximized(bool)`, and the window emits it whenever it was
-maximised or restored, including when it was Windows that did it. `titlebar.js`
-swaps the button's glyph on it and puts `.maximized` on the body, so a page can
-style for it.
+The first signal is `windowMaximized(bool)`, and the window emits it whenever
+it was maximised or restored, including when it was Windows that did it.
+`titlebar.js` swaps the button's glyph on it and puts `.maximized` on the body,
+so a page can style for it.
+
+The second is `windowMoving(bool)`: true when Windows opens its move or size loop
+on the window (a drag of the band, a resize from an edge, a move from the
+keyboard), false when it closes it. `titlebar.js` puts it on the page as
+`windowMoving()`, as `data-window-moving` on the root element and as a
+`windowmoving` event, and a page holds what animates by itself until it is
+false: a pulse, a breathing model, a canvas that redraws on a timer. Measured on
+an Intel adapter, a WebGL view that kept redrawing ten times a second lost 1 to
+20 % of the page's frames during a drag, against 0 to 2 % for a page where only
+the DOM changed. What the user changes still draws, and so does a resize.
 
 Their names are the contract. A page written against them works with any
 application built on this class, and a `QMainWindow` answers all of it too,
@@ -390,7 +401,7 @@ def setMinWidth(self, width):
     return self.window.set_min_width(width)
 ```
 
-The slot is yours. The six chrome slots are the contract `titlebar.js` calls
+The slot is yours. The seven chrome slots are the contract `titlebar.js` calls
 and nothing else belongs in that list. The number comes back capped to the
 screen, because a minimum wider than the display is a window nobody can use.
 
@@ -406,6 +417,15 @@ and before the first window:
 - **The Chromium flags.** Chromium's own defaults are kept, including its GPU
   blocklist, so a machine whose driver Chromium knows to be broken falls back
   to software compositing and still shows the application.
+- **How the window presents.** On Windows the window's swap chain uses the
+  blit model (`QT_D3D_NO_FLIP`): with the flip model a dragged window on a 4K
+  display at 150 % moved every other refresh. And the scene graph draws with
+  OpenGL when the first adapter is Intel's (`QSG_RHI_BACKEND`): QtWebEngine hands
+  the page's frames to a Direct3D 11 scene graph with no fence, and on an Intel
+  UHD 630 the screen showed, for one refresh, a frame older than the one before
+  it, where OpenGL locks the frame before reading it. Every other adapter keeps
+  Direct3D 11. Both are `setdefault`: an application that says otherwise in its
+  own environment first is obeyed.
 - **The high DPI policy.** Pass through, so a 150 % display gets a 150 % UI and
   the page sees `devicePixelRatio` 1.5. A page that sizes a canvas backing
   store from that ratio is never blurry on a scaled display.

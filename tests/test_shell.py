@@ -20,10 +20,13 @@ TITLEBAR_JS = (ROOT / "slantui" / "js" / "titlebar.js").read_text(encoding="utf-
 BRIDGE_PY = (SHELL / "bridge.py").read_text(encoding="utf-8")
 WINDOW_PY = (SHELL / "window.py").read_text(encoding="utf-8")
 
-# The six slots and the one signal the page's title bar uses.
-WINDOW_SLOTS = ("winDrag", "winResize", "winMinimize", "winMaximizeToggle", "winClose",
+# The six slots and the one signal the page's title bar uses. The seventh,
+# winDrag, stays on the bridge for a page that hands a press over at once: the
+# bar itself hands it over once it has travelled, with where it landed.
+WINDOW_SLOTS = ("winDragFrom", "winResize", "winMinimize", "winMaximizeToggle", "winClose",
                 "winIsMaximized")
-WINDOW_SIGNAL = "windowMaximized"
+KEPT_SLOTS = ("winDrag",)
+WINDOW_SIGNALS = ("windowMaximized", "windowMoving")
 
 
 # ── text level ──────────────────────────────────────────────────────────────
@@ -40,13 +43,14 @@ def test_every_slot_the_page_calls_is_on_the_bridge():
     """titlebar.js is the only caller; whatever it asks for has to exist."""
     called = set(re.findall(r"'(win[A-Z][A-Za-z]+)'", TITLEBAR_JS))
     assert called == set(WINDOW_SLOTS)
-    for slot in WINDOW_SLOTS:
+    for slot in WINDOW_SLOTS + KEPT_SLOTS:
         assert re.search(rf"@pyqtSlot\([^)]*\)\s*\n\s*def {slot}\(", BRIDGE_PY), slot
 
 
 def test_the_signal_the_page_subscribes_to_is_on_the_bridge():
-    assert f"Bridge.on('{WINDOW_SIGNAL}'" in TITLEBAR_JS
-    assert re.search(rf"^\s+{WINDOW_SIGNAL} = pyqtSignal\(bool\)", BRIDGE_PY, re.M)
+    for signal in WINDOW_SIGNALS:
+        assert f"Bridge.on('{signal}'" in TITLEBAR_JS
+        assert re.search(rf"^\s+{signal} = pyqtSignal\(bool\)", BRIDGE_PY, re.M)
 
 
 def test_the_channel_name_matches_the_script():
@@ -121,6 +125,46 @@ def test_syscommand_reads_the_command_and_masks_the_low_bits():
     assert win32.answer(ctypes.addressof(msg)) == (True, 0)
 
 
+@pytest.mark.skipif(sys.platform != "win32", reason="a Win32 MSG")
+def test_sizemove_says_when_the_move_loop_opens_and_closes():
+    from ctypes import wintypes
+
+    from slantui.shell import win32
+
+    msg = wintypes.MSG()
+    msg.message = win32.WM_ENTERSIZEMOVE
+    assert win32.sizemove(ctypes.addressof(msg)) is True
+    msg.message = win32.WM_EXITSIZEMOVE
+    assert win32.sizemove(ctypes.addressof(msg)) is False
+    msg.message = 0x0003                           # WM_MOVE: not the loop
+    assert win32.sizemove(ctypes.addressof(msg)) is None
+
+
+def test_the_window_tells_the_page_once_per_change_of_the_move_loop():
+    """The page holds its idle animations while Windows moves the window."""
+    from slantui.shell import Bridge
+    from slantui.shell.window import Window
+
+    class Stand:
+        _moving = False
+        bridge = Bridge()
+
+    w, got = Stand(), []
+    w.bridge.windowMoving.connect(got.append)
+    for on in (True, True, False, False, True):
+        Window._set_moving(w, on)
+    assert got == [True, False, True]
+    assert "win32.sizemove(" in re.sub(r'""".*?"""', "", WINDOW_PY, flags=re.S)
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="DXGI")
+def test_the_first_adapter_is_read_from_dxgi():
+    from slantui.shell import win32
+
+    v = win32.first_adapter_vendor()
+    assert v is None or 0 < v < 0x10000
+
+
 def test_the_window_never_zooms_the_hwnd():
     """Maximised is a state of the class: see the note in win32.py on what
     Windows does to a zoomed window that carries the frame styles."""
@@ -153,6 +197,9 @@ def test_the_win32_helpers_do_nothing_off_windows(monkeypatch):
     win32.set_transitions(0, False)
     assert win32.answer(0) is None
     assert win32.syscommand(0) is None
+    assert win32.sizemove(0) is None
+    assert win32.first_adapter_vendor() is None
+    assert win32.is_arranged(1) is False
 
 
 # ── the environment ─────────────────────────────────────────────────────────
@@ -166,8 +213,9 @@ def test_chromium_flags():
 
 
 def test_configure_environment_honours_the_software_switch(monkeypatch):
-    from slantui.shell.application import SOFTWARE_RENDER_VAR, configure_environment
+    from slantui.shell.application import GRAPHICS_API_VAR, SOFTWARE_RENDER_VAR, configure_environment
 
+    monkeypatch.delenv(GRAPHICS_API_VAR, raising=False)
     monkeypatch.delenv(SOFTWARE_RENDER_VAR, raising=False)
     monkeypatch.delenv("QSG_RHI_PREFER_SOFTWARE_RENDERER", raising=False)
     monkeypatch.setenv("QTWEBENGINE_CHROMIUM_FLAGS", "stale")
@@ -180,6 +228,68 @@ def test_configure_environment_honours_the_software_switch(monkeypatch):
     configure_environment(True)
     assert os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] == "--disable-gpu"
     assert os.environ["QSG_RHI_PREFER_SOFTWARE_RENDERER"] == "1"
+
+
+def test_configure_environment_chooses_the_blit_model_on_windows(monkeypatch):
+    """With the flip model a dragged window moved at 30 Hz on a 4K display at
+    150 %, and the screen lost a third of the page's frames. The application's
+    own choice wins."""
+    import os
+    import sys
+    from slantui.shell.application import BLIT_MODEL_VAR, GRAPHICS_API_VAR, configure_environment
+
+    monkeypatch.delenv(GRAPHICS_API_VAR, raising=False)
+    monkeypatch.delenv(BLIT_MODEL_VAR, raising=False)
+    configure_environment(True)
+    if sys.platform == "win32":
+        assert os.environ[BLIT_MODEL_VAR] == "1"
+    else:
+        assert BLIT_MODEL_VAR not in os.environ
+    monkeypatch.setenv(BLIT_MODEL_VAR, "0")
+    configure_environment(True)
+    assert os.environ[BLIT_MODEL_VAR] == "0"
+
+
+def test_the_scene_graph_draws_with_opengl_on_intel_only():
+    """QtWebEngine's Direct3D 11 hand over has no fence, and on an Intel
+    adapter the screen showed older frames for a refresh; on NVIDIA it came
+    out clean and OpenGL moved a dragged window ten times a second."""
+    from slantui.shell.application import scene_graph_api
+
+    assert scene_graph_api(0x8086) == "opengl"
+    assert scene_graph_api(0x10DE) is None          # NVIDIA
+    assert scene_graph_api(0x1002) is None          # AMD: not measured, Qt's own choice
+    assert scene_graph_api(0x1414) is None          # Microsoft's Basic Render, WARP, remote desktop
+    assert scene_graph_api(None) is None
+
+
+def test_configure_environment_chooses_the_graphics_api_by_adapter(monkeypatch):
+    """Read once, before Qt starts; the application's own choice wins, and the
+    software path keeps Direct3D's WARP."""
+    import os
+    import sys
+    from slantui.shell import win32
+    from slantui.shell.application import GRAPHICS_API_VAR, SOFTWARE_RENDER_VAR, configure_environment
+
+    monkeypatch.delenv(GRAPHICS_API_VAR, raising=False)
+    monkeypatch.delenv(SOFTWARE_RENDER_VAR, raising=False)
+    monkeypatch.delenv("QSG_RHI_PREFER_SOFTWARE_RENDERER", raising=False)
+    monkeypatch.setattr(win32, "first_adapter_vendor", lambda: 0x8086)
+    configure_environment(True)
+    if sys.platform == "win32":
+        assert os.environ[GRAPHICS_API_VAR] == "opengl"
+    else:
+        assert GRAPHICS_API_VAR not in os.environ
+    monkeypatch.delenv(GRAPHICS_API_VAR, raising=False)
+    configure_environment(False)
+    assert GRAPHICS_API_VAR not in os.environ
+    monkeypatch.setattr(win32, "first_adapter_vendor", lambda: 0x10DE)
+    configure_environment(True)
+    assert GRAPHICS_API_VAR not in os.environ
+    monkeypatch.setenv(GRAPHICS_API_VAR, "d3d11")
+    monkeypatch.setattr(win32, "first_adapter_vendor", lambda: 0x8086)
+    configure_environment(True)
+    assert os.environ[GRAPHICS_API_VAR] == "d3d11"
 
 
 def test_an_empty_app_id_is_left_alone():
@@ -221,6 +331,12 @@ class FakeWindow:
     def startSystemMove(self):
         self.calls.append("startSystemMove")
 
+    def setPosition(self, x, y):
+        self.calls.append(("setPosition", x, y))
+
+    def winId(self):
+        return 0
+
     def startSystemResize(self, edges):
         self.calls.append(("startSystemResize", edges))
 
@@ -242,7 +358,9 @@ def test_the_bridge_is_a_qobject_with_the_signal():
     got = []
     b.windowMaximized.connect(got.append)
     b.windowMaximized.emit(True)
-    assert got == [True]
+    b.windowMoving.connect(got.append)
+    b.windowMoving.emit(False)
+    assert got == [True, False]
 
 
 def test_the_slots_reach_the_window(bridge):
@@ -289,6 +407,34 @@ def test_a_bridge_with_no_window_does_nothing():
     b.winResize("se")
     assert b.winIsMaximized() is False
     b.shutdown()
+
+
+def test_a_press_that_travelled_puts_its_point_back_under_the_cursor(bridge, monkeypatch):
+    """The bar hands a press over once it has moved; the window goes back
+    under the cursor by that much first. Not a maximised window and not a
+    snapped one: Windows restores those under the cursor itself, and a snapped
+    window moved first would keep its half screen size."""
+    from slantui.shell import bridge as B
+    from slantui.shell import win32
+
+    class Cursor:
+        @staticmethod
+        def pos():
+            return type("P", (), {"x": lambda self: 500, "y": lambda self: 300})()
+
+    monkeypatch.setattr(B, "QCursor", Cursor)
+    monkeypatch.setattr(win32, "is_arranged", lambda hwnd: False)
+    bridge.winDragFrom(60, 12)
+    assert bridge.window.calls == [("setPosition", 440, 288), "startSystemMove"]
+    bridge.window.calls.clear()
+    bridge.window.maximized = True
+    bridge.winDragFrom(60, 12)
+    assert bridge.window.calls == ["startSystemMove"]
+    bridge.window.calls.clear()
+    bridge.window.maximized = False
+    monkeypatch.setattr(win32, "is_arranged", lambda hwnd: True)
+    bridge.winDragFrom(60, 12)
+    assert bridge.window.calls == ["startSystemMove"]
 
 
 def test_a_window_with_no_handle_is_not_dragged(bridge):

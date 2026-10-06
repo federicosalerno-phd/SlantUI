@@ -96,7 +96,7 @@ Writing them on every start means a change in the library shows up the next
 time the window opens. An application that installs into a read only folder
 writes them once at install time instead, into the same folder as the page.
 
-**`Bridge` already carries the window chrome.** The six slots the title bar
+**`Bridge` already carries the window chrome.** The seven slots the title bar
 calls are on it. Your subclass adds what your application does, and nothing
 else.
 

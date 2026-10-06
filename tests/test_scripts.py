@@ -424,7 +424,8 @@ TITLEBAR_PAGE = """
   });
   // stand ins for bridge.js, which has its own test. be() is variadic there,
   // so it is variadic here: a trailing function is the callback.
-  const Bridge = { subs: [], on: function (s, fn) { this.subs.push(s); } };
+  const Bridge = { subs: [], fns: {}, on: function (s, fn) { this.subs.push(s); this.fns[s] = fn; },
+                  fire: function (s, v) { this.fns[s](v); } };
   function be(m) {
     const rest = Array.prototype.slice.call(arguments, 1);
     let cb = null;
@@ -546,8 +547,9 @@ def test_the_title_bar_writes_the_credit_and_wires_the_window(js):
     assert J(js, "bar.children.map(function (c) { return c.className; })") == \
         ["tbar-band", "tbar-brand", "tbar-drag", "tbar-credit", "tbar-btns"]
 
-    # it asked Qt for the state and subscribed to changes of it
-    assert J(js, "Bridge.subs") == ["windowMaximized"]
+    # it asked Qt for the state and subscribed to changes of it, and to the
+    # move loop opening and closing
+    assert J(js, "Bridge.subs") == ["windowMaximized", "windowMoving"]
     assert J(js, "CALLS") == [["winIsMaximized", None]]
     # the library writes no word of its own on the button: the words are the
     # application's, in its language (setWindowHints), and until it gives them
@@ -557,13 +559,36 @@ def test_the_title_bar_writes_the_credit_and_wires_the_window(js):
     assert J(js, "bMax.title") == "Ingrandisci"
     assert J(js, "bMax.getAttribute('aria-label')") == "Ingrandisci"
 
-    # a press on the bar moves the window; on a button, or with another
-    # button of the mouse, it does not
-    js.eval("CALLS.length = 0; fire(bar, 'mousedown', { button: 0 })")
-    assert J(js, "CALLS") == [["winDrag", None]]
-    js.eval("CALLS.length = 0; fire(bMin, 'mousedown', { button: 0 })")
+    # a press on the bar moves the window once it travels Windows' drag
+    # distance, never when it lands: handed over at the press, Windows waits
+    # the double click time with the page frozen. A press that does not
+    # travel is a click; on a button, or with another button of the mouse,
+    # nothing moves at all
+    # (with the point the press landed on, which the window puts back under
+    # the cursor: Windows would hold it by where the cursor is by then)
+    js.eval("CALLS.length = 0; fire(bar, 'mousedown', { button: 0, screenX: 100, screenY: 10,"
+            " clientX: 60, clientY: 12 })")
     assert J(js, "CALLS") == []
-    js.eval("fire(bar, 'mousedown', { button: 2 })")
+    js.eval("fire(bar, 'mousemove', { buttons: 1, screenX: 103, screenY: 12, clientX: 63, clientY: 14 })")
+    assert J(js, "CALLS") == []
+    js.eval("fire(bar, 'mousemove', { buttons: 1, screenX: 100 + DRAG_START_PX, screenY: 10,"
+            " clientX: 60 + DRAG_START_PX, clientY: 12 })")
+    assert J(js, "CALLS") == [["winDragFrom", 60, 12]]
+    js.eval("CALLS.length = 0; fire(bar, 'mousemove', { buttons: 1, screenX: 140, screenY: 40 })")
+    assert J(js, "CALLS") == []
+    js.eval("fire(bar, 'mousedown', { button: 0, screenX: 100, screenY: 10 });"
+            "fire(bar, 'mouseup', { button: 0, screenX: 101, screenY: 10 });"
+            "fire(bar, 'mousemove', { buttons: 0, screenX: 140, screenY: 40 })")
+    assert J(js, "CALLS") == []
+    js.eval("fire(bar, 'mousedown', { button: 0, screenX: 100, screenY: 10 });"
+            "fire(bar, 'mousemove', { buttons: 0, screenX: 140, screenY: 40 });"
+            "fire(bar, 'mousemove', { buttons: 1, screenX: 180, screenY: 40 })")
+    assert J(js, "CALLS") == []
+    js.eval("fire(bMin, 'mousedown', { button: 0, screenX: 700, screenY: 10 });"
+            "fire(bMin, 'mousemove', { buttons: 1, screenX: 740, screenY: 10 })")
+    assert J(js, "CALLS") == []
+    js.eval("fire(bar, 'mousedown', { button: 2, screenX: 100, screenY: 10 });"
+            "fire(bar, 'mousemove', { buttons: 2, screenX: 140, screenY: 10 })")
     assert J(js, "CALLS") == []
 
     js.eval("bMin.onclick(); bMax.onclick(); bClose.onclick()")
@@ -588,6 +613,19 @@ def test_the_title_bar_writes_the_credit_and_wires_the_window(js):
     assert J(js, "document.body.classList.contains('maximized')") is False
     assert J(js, "bMax.title") == "Ingrandisci"
     assert J(js, "bMax.innerHTML") == J(js, "icon('win-maximise')")
+
+    # while Windows moves the window the page can ask, the root element says
+    # it, and an event says when it starts and when it ends, once each
+    js.eval("var MOVES = []; window.addEventListener('windowmoving', function (e) { MOVES.push(e.detail); })")
+    assert J(js, "windowMoving()") is False
+    js.eval("Bridge.fire('windowMoving', true)")
+    assert J(js, "windowMoving()") is True
+    assert J(js, "document.documentElement.getAttribute('data-window-moving')") == ""
+    js.eval("Bridge.fire('windowMoving', true)")
+    js.eval("Bridge.fire('windowMoving', false)")
+    assert J(js, "windowMoving()") is False
+    assert J(js, "document.documentElement.getAttribute('data-window-moving')") is None
+    assert J(js, "MOVES") == [True, False]
 
 
 def test_the_mark_is_a_button_only_when_it_has_been_given_something_to_do(js):
@@ -619,11 +657,14 @@ def test_the_mark_is_a_button_only_when_it_has_been_given_something_to_do(js):
     assert J(js, "went") == 1
 
     # and a press on it neither moves the window nor maximises it
-    js.eval(f"CALLS.length = 0; fire({btn}, 'mousedown', {{ button: 0 }})")
+    js.eval(f"CALLS.length = 0; fire({btn}, 'mousedown', {{ button: 0, screenX: 10, screenY: 10 }})")
+    js.eval(f"fire({btn}, 'mousemove', {{ buttons: 1, screenX: 60, screenY: 10 }})")
     js.eval(f"fire({btn}, 'dblclick', {{}})")
     assert J(js, "CALLS") == []
-    js.eval("CALLS.length = 0; fire(bar, 'mousedown', { button: 0 })")
-    assert J(js, "CALLS") == [["winDrag", None]]
+    js.eval("CALLS.length = 0; fire(bar, 'mousedown', { button: 0, screenX: 300, screenY: 10,"
+            " clientX: 260, clientY: 10 })")
+    js.eval("fire(bar, 'mousemove', { buttons: 1, screenX: 350, screenY: 10 })")
+    assert J(js, "CALLS") == [["winDragFrom", 260, 10]]
 
     # a second registration swaps the action instead of nesting a button
     js.eval("let other = 0; setBrandAction(function () { other++; })")

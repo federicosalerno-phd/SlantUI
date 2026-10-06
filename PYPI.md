@@ -599,7 +599,7 @@ flags, the high DPI policy and the WebEngine initialisation. `Window` is a
 presents per resize; the Quick window costs one), with the page's window
 chrome wired: the HWND carries the real frame styles so Windows animates
 it, answers `WM_NCCALCSIZE` so no caption is ever laid out, and rounds its
-own corners. `Bridge` carries the six slots and the one signal the title
+own corners. `Bridge` carries the seven slots and the two signals the title
 bar uses; an application subclasses it and adds its own.
 
 Maximised is a state of the window, not of the HWND. A window that carries

@@ -31,6 +31,11 @@ function Event(type, init) {
 }
 Event.prototype.preventDefault = function () { this.defaultPrevented = true; };
 Event.prototype.stopPropagation = function () { this.stopped = true; };
+function CustomEvent(type, init) {
+  Event.call(this, type, init);
+  this.detail = init && init.detail !== undefined ? init.detail : null;
+}
+CustomEvent.prototype = Object.create(Event.prototype);
 
 let CSS_VARS = {};
 /* The custom properties come from CSS_VARS. An element's fill and opacity
@@ -140,6 +145,11 @@ El.prototype.removeChild = function (c) {
   c.parentNode = null;
   return c;
 };
+El.prototype.toggleAttribute = function (name, force) {
+  const on = force === undefined ? !(name in this.attrs) : !!force;
+  if (on) this.attrs[name] = ''; else delete this.attrs[name];
+  return on;
+};
 El.prototype.addEventListener = function (type, fn) {
   (this.listeners[type] = this.listeners[type] || []).push(fn);
 };
@@ -174,6 +184,13 @@ globalThis.innerWidth = 800;
 globalThis.addEventListener = function (type, fn, capture) {
   const where = capture ? globalThis._capture : globalThis._bubble;
   (where[type] = where[type] || []).push(fn);
+};
+/* An event sent to the window itself: its listeners, capture first. */
+globalThis.dispatchEvent = function (ev) {
+  ev.target = ev.target || globalThis;
+  const all = ((globalThis._capture[ev.type]) || []).concat((globalThis._bubble[ev.type]) || []);
+  for (let i = 0; i < all.length; i++) all[i].call(globalThis, ev);
+  return !ev.defaultPrevented;
 };
 globalThis.CSS = { supports: function () { return globalThis.SUPPORTS_PATH !== false; } };
 globalThis.SUPPORTS_PATH = true;

@@ -39,9 +39,9 @@
          .wbtn.wbtn-min  .wbtn.wbtn-max  .wbtn.wbtn-close
      .rz[data-edge]            the eight resize strips, anywhere in the body
 
-   And on the Python side, six slots on the bridge object and one signal:
-   winDrag, winResize(edge), winMinimize, winMaximizeToggle, winClose,
-   winIsMaximized, and windowMaximized(bool).
+   And on the Python side, seven slots on the bridge object and two signals:
+   winDrag, winDragFrom(x, y), winResize(edge), winMinimize, winMaximizeToggle, winClose,
+   winIsMaximized, windowMaximized(bool) and windowMoving(bool).
 
    One thing goes the other way without the bridge: once the band is on
    screen, data-band="shown" goes on the root element, and the window, which
@@ -52,8 +52,8 @@
    `win-maximise` and `win-restore` in icons.js, like every other sign.
 
    Leaves on the window: initTitlebar, shapeTitleBar, setBrandAction,
-   setWindowHints, onWindowMaximized, roundedPolyPath, CREDIT_TEXT, BAND_TIMING,
-   BAND_LATE_MS.
+   setWindowHints, onWindowMaximized, windowMoving, roundedPolyPath, CREDIT_TEXT,
+   BAND_TIMING, BAND_LATE_MS, DRAG_START_PX.
    ========================================================================== */
 
 /* The licence's one condition. The text is fixed here and the size in
@@ -346,17 +346,53 @@ function setBrandAction(fn, hint) {
   return btn;
 }
 
+/* How far a press on the bar has to travel before it is a move: Windows' own
+   drag distance (SM_CXDRAG), in the page's pixels.
+
+   A press is not handed to the window manager when it lands. Handed over at
+   once, with the button down and the mouse still, Windows waits about the
+   double click time before it opens its move loop, and while it waits the
+   page gets no frames: measured, 515 ms of a frozen window for every press
+   that did not move at once. Handed over on the first movement past this
+   distance, the loop opens in 25 ms and the page misses nothing. A press
+   that never travels this far is a click, and two of them are the double
+   click that maximises.
+
+   Where the press landed goes with it (winDragFrom): Windows holds the
+   window by wherever the cursor is when the loop opens, which is past the
+   press by then, and the window would trail the hand by that much. */
+const DRAG_START_PX = 4;
+
+/* Anywhere on the bar except a control starts a system move, once the press
+   has travelled DRAG_START_PX. */
+function _wireDrag(bar) {
+  let from = null;
+  bar.addEventListener('mousedown', function (e) {
+    if (e.button !== 0 || _isControl(e.target)) return;
+    e.preventDefault();
+    from = { x: e.screenX, y: e.screenY, cx: e.clientX, cy: e.clientY };
+  });
+  /* In the capture phase: a few pixels below the band the pointer is over the
+     page, and a widget there that stops a mousemove from bubbling (a canvas,
+     a viewer, a jog) would otherwise keep the window from ever moving. */
+  window.addEventListener('mousemove', function (e) {
+    if (!from) return;
+    if (!(e.buttons & 1)) { from = null; return; }
+    if (Math.abs(e.screenX - from.x) < DRAG_START_PX &&
+        Math.abs(e.screenY - from.y) < DRAG_START_PX) return;
+    const at = from;
+    from = null;
+    be('winDragFrom', at.cx, at.cy);
+  }, true);
+  window.addEventListener('mouseup', function () { from = null; }, true);
+}
+
 function initTitlebar() {
   const bar = document.querySelector('.titlebar');
   if (!bar) return;
   _ensureCredit(bar);
 
-  /* Anywhere on the bar except a control starts a system move. */
-  bar.addEventListener('mousedown', function (e) {
-    if (e.button !== 0 || _isControl(e.target)) return;
-    e.preventDefault();
-    be('winDrag');
-  });
+  _wireDrag(bar);
   bar.addEventListener('dblclick', function (e) {
     if (_isControl(e.target)) return;
     be('winMaximizeToggle');
@@ -384,6 +420,31 @@ function initTitlebar() {
 
   Bridge.on('windowMaximized', onWindowMaximized);
   be('winIsMaximized', onWindowMaximized);
+  Bridge.on('windowMoving', _onWindowMoving);
+}
+
+/* WHILE WINDOWS MOVES THE WINDOW, THE PAGE HOLDS STILL.
+
+   Between a press on the band that has travelled (or a resize from an edge,
+   or a move from the keyboard) and the release, the window is inside
+   Windows' move loop, and the window says so (windowMoving). A page that
+   keeps animating by itself in that time pays for it on screen: measured on
+   an Intel adapter, a WebGL view redrawing ten times a second lost 1 to 20 %
+   of the page's frames during a drag, against 0 to 2 % for a page where only
+   the DOM changed. So the page asks `windowMoving()` before drawing what
+   nobody asked for, a pulse, a breathing model, a heartbeat, and picks up
+   again on the `windowmoving` event that says the loop has closed, from
+   where it stopped. What the user changes still draws, and so does a resize,
+   which is the same loop. The state is also on the root element, as
+   data-window-moving, for a stylesheet that wants it. */
+let _moving = false;
+function windowMoving() { return _moving; }
+function _onWindowMoving(on) {
+  on = !!on;
+  if (on === _moving) return;
+  _moving = on;
+  document.documentElement.toggleAttribute('data-window-moving', on);
+  window.dispatchEvent(new CustomEvent('windowmoving', { detail: on }));
 }
 
 /* What is under the band changes without the window changing size: a row is

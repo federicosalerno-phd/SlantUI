@@ -17,9 +17,9 @@ bridge the page talks to.
 
 The page loads SlantUI's stylesheets and scripts, puts a `.titlebar` in its
 markup, and calls `Bridge.init()` and `initTitlebar()`. Everything the window
-chrome needs is then wired: the six slots on :class:`Bridge` answer the
+chrome needs is then wired: the seven slots on :class:`Bridge` answer the
 page's title bar, and :class:`Window` tells the page when Windows maximised
-or restored it.
+or restored it, and when Windows is moving it.
 
 Importing this package needs PyQt6 with QtWebEngine (or PyQt5 with
 PyQtWebEngine): ``pip install "slantui[shell]"``. The rest of SlantUI does

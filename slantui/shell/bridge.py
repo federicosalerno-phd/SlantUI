@@ -6,7 +6,7 @@ and hands an instance to :class:`slantui.shell.Window`, which registers it on
 the channel under the name the page's ``bridge.js`` expects (``backend``
 unless both sides agree on another).
 
-The six slots and the one signal here are the entire Python side of a
+The seven slots and the two signals here are the entire Python side of a
 frameless window, and they are what ``titlebar.js`` calls. Their names are
 the contract: a page written against them works with any application built
 on this class.
@@ -18,7 +18,8 @@ widget window and still use this bridge.
 """
 from __future__ import annotations
 
-from .qt import QObject, Qt, pyqtSignal, pyqtSlot
+from . import win32
+from .qt import QCursor, QObject, Qt, pyqtSignal, pyqtSlot
 
 __all__ = ["Bridge"]
 
@@ -31,6 +32,13 @@ class Bridge(QObject):
     # Windows (snap, Win+Up, a double click on the band). titlebar.js swaps
     # the button's glyph on it.
     windowMaximized = pyqtSignal(bool)
+
+    # Emitted when Windows opens its move or size loop on the window (True)
+    # and when it closes it (False): a drag of the band, a resize from an
+    # edge, a move from the keyboard. titlebar.js puts it on the page as
+    # `windowMoving()` and a `windowmoving` event, and a page holds its idle
+    # animations while it is true (see window.py, _set_moving).
+    windowMoving = pyqtSignal(bool)
 
     # Set by the window that registers the bridge. Whatever it is, the slots
     # below call these on it: isMaximized(), showMaximized(), showNormal(),
@@ -71,6 +79,31 @@ class Bridge(QObject):
         handle = self.window.windowHandle()
         if handle is not None:
             handle.startSystemMove()
+
+    @pyqtSlot(float, float)
+    def winDragFrom(self, x: float, y: float) -> None:
+        """The same, for a press that has already travelled. (x, y) is where
+        the press landed, in the page's pixels from the window's corner.
+
+        The title bar hands a press over only once it has moved
+        (``titlebar.js``, ``DRAG_START_PX``), and Windows holds the window by
+        wherever the cursor is when the move starts. By then the hand has gone
+        some way, so the window would trail it by that much for the whole drag,
+        the point that was taken no longer under the cursor: measured, thirty
+        pixels at a brisk start. So that point goes back under the cursor
+        first. A maximised window is left alone, and so is a snapped one:
+        Windows restores either under the cursor itself, and a snapped window
+        moved by a program first would forget it was snapped and keep its half
+        screen size (``win32.is_arranged``)."""
+        if self.window is None:
+            return
+        handle = self.window.windowHandle()
+        if handle is None:
+            return
+        if not self.window.isMaximized() and not win32.is_arranged(int(handle.winId())):
+            c = QCursor.pos()
+            handle.setPosition(round(c.x() - x), round(c.y() - y))
+        handle.startSystemMove()
 
     @pyqtSlot(str)
     def winResize(self, edge: str) -> None:
