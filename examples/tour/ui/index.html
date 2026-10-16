@@ -298,6 +298,26 @@ meshing: 1 of 3
             </div>
           </div>
 
+          <div class="sec-lbl">Recent scans</div>
+          <!-- A list longer than the room for it, one scan at a time: the field
+               narrows it as it is typed into, the arrows step through it, and
+               Enter opens the one in the frame (app.js, wireScans). -->
+          <input class="input" type="text" id="scanFind" placeholder="Find a scan" autocomplete="off"/>
+          <div class="carousel" id="scans">
+            <div class="carousel-frame" tabindex="0">
+              <div class="carousel-note" id="scansNote"></div>
+              <div class="carousel-items" id="scanItems"></div>
+            </div>
+            <div class="carousel-steps">
+              <button class="btn btn-2 carousel-prev" type="button" title="The scan before">
+                <svg viewBox="0 0 24 24"><polyline points="7.5 14 12 9.5 16.5 14"/></svg>
+              </button>
+              <button class="btn btn-2 carousel-next" type="button" title="The scan after">
+                <svg viewBox="0 0 24 24"><polyline points="7.5 10 12 14.5 16.5 10"/></svg>
+              </button>
+            </div>
+          </div>
+
           <div class="sec-lbl">Notes</div>
           <div class="card col">
             <p class="note">

@@ -5,7 +5,7 @@ SlantUI alone. These checks hold it to that answer.
 
 The text level checks always run. They read the page, the stylesheet and the
 script as files: every class the markup uses has to be defined by the
-library or by the page's own four rules, every widget the library defines
+library or by the page's own five rules, every widget the library defines
 has to appear in the page, and every slot the page calls has to exist on the
 backend. The last one is the same check ``test_shell.py`` makes for the
 window chrome, applied to the application's own slots.
@@ -61,6 +61,7 @@ SCRIPT_ONLY = {
     "tbar-logo-btn",                               # setBrandAction() makes it
     "busy", "ok", "warn", "err", "on", "done",     # states of a pill, a tab, a toggle
     "drag", "jog-drag",                            # a jog while the hand holds it
+    "press",                                       # a carousel's button while its key is down
 }
 
 

@@ -59,6 +59,7 @@ SCRIPT_ONLY = {
     "maximized",                                   # the window state, on body
     "tbar-credit",                                 # titlebar.js writes it
     "drag", "jog-drag",                            # a jog while the hand holds it
+    "press",                                       # a carousel's button while its key is down
 }
 
 

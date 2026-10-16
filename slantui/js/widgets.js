@@ -44,6 +44,11 @@
 
         <div class="jog" data-min="0" data-max="360" data-wrap data-gain="0.28"></div>
 
+   2c. `.carousel`, a list seen one item at a time, in a frame that keeps its
+      place whatever the list holds; the hand steps through it with two
+      buttons, the arrow keys and the wheel, and the item that comes in lights
+      up where the last one was. See the block over `setCarousel` below.
+
    3. `fitOneLine`, text that must never spill out of its box. A file name
       can run to fifty characters; the label shrinks until it fits, and only
       if it is still too long does it drop the middle, keeping the start and
@@ -77,8 +82,10 @@
       value, and the whole value in its tooltip.
 
    Leaves on the window: initSelects, setOptions, setPicker, numStep, setJog,
-   initJogs, fitOneLine, fitButtonWords, initSheets, openSheet, closeSheet,
-   sheetIsOpen, showSheet, hideSheet, initFolds, setFold, setStcell.
+   initJogs, setCarousel, initCarousels, syncCarousel, carouselStep,
+   carouselOpen, carouselLight, fitOneLine, fitButtonWords, initSheets,
+   openSheet, closeSheet, sheetIsOpen, showSheet, hideSheet, initFolds,
+   setFold, setStcell.
    ========================================================================== */
 
 /* ── dropdown ─────────────────────────────────────────────────────────────── */
@@ -861,6 +868,193 @@ function setStcell(el, state, value) {
   const s = (value == null) ? '' : String(value);
   v.textContent = s;
   v.title = s;
+  return el;
+}
+
+/* ── carousel ─────────────────────────────────────────────────────────────── */
+/* A list seen one item at a time (components.css, .carousel). The page writes
+   the frame, the items and the two buttons, and wires them once with
+   setCarousel(el), or with initCarousels() for every one in the page:
+
+     <div class="carousel">
+       <div class="carousel-frame" tabindex="0">
+         <div class="carousel-note"></div>            what it says when empty
+         <div class="carousel-items">
+           <div class="mitem" data-key="R9KZM">...</div>
+           <div class="mitem" data-key="P3WTD">...</div>
+         </div>
+       </div>
+       <div class="carousel-steps">
+         <button class="btn btn-2 carousel-prev" type="button">chevron-up</button>
+         <button class="btn btn-2 carousel-next" type="button">chevron-down</button>
+       </div>
+     </div>
+
+   It shows one item, the one it gives .on, and `.value` says which: its place
+   in the list counted from 0, or -1 when the list is empty. The hand moves it
+   one item at a time: the two buttons, the arrow keys up and down (Home and End
+   for the two ends) while the focus is anywhere inside it, and the wheel over
+   the frame, one item for every notch. A key held down shows on its button.
+   Enter, inside it but not on a button, opens the item shown: it is a click on
+   that item, so the page wires an item's click and nothing else. A page that
+   wants the same keys from somewhere else (a search field above the list)
+   calls carouselStep(el, d, true) and carouselOpen(el) from its own handler.
+
+   A step by the hand fires `input` when the item shown is another one, and
+   nothing at the ends. When the page has changed the items it calls
+   syncCarousel(el): the carousel keeps the item it was showing if the list
+   still has it (the same data-key, or the same text when the page gives no
+   key), else the selected one (.sel), else the first. Setting `.value` shows
+   that item, and fires nothing.
+
+   WHATEVER CHANGES THE ITEM SHOWN, IT LIGHTS UP, AND NOTHING SLIDES: the item
+   that comes in rises from dim in --t-in with --ease-arrive, and its fill,
+   struck, settles from the hover shade in --t-out with --ease-leave
+   (carouselLight). A step that comes before the last one has finished starts
+   it again, so a hand running through a long list sees the items dim while it
+   runs and lit when it stops. Nobody who asks for less motion sees it. */
+function _crItems(el) {
+  const box = el.querySelector('.carousel-items');
+  if (!box) return [];
+  return Array.prototype.filter.call(box.children, function (c) { return c.classList.contains('mitem'); });
+}
+
+// What makes an item the same item after the page has written the list again.
+function _crKey(item) {
+  if (!item) return null;
+  const k = item.getAttribute('data-key');
+  return k !== null ? k : (item.textContent || '');
+}
+
+// Show item `i`: .on on it and on no other, the buttons at the ends switched
+// off, and the light when it is another item. True when it is.
+function _crShow(el, i) {
+  const items = _crItems(el), n = items.length;
+  i = n ? Math.max(0, Math.min(n - 1, i)) : -1;
+  items.forEach(function (it, k) { it.classList.toggle('on', k === i); });
+  const prev = el.querySelector('.carousel-prev'), next = el.querySelector('.carousel-next');
+  if (prev) prev.disabled = i <= 0;
+  if (next) next.disabled = i < 0 || i >= n - 1;
+  const key = i >= 0 ? _crKey(items[i]) : null, other = key !== el._car.key;
+  el._car.i = i;
+  el._car.key = key;
+  if (other && i >= 0) carouselLight(items[i]);
+  return other;
+}
+
+// A key held down shows on the button it stands for, until it comes up.
+function _crHold(el, d) {
+  const b = el.querySelector(d < 0 ? '.carousel-prev' : '.carousel-next');
+  if (!b || typeof window.addEventListener !== 'function') return;
+  b.classList.add('press');
+  const up = function () {
+    b.classList.remove('press');
+    if (typeof window.removeEventListener === 'function') {
+      window.removeEventListener('keyup', up, true);
+      window.removeEventListener('blur', up);
+    }
+  };
+  window.addEventListener('keyup', up, true);
+  window.addEventListener('blur', up);
+}
+
+/* Move by `d` items, as the hand does: `input` when the item shown is another
+   one. `key` says a key did it, and the key shows on its button. */
+function carouselStep(el, d, key) {
+  if (!el || !el._car) return false;
+  if (key) _crHold(el, d);
+  const n = _crItems(el).length;
+  if (!n) return false;
+  const j = Math.max(0, Math.min(n - 1, el._car.i + d));
+  if (j === el._car.i) return false;
+  _crShow(el, j);
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+  return true;
+}
+
+/* Open the item shown: a click on it. False when there is none. */
+function carouselOpen(el) {
+  const it = el && el._car ? _crItems(el)[el._car.i] : null;
+  if (!it) return false;
+  it.dispatchEvent(new Event('click', { bubbles: true }));
+  return true;
+}
+
+/* After the page has written the items again: keep the one shown if it is
+   still there, else the selected one, else the first. */
+function syncCarousel(el) {
+  if (!el || !el._car) return;
+  const items = _crItems(el);
+  let i = -1;
+  if (el._car.key !== null) items.forEach(function (it, k) { if (i < 0 && _crKey(it) === el._car.key) i = k; });
+  if (i < 0) items.forEach(function (it, k) { if (i < 0 && it.classList.contains('sel')) i = k; });
+  _crShow(el, i < 0 ? 0 : i);
+}
+
+/* An item coming into the frame lights up where it is. The two animations
+   start from a keyframe of their own and end on whatever the sheet says, so a
+   pointer resting on the frame ends them on the hover fill. */
+function carouselLight(item) {
+  if (!item || typeof item.animate !== 'function') return;
+  if (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const cs = getComputedStyle(document.documentElement);
+  const v = function (n) { return cs.getPropertyValue(n).trim(); };
+  (item._crLit || []).forEach(function (a) { a.cancel(); });
+  const lit = [];
+  const struck = v('--accent-surface-hover');
+  if (struck) lit.push(item.animate([{ backgroundColor: struck, offset: 0 }],
+                                    { duration: parseFloat(v('--t-out')) || 0, easing: v('--ease-leave') || 'ease-in' }));
+  Array.prototype.forEach.call(item.children, function (c) {
+    lit.push(c.animate([{ opacity: 0.2, offset: 0 }],
+                       { duration: parseFloat(v('--t-in')) || 0, easing: v('--ease-arrive') || 'ease-out' }));
+  });
+  item._crLit = lit;
+}
+
+function _crWire(el) {
+  if (el._car) return;
+  el._car = { i: -1, key: null, wheel: 0 };
+  Object.defineProperty(el, 'value', {
+    get: function () { return el._car.i; },
+    set: function (x) { const n = parseInt(x, 10); if (!isNaN(n)) _crShow(el, n); },
+    configurable: true,
+  });
+  const prev = el.querySelector('.carousel-prev'), next = el.querySelector('.carousel-next');
+  if (prev) prev.addEventListener('click', function () { carouselStep(el, -1); });
+  if (next) next.addEventListener('click', function () { carouselStep(el, 1); });
+  el.addEventListener('keydown', function (e) {
+    const n = _crItems(el).length;
+    const d = { ArrowUp: -1, ArrowDown: 1, Home: -n, End: n }[e.key];
+    if (d !== undefined) {
+      e.preventDefault();
+      carouselStep(el, d, true);
+    } else if (e.key === 'Enter' && !(e.target && e.target.tagName === 'BUTTON')) {
+      e.preventDefault();
+      carouselOpen(el);
+    }
+  });
+  const frame = el.querySelector('.carousel-frame');
+  if (frame) frame.addEventListener('wheel', function (e) {
+    if (!e.deltaY) return;
+    e.preventDefault();
+    const c = el._car;
+    if (c.wheel && (c.wheel > 0) !== (e.deltaY > 0)) c.wheel = 0;
+    c.wheel += e.deltaY * (e.deltaMode === 1 ? 33 : (e.deltaMode === 2 ? 400 : 1));
+    if (Math.abs(c.wheel) >= 50) { carouselStep(el, c.wheel > 0 ? 1 : -1); c.wheel = 0; }
+  }, { passive: false });
+  syncCarousel(el);
+}
+
+/* Wire every `.carousel` under `root` (the page when it is left out) that is
+   not wired yet. */
+function initCarousels(root) {
+  (root || document).querySelectorAll('.carousel').forEach(_crWire);
+}
+
+/* Wire one carousel from code. */
+function setCarousel(el) {
+  if (!el) return null;
+  _crWire(el);
   return el;
 }
 

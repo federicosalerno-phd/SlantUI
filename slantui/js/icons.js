@@ -56,6 +56,7 @@ const ICONS = {
   'win-close': { vb: '0 0 12 12', s: '<path d="M3 3l6 6M9 3l-6 6"/>' },
 
   /* ── pointing ──────────────────────────────────────────────────────── */
+  'chevron-up': { s: '<polyline points="7.5 14 12 9.5 16.5 14"/>' },
   'chevron-down': { s: '<polyline points="7.5 10 12 14.5 16.5 10"/>' },
   'chevron-left': { s: '<polyline points="14.5 5 7.5 12 14.5 19"/>' },
   'chevron-right': { s: '<polyline points="9.5 5 16.5 12 9.5 19"/>' },

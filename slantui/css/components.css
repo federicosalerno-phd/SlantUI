@@ -673,6 +673,67 @@ html.jog-drag,html.jog-drag *{cursor:ew-resize !important}
         letter-spacing:.3px;background:var(--control);color:var(--text-4);
         white-space:nowrap;flex-shrink:0}
 .mitem.sel .mbadge{background:var(--accent);color:var(--on-accent)}
+/* A LIST SEEN ONE ITEM AT A TIME. A list that can be longer than the room the
+   page has for it (none, three, two hundred) is shown one item at a time, in a
+   frame that keeps its place and its size whatever the list holds, and the hand
+   steps through it: the two buttons beside the frame, the arrow keys, the wheel.
+   The page puts every item in .carousel-items and widgets.js (setCarousel)
+   shows one, the .on one; the others are there, stacked in the same place and
+   hidden, so the frame is as tall as the tallest and a step moves nothing.
+   Nothing slides, either: the item that comes in lights up where the last one
+   was (carouselLight), the way the rail's phase does. An item here is a card on
+   two lines, its children in order: the name and the badge, then what qualifies
+   the name and where the item stands among the others (.mitem-pos, "3 of 12").
+   Every item the frame shows is the one Enter would open, so every one wears the
+   selected fill; a selected item (.sel) is only the one the frame starts on. */
+.carousel{display:flex;gap:var(--sp-2);min-height:0}
+.carousel-frame{flex:1;min-width:0;display:grid;border-radius:var(--r-md);background:var(--surface-2)}
+.carousel-frame:focus-visible{box-shadow:inset 0 0 0 1px var(--accent-text)}
+.carousel-frame>*{grid-area:1/1;min-width:0;min-height:0}
+.carousel-items{display:grid}
+.carousel-items>.mitem{
+  grid-area:1/1;display:grid;grid-template-columns:minmax(0,1fr) auto;align-content:center;
+  row-gap:7px;column-gap:var(--sp-3);padding:0 16px;
+  background:var(--accent-surface);visibility:hidden;
+}
+.carousel-items>.mitem.on{visibility:visible}
+.carousel-items>.mitem:hover{background:var(--accent-surface-hover)}
+.carousel-items>.mitem .mitem-name{font-size:var(--fs-lg);font-weight:var(--w-strong);color:var(--accent-text);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.carousel-items>.mitem .mitem-name.placeholder{font-weight:500;color:var(--text-3)}
+.carousel-items>.mitem .mbadge{justify-self:end}
+.carousel-items>.mitem.sel .mbadge{background:var(--control);color:var(--text-4)}
+.carousel-items>.mitem .mitem-det{font-size:var(--fs);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* What the frame says when it has nothing to show: no item yet, or none that
+   answers what the page was asked. It is the page's sentence, on the bare
+   frame. */
+.carousel-note{align-self:center;padding:0 16px;font-size:var(--fs);color:var(--text-3);line-height:var(--lh)}
+.carousel-note:empty{display:none}
+/* The two buttons, one above the other like the two arrow keys: the item before
+   and the item after. At either end of the list the one that leads nowhere is
+   switched off: a carousel does not go round, so after the last item does not
+   come the first. A key held down shows on its button (.press). */
+.carousel-steps{flex:none;width:40px;display:flex;flex-direction:column;gap:var(--sp-2)}
+.carousel-steps>.btn{flex:1;height:auto;padding:0}
+.carousel-steps>.btn svg{margin:0;width:18px;height:18px}
+.carousel-steps>.btn.press:not(:disabled){background:var(--control-active);color:var(--text-1)}
+/* Where an item stands among the others, quieter than what it qualifies, in
+   figures that keep their width as they count. */
+.mitem-pos{font-size:var(--fs-sm);color:var(--text-3);font-variant-numeric:tabular-nums;
+           white-space:nowrap;justify-self:end}
+/* A name that stands in for a missing one ("No name") is said a shade back, so
+   it does not read as a name. */
+.mitem-name.placeholder{color:var(--text-3)}
+/* The piece of a name or a badge that a search found, lit where it was found:
+   the accent's text shade in a name, the brightest text in a badge. On the
+   selected fill the name already wears the accent, so there the piece is the
+   brightest text; a selected badge is the accent itself, and the only shade
+   that reads on it is its own, so there the piece is not lit. */
+.mhit{color:var(--accent-text)}
+.mbadge .mhit,.mitem.sel .mhit{color:var(--text-1)}
+.mitem.sel .mbadge .mhit{color:var(--on-accent)}
+/* In a carousel the name wears the accent already and no badge does. */
+.carousel-items .mhit,.carousel-items>.mitem.sel .mbadge .mhit{color:var(--text-1)}
 
 /* -- metric rows ----------------------------------------------------------- */
 /* A group heading with a dot in the group's own colour, which the page sets

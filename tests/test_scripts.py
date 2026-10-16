@@ -1093,6 +1093,131 @@ def test_a_status_cell_carries_its_dot_its_value_and_the_whole_value(js):
     assert J(js, "setStcell(null, 'ok', 'x')") is None
 
 
+CAROUSEL_PAGE = """
+  CSS_VARS = { '--t-in': '120ms', '--t-out': '180ms', '--ease-arrive': 'cubic-bezier(.22,1,.36,1)',
+               '--ease-leave': 'cubic-bezier(.4,0,1,1)', '--accent-surface-hover': 'struck' };
+  // an engine animates; here every animation started is written down
+  const LIT = [];
+  El.prototype.animate = function (frames, o) {
+    LIT.push([this.className, Object.keys(frames[0]).filter(function (k) { return k !== 'offset'; })[0], o.duration]);
+    return { cancel: function () {} };
+  };
+  const car = document.body.appendChild(new El('div', 'carousel'));
+  const frame = car.appendChild(new El('div', 'carousel-frame'));
+  const box = frame.appendChild(new El('div', 'carousel-items'));
+  const steps = car.appendChild(new El('div', 'carousel-steps'));
+  const prev = steps.appendChild(new El('button', 'btn btn-2 carousel-prev'));
+  const next = steps.appendChild(new El('button', 'btn btn-2 carousel-next'));
+  const SEEN = [], OPENED = [];
+  car.addEventListener('input', function () { SEEN.push(car.value); });
+  function item(key, sel) {
+    const it = new El('div', 'mitem' + (sel ? ' sel' : ''));
+    it.setAttribute('data-key', key);
+    it.appendChild(new El('span', 'mitem-name'));
+    it.appendChild(new El('span', 'mbadge'));
+    it.addEventListener('click', function () { OPENED.push(key); });
+    return it;
+  }
+  function list(keys) {
+    box.children.length = 0;
+    keys.forEach(function (k) { box.appendChild(item(k.replace('*', ''), k.indexOf('*') >= 0)); });
+  }
+  function shown() {
+    return box.children.filter(function (c) { return c.classList.contains('on'); })
+                       .map(function (c) { return c.getAttribute('data-key'); });
+  }
+"""
+
+
+def test_the_carousel_shows_one_item_and_steps_through_them(js):
+    js.eval(CAROUSEL_PAGE)
+    js.eval(_runnable("widgets.js"))
+    js.eval("list(['A', 'B', 'C']); setCarousel(car)")
+    assert J(js, "car.value") == 0
+    assert J(js, "shown()") == ["A"]
+    assert J(js, "[prev.disabled, next.disabled]") == [True, False]
+    # the buttons: one item at a time, `input` for each, nothing at the end
+    js.eval("LIT.length = 0; fire(next, 'click'); fire(next, 'click'); fire(next, 'click')")
+    assert J(js, "car.value") == 2
+    assert J(js, "shown()") == ["C"]
+    assert J(js, "SEEN") == [1, 2]
+    assert J(js, "[prev.disabled, next.disabled]") == [False, True]
+    # every item that came in lit up: the fill struck in --t-out, every child
+    # rising in --t-in; and nothing slid, because nothing else was animated
+    assert J(js, "LIT") == [["mitem on", "backgroundColor", 180], ["mitem-name", "opacity", 120],
+                            ["mbadge", "opacity", 120]] * 2
+    # the keys: up and down, Home and End, and the key shows on its button
+    js.eval("SEEN.length = 0; fire(car, 'keydown', { key: 'ArrowUp' })")
+    assert J(js, "car.value") == 1
+    assert J(js, "prev.classList.contains('press')") is True
+    js.eval("globalThis.dispatchEvent(new Event('keyup'))")
+    assert J(js, "prev.classList.contains('press')") is False
+    js.eval("fire(car, 'keydown', { key: 'Home' }); fire(car, 'keydown', { key: 'Home' });"
+            "fire(car, 'keydown', { key: 'End' })")
+    assert J(js, "car.value") == 2
+    assert J(js, "SEEN") == [1, 0, 2]
+    # a value set from code shows that item and fires nothing
+    js.eval("SEEN.length = 0; car.value = 0")
+    assert J(js, "shown()") == ["A"]
+    assert J(js, "SEEN") == []
+
+
+def test_the_carousel_keeps_its_item_when_the_list_changes(js):
+    js.eval(CAROUSEL_PAGE)
+    js.eval(_runnable("widgets.js"))
+    js.eval("list(['A', 'B', 'C']); setCarousel(car); car.value = 1; LIT.length = 0")
+    # the list written again, B still in it: B stays, and does not light up
+    js.eval("list(['B', 'C']); syncCarousel(car)")
+    assert J(js, "shown()") == ["B"]
+    assert J(js, "car.value") == 0
+    assert J(js, "LIT") == []
+    # B gone and nothing selected: the first, and it lights up
+    js.eval("list(['C', 'D']); syncCarousel(car)")
+    assert J(js, "shown()") == ["C"]
+    assert J(js, "LIT.length") == 3
+    # C gone, and the page selects one: that one
+    js.eval("list(['A', 'D*']); syncCarousel(car)")
+    assert J(js, "shown()") == ["D"]
+    # nothing at all: no item, and both buttons off
+    js.eval("list([]); syncCarousel(car)")
+    assert J(js, "car.value") == -1
+    assert J(js, "[prev.disabled, next.disabled]") == [True, True]
+    js.eval("fire(next, 'click'); fire(car, 'keydown', { key: 'Enter' })")
+    assert J(js, "SEEN") == []
+    assert J(js, "OPENED") == []
+    # a syncing that is not a step fires nothing
+    js.eval("list(['E', 'F']); syncCarousel(car)")
+    assert J(js, "SEEN") == []
+
+
+def test_enter_opens_the_item_shown_and_the_wheel_steps(js):
+    js.eval(CAROUSEL_PAGE)
+    js.eval(_runnable("widgets.js"))
+    js.eval("list(['A', 'B', 'C']); setCarousel(car); car.value = 1")
+    # Enter is a click on the item shown; on a button it is the button's
+    js.eval("fire(frame, 'keydown', { key: 'Enter' })")
+    assert J(js, "OPENED") == ["B"]
+    js.eval("fire(next, 'keydown', { key: 'Enter' })")
+    assert J(js, "OPENED") == ["B"]
+    assert J(js, "carouselOpen(car)") is True
+    assert J(js, "OPENED") == ["B", "B"]
+    # the wheel: a notch is one item, small turns add up, and turning back
+    # starts again from nothing
+    js.eval("fire(frame, 'wheel', { deltaY: 30, deltaMode: 0 })")
+    assert J(js, "car.value") == 1
+    js.eval("fire(frame, 'wheel', { deltaY: 30, deltaMode: 0 })")
+    assert J(js, "car.value") == 2
+    js.eval("fire(frame, 'wheel', { deltaY: 30, deltaMode: 0 }); fire(frame, 'wheel', { deltaY: -100, deltaMode: 0 })")
+    assert J(js, "car.value") == 1
+    # a step asked for by the page, from a field of its own, as a key
+    assert J(js, "carouselStep(car, 1, true)") is True
+    assert J(js, "next.classList.contains('press')") is True
+    assert J(js, "carouselStep(car, 1, true)") is False
+    # markup that names it is wired by initCarousels, once
+    js.eval("initCarousels(); initCarousels()")
+    assert J(js, "next.listeners.click.length") == 1
+
+
 def test_fit_one_line_shrinks_then_drops_the_middle(js):
     js.eval(_runnable("widgets.js"))
     js.eval("const box = new El('div', 'fit'); box.clientWidth = 120;")

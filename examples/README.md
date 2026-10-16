@@ -20,7 +20,7 @@ reaches out of its own folder, and a test says so.
 main.py          the twelve lines that open the window
 backend.py       one Bridge subclass: appInfo, runJob, cancelJob, setPalette
 ui/index.html    the markup, which is one of every class components.css draws
-ui/app.css       four rules, the whole of what the page adds to the library
+ui/app.css       five rules, the whole of what the page adds to the library
 ui/app.js        the steps, the palette, the drawing, the job
 ```
 
@@ -35,7 +35,7 @@ links in it, and the same three lines work from a checkout and from an
 install. An application that ships into a read only folder does it once at
 install time instead.
 
-**How a page adds its own rules.** `app.css` is four rules long and names no
+**How a page adds its own rules.** `app.css` is five rules long and names no
 colour, only roles. Anything a page writes on top of the library is held to
 the same rule, or it has one look on the dark palettes and another on the
 light ones.

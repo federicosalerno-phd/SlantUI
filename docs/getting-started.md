@@ -214,7 +214,7 @@ page that wants to hold the remote object itself asks for it with
 ### ui/app.css
 
 Most applications need a handful of rules, and some need none. The tour's own
-sheet is four rules long. Whatever you write there is held to one rule:
+sheet is five rules long. Whatever you write there is held to one rule:
 
 ```css
 /* yes */

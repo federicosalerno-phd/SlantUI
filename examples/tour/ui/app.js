@@ -423,6 +423,70 @@ function wireDropZone() {
   window.addEventListener('drop', function (e) { e.preventDefault(); });
 }
 
+/* ── the recent scans ─────────────────────────────────────────────────────── */
+/* One scan at a time in a carousel. The field above keeps the scans whose name
+   has a word that starts with what is typed, lit where it was found; the arrow
+   keys step through them from the field as well, and Enter opens the one shown.
+   The carousel keeps the scan it shows while the list narrows, if it can. */
+const SCANS = [
+  { name: 'Head, 0.4 mm', when: '11 March 2026, 16:40', code: 'K7QF2' },
+  { name: 'Leg, both sides', when: '9 March 2026, 11:05', code: 'P3WTD' },
+  { name: '', when: '2 March 2026, 09:30', code: 'R9KZM' },
+  { name: 'Head, after surgery', when: '18 February 2026, 14:00', code: 'M6ZJS' },
+];
+
+function scanItem(s, i, n, at) {
+  const it = document.createElement('div');
+  it.className = 'mitem';
+  it.setAttribute('data-key', s.code);
+  const name = document.createElement('span');
+  name.className = 'mitem-name' + (s.name ? '' : ' placeholder');
+  if (at >= 0) {
+    const hit = document.createElement('span');
+    hit.className = 'mhit';
+    hit.textContent = s.name.slice(at, at + $('scanFind').value.trim().length);
+    name.append(s.name.slice(0, at), hit, s.name.slice(at + hit.textContent.length));
+  } else name.textContent = s.name || 'No name';
+  const badge = document.createElement('span');
+  badge.className = 'mbadge';
+  badge.textContent = s.code;
+  const det = document.createElement('span');
+  det.className = 'mitem-det';
+  det.textContent = s.when;
+  const pos = document.createElement('span');
+  pos.className = 'mitem-pos';
+  pos.textContent = (i + 1) + ' of ' + n;
+  it.append(name, badge, det, pos);
+  it.onclick = function () { toast('A real application opens ' + s.code + ' here'); };
+  return it;
+}
+
+function showScans() {
+  const q = $('scanFind').value.trim().toLowerCase();
+  const found = [];
+  SCANS.forEach(function (s) {
+    const m = q ? new RegExp('(^|\\s)' + q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).exec(s.name.toLowerCase()) : null;
+    if (q && !m) return;
+    found.push({ s: s, at: m ? m.index + m[1].length : -1 });
+  });
+  $('scanItems').replaceChildren.apply($('scanItems'), found.map(function (f, i) {
+    return scanItem(f.s, i, found.length, f.at);
+  }));
+  $('scansNote').textContent = found.length ? '' : 'No scan has a word that starts with ' + q;
+  syncCarousel($('scans'));
+}
+
+function wireScans() {
+  setCarousel($('scans'));
+  showScans();
+  $('scanFind').oninput = showScans;
+  $('scanFind').onkeydown = function (e) {
+    const d = { ArrowUp: -1, ArrowDown: 1 }[e.key];
+    if (d) { e.preventDefault(); carouselStep($('scans'), d, true); }
+    else if (e.key === 'Enter') { e.preventDefault(); carouselOpen($('scans')); }
+  };
+}
+
 /* ── start up ─────────────────────────────────────────────────────────────── */
 function boot() {
   Bridge.init();          // the channel, with everything queued until it is up
@@ -442,6 +506,7 @@ function boot() {
   wireControls();
   wireJob();
   wireDropZone();
+  wireScans();
 
   $('palette').onchange = function () { setPalette($('palette').value); };
   // A picker: its rows are data, its value is a code, and it says so with a

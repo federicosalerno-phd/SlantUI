@@ -1,7 +1,7 @@
 /* ============================================================================
    What the gallery adds to SlantUI.
 
-   The example gets away with four rules because it is an application. A
+   The example gets away with five rules because it is an application. A
    catalogue needs a little more: a scrolling page inside the stage, a grid,
    and a cell to stand each component in. That is all of it. The house rule
    holds here too, so no colour is written as a value, only as a role, and
@@ -40,6 +40,10 @@
    on. The disc is a step off the band, and on any other surface it would be a
    step off the wrong thing. */
 .gal-band{background:var(--control);border-radius:var(--r-md);padding-right:10px}
+
+/* The height a page gives a carousel: its frame keeps it whatever the list
+   holds. */
+.gal-carousel{height:96px}
 
 /* A patch of stage, for the two boxes that are drawn over whatever the
    application shows. They are positioned against the stage, so the cell has

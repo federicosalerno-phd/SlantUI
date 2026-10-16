@@ -115,8 +115,8 @@ different colours on a light palette.
 | `accent-active` | The accent fill while pressed | `.btn-primary:active`, the progress fill |
 | `on-accent` | Text and glyphs on an accent fill | the label of `.btn-primary`, `::selection` |
 | `accent-text` | The accent as a text colour, and the focus ring | `.tab.active`, `.input:focus`, `:focus-visible` |
-| `accent-surface` | A surface tinted toward the accent | the active tab, the selected row, `.chip-accent`, `.callout-accent` |
-| `accent-surface-hover` | The same tint under the pointer | the selected row hovered |
+| `accent-surface` | A surface tinted toward the accent | the active tab, the selected row, the item a carousel shows, `.chip-accent`, `.callout-accent` |
+| `accent-surface-hover` | The same tint under the pointer | the selected row hovered, the item a carousel shows the moment it comes in |
 
 `accent-text` exists because a fill and a label are solved against different
 things. On a light palette the fill stays the bright hue and the text becomes a

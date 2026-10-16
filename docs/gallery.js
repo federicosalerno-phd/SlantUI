@@ -19,8 +19,8 @@
 
    Everything this file calls that is not in it comes from SlantUI: Bridge
    and be() and beJson() from bridge.js, Theme from theme.js, initSelects()
-   numStep() initJogs() initFolds() fitOneLine() from widgets.js, initTitlebar() from
-   titlebar.js.
+   numStep() initJogs() initFolds() initCarousels() fitOneLine() from widgets.js,
+   initTitlebar() from titlebar.js.
    ========================================================================== */
 
 /* The eight palettes, in the order of slantui/tokens/palettes.py. A test
@@ -603,6 +603,7 @@ function boot() {
   initSelects();
   initJogs();
   initFolds();
+  initCarousels();
   setPicker($('picker'), PICKER_ROWS, 'it');
   setPicker($('pickerOpen'), PICKER_ROWS, 'it');
   initTitlebar();

@@ -1,7 +1,7 @@
 /* ============================================================================
    What this page adds to SlantUI, which is as little as it sounds.
 
-   Four rules. Everything else on screen is a class out of layout.css or
+   Five rules. Everything else on screen is a class out of layout.css or
    components.css. The house rule holds here too: no colour is written as a
    value, only as a role, so this file is right on all eight palettes.
    ========================================================================== */
@@ -26,3 +26,6 @@
    choices of a row and the two cells under them line up with its edges. The
    stage centres it. */
 .start{width:440px;display:flex;flex-direction:column;gap:var(--sp-2)}
+
+/* A carousel keeps the height the page gives it, whatever the list holds. */
+#scans{height:84px}
