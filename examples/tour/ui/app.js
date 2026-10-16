@@ -1,8 +1,9 @@
 /* ============================================================================
    The tour's own script. Everything it calls that is not in this file comes
    from SlantUI: Bridge and be() and beJson() from bridge.js, Theme from
-   theme.js, initSelects() numStep() initJogs() fitOneLine() from widgets.js, and
-   initTitlebar() setBrandAction() roundedPolyPath() from titlebar.js.
+   theme.js, initSelects() numStep() initJogs() initFolds() setStcell()
+   fitOneLine() from widgets.js, and initTitlebar() setBrandAction()
+   roundedPolyPath() from titlebar.js.
 
    The page is a classic script, like the library's four, because the window
    serves it from file:// and a file:// page gets no module loading.
@@ -73,9 +74,9 @@ function go(i) {
      lights up under the pointer with nowhere to go. */
   setBrandAction(i > 0 ? function () { go(0); } : null, 'Back to the first step');
 
-  /* The card is step one's; the drawing belongs to the three after it. */
+  /* The start page is step one's; the drawing belongs to the three after it. */
   const drawing = i > 0;
-  $('dz').classList.toggle('hidden', drawing);
+  $('start').classList.toggle('hidden', drawing);
   $('cv').classList.toggle('hidden', !drawing);
   $('covl').classList.toggle('hidden', !drawing);
   $('czoom').classList.toggle('hidden', !drawing);
@@ -218,6 +219,7 @@ function takeFile(name, type, bytes) {
   $('piType').textContent = type || 'unknown';
   $('piSize').textContent = (bytes / 1024).toFixed(1) + ' kB';
   $('ctClear').classList.remove('ghost');
+  setStcell($('scFile'), 'ok', name);
   setStatus('ok', 'File taken');
   toast('Taken: ' + name);
 }
@@ -230,6 +232,7 @@ function forgetFile() {
   $('piType').textContent = 'none';
   $('piSize').textContent = '0';
   $('ctClear').classList.add('ghost');
+  setStcell($('scFile'), '', 'None yet');
   setStatus('', 'Ready');
 }
 
@@ -260,6 +263,7 @@ function runJob() {
   $('calloutRun').classList.remove('hidden');
   $('chipRun').textContent = 'running';
   $('job').classList.add('show');
+  setStcell($('scRun'), 'busy', 'Running');
   setStatus('busy', 'Working');
   be('runJob', JOB_MS[$('length').value] || 2400);
 }
@@ -287,6 +291,7 @@ function onJobDone(finished) {
   $('calloutRun').classList.add('hidden');
   $('calloutErr').classList.toggle('hidden', finished);
   $('piEnded').textContent = finished ? 'finished' : 'cancelled';
+  setStcell($('scRun'), finished ? 'ok' : 'warn', finished ? 'Finished' : 'Cancelled');
   setStatus(finished ? 'ok' : 'warn', finished ? 'Done' : 'Cancelled');
   toast(finished ? 'The job finished' : 'The job was cancelled');
 }
@@ -423,6 +428,7 @@ function boot() {
   Bridge.init();          // the channel, with everything queued until it is up
   initSelects();          // the dropdowns answer to .value from here on
   initJogs();             // and so does the jog of the joints
+  initFolds();            // the section that opens, on the step that runs the job
   initTitlebar();         // the band, the window buttons, the credit line
 
   Bridge.on('progress', onProgress);

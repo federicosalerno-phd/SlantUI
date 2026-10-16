@@ -6,7 +6,7 @@ page inside them and the Python behind it.
 
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="img/tour/gold-dark-1.png">
-<img src="img/tour/gold-light-1.png" width="1240" alt="The example window on its first step: the oblique band across the top, four steps in the rail, a drop card on the stage and a side panel of controls">
+<img src="img/tour/gold-light-1.png" width="1240" alt="The example window on its first step: the oblique band across the top, four steps in the rail, a start page on the stage with four large choices, two status cells and a drop card, and a side panel of controls">
 </picture>
 
 *This is `examples/tour`, which is the finished version of what this page
@@ -214,7 +214,7 @@ page that wants to hold the remote object itself asks for it with
 ### ui/app.css
 
 Most applications need a handful of rules, and some need none. The tour's own
-sheet is three rules long. Whatever you write there is held to one rule:
+sheet is four rules long. Whatever you write there is held to one rule:
 
 ```css
 /* yes */

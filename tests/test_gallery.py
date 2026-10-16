@@ -52,6 +52,7 @@ _SHOT_NAME = re.compile(r"^[a-z][a-z0-9-]*$")
 SCRIPT_ONLY = {
     "combopop", "combo-opt", "combo-on", "open",   # the dropdown, while it is open
     "combo-c",                                     # widgets.js puts the arrow there
+    "fold-c",                                      # and the chevron on a fold's head
     "pickerpop", "picker-row", "picker-tag",       # setPicker() builds the button and its list
     "picker-label", "picker-note", "picker-c",
     "flagbox", "bare",                             # and the flag's box, with its image or bare

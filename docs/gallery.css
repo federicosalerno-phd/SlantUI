@@ -1,7 +1,7 @@
 /* ============================================================================
    What the gallery adds to SlantUI.
 
-   The example gets away with three rules because it is an application. A
+   The example gets away with four rules because it is an application. A
    catalogue needs a little more: a scrolling page inside the stage, a grid,
    and a cell to stand each component in. That is all of it. The house rule
    holds here too, so no colour is written as a value, only as a role, and

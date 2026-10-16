@@ -64,9 +64,21 @@
       again. See the block over `openSheet` below for the markup and the one
       function a page hands over.
 
+   5. `.fold`, a section that opens: the settings a panel seldom needs, under
+      a head that opens them and closes them again, closed until asked for,
+      and remembered if the page wants. See the block over `initFolds` below.
+
+        <div class="fold" data-remember="run-advanced">
+          <button class="fold-hd" type="button"><span class="fold-name">Advanced</span></button>
+          <div class="fold-body"> ... </div>
+        </div>
+
+   6. `setStcell`, one cell of how things stand on a start page: its dot, its
+      value, and the whole value in its tooltip.
+
    Leaves on the window: initSelects, setOptions, setPicker, numStep, setJog,
    initJogs, fitOneLine, fitButtonWords, initSheets, openSheet, closeSheet,
-   sheetIsOpen, showSheet, hideSheet.
+   sheetIsOpen, showSheet, hideSheet, initFolds, setFold, setStcell.
    ========================================================================== */
 
 /* ── dropdown ─────────────────────────────────────────────────────────────── */
@@ -676,6 +688,179 @@ function setJog(el, opts) {
   if (o.max !== undefined && o.max !== null) el.setAttribute('aria-valuemax', String(o.max));
   _jogWire(el);
   el.value = (o.value !== undefined && o.value !== null) ? o.value : el._jog.v;
+  return el;
+}
+
+/* ── a section that opens ─────────────────────────────────────────────────── */
+/* A group of controls under a head that opens it (components.css, .fold),
+   closed until it is asked for. The page writes the head and the body, and
+   initFolds() wires every fold in the page, or every one under `root`:
+
+     <div class="fold" data-remember="run-advanced">
+       <button class="fold-hd" type="button"><span class="fold-name">Advanced</span></button>
+       <div class="fold-body">
+         ...the controls...
+       </div>
+     </div>
+
+   The chevron at the end of the head is `chevron-down` out of icons.js, and
+   initFolds puts it there, the way initSelects does for a dropdown. A fold
+   that starts open says so with `open` among its classes.
+
+   The head is a <button>, so Enter and Space reach it as a click and the fold
+   is on the keyboard for free; a head written as anything else is given the
+   role, a place in the tab order and the two keys. The head says whether its
+   fold is open (aria-expanded) and which body it opens (aria-controls, with an
+   id given to a body that has none), and a closed body is inert, so neither
+   the pointer nor Tab reaches what is in it.
+
+   The hand opening or closing a fold fires `toggle` on it, which bubbles.
+   `.open` reads and sets the state, like a <details> element's, and setting
+   it, or setFold(el, open), fires nothing, the way a value set from code
+   fires nothing anywhere else here.
+
+   REMEMBERED WHEN THE PAGE ASKS. A fold with `data-remember` keeps what the
+   hand last did with it, under that name in the page's local storage, and
+   comes back that way the next time the window opens: a reader who always
+   opens Advanced finds it open. What a page sets from code is not the
+   reader's choice and is not kept, and where there is no storage nothing is.
+   A fold comes back in its state without moving, because the motion belongs
+   to the hand. */
+let _fdN = 0;                       // for a body that has no id of its own
+const _FD_KEY = 'slantui.fold.';
+
+// The fold's own head or body, and never those of a fold inside it.
+function _fdPart(el, cls) {
+  for (let i = 0; i < el.children.length; i++) {
+    if (el.children[i].classList.contains(cls)) return el.children[i];
+  }
+  return null;
+}
+
+function _fdShow(el, open) {
+  el.classList.toggle('open', open);
+  const hd = _fdPart(el, 'fold-hd'), body = _fdPart(el, 'fold-body');
+  if (hd) hd.setAttribute('aria-expanded', open ? 'true' : 'false');
+  if (body) body.inert = !open;
+}
+
+// Where the hand's last choice is kept, or null when the page keeps none.
+function _fdKey(el) {
+  const k = el.getAttribute('data-remember');
+  return k ? _FD_KEY + k : null;
+}
+
+function _fdKept(key) {
+  if (!key) return null;
+  try {
+    const v = window.localStorage.getItem(key);
+    return v === null ? null : v === '1';
+  } catch (e) { return null; }
+}
+
+function _fdKeep(key, open) {
+  if (!key) return;
+  try { window.localStorage.setItem(key, open ? '1' : '0'); } catch (e) { /* not kept, then */ }
+}
+
+// The state written with nothing moving: the transitions off, the state put
+// on, the layout taken in it, and the transitions back for the hand.
+function _fdStill(el, open) {
+  const hd = _fdPart(el, 'fold-hd'), body = _fdPart(el, 'fold-body');
+  const still = [body, hd ? hd.querySelector('.fold-c') : null]
+    .filter(function (n) { return n && n.style; });
+  still.forEach(function (n) { n.style.transition = 'none'; });
+  _fdShow(el, open);
+  if (body) void body.offsetHeight;
+  still.forEach(function (n) { n.style.transition = ''; });
+}
+
+// The hand: the other state, kept when the page asked for it, and said.
+function _fdHand(el) {
+  const open = !el.classList.contains('open');
+  _fdShow(el, open);
+  _fdKeep(_fdKey(el), open);
+  el.dispatchEvent(new Event('toggle', { bubbles: true }));
+}
+
+function _fdWire(el) {
+  if (el._fold) return;
+  el._fold = true;
+  const hd = _fdPart(el, 'fold-hd'), body = _fdPart(el, 'fold-body');
+  if (hd) {
+    if (!hd.querySelector('.fold-c')) {
+      const c = document.createElement('span');
+      c.innerHTML = icon('chevron-down', { class: 'fold-c' });
+      if (c.firstChild) hd.appendChild(c.firstChild);
+    }
+    if (body) {
+      if (!body.getAttribute('id')) body.setAttribute('id', 'fold-' + (++_fdN));
+      hd.setAttribute('aria-controls', body.getAttribute('id'));
+    }
+    if (hd.tagName !== 'BUTTON') {
+      hd.setAttribute('role', 'button');
+      if (hd.getAttribute('tabindex') === null) hd.setAttribute('tabindex', '0');
+      hd.addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        e.preventDefault();
+        _fdHand(el);
+      });
+    }
+    hd.addEventListener('click', function () { _fdHand(el); });
+  }
+  Object.defineProperty(el, 'open', {
+    get: function () { return el.classList.contains('open'); },
+    set: function (v) { _fdShow(el, !!v); },
+    configurable: true,
+  });
+  const kept = _fdKept(_fdKey(el));
+  _fdStill(el, kept === null ? el.classList.contains('open') : kept);
+}
+
+/* Wire every `.fold` under `root` (the page when it is left out) that is not
+   wired yet. Calling it again wires only the folds added since. */
+function initFolds(root) {
+  (root || document).querySelectorAll('.fold').forEach(_fdWire);
+}
+
+/* Open or close one from code: it moves, and it fires nothing and keeps
+   nothing. A fold not wired yet is wired first. */
+function setFold(el, open) {
+  if (!el) return null;
+  _fdWire(el);
+  _fdShow(el, !!open);
+  return el;
+}
+
+/* ── how things stand ─────────────────────────────────────────────────────── */
+/* One status cell under the choices of a start page (components.css,
+   .stcell): its dot, its value, and the whole value in the tooltip, because a
+   value cut short on screen is still there to read in full. `state` is one of
+   the status pill's, '' for none, 'ok', 'warn', 'err' or 'busy'. A cell with
+   no dot or no value yet is given them.
+
+     <div class="stcell"><span class="sd"></span><span class="stcell-l">File</span>
+       <span class="stcell-v"></span></div>
+
+     setStcell(cell, 'ok', 'sample.tif');
+*/
+function setStcell(el, state, value) {
+  if (!el) return null;
+  let dot = null, v = null;
+  for (let i = 0; i < el.children.length; i++) {
+    const c = el.children[i];
+    if (!dot && c.classList.contains('sd')) dot = c;
+    if (!v && c.classList.contains('stcell-v')) v = c;
+  }
+  if (!dot) dot = el.insertBefore(document.createElement('span'), el.firstChild || null);
+  if (!v) {
+    v = el.appendChild(document.createElement('span'));
+    v.className = 'stcell-v';
+  }
+  dot.className = 'sd' + (state ? ' ' + state : '');
+  const s = (value == null) ? '' : String(value);
+  v.textContent = s;
+  v.title = s;
   return el;
 }
 

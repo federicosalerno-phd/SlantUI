@@ -5,7 +5,7 @@ SlantUI alone. These checks hold it to that answer.
 
 The text level checks always run. They read the page, the stylesheet and the
 script as files: every class the markup uses has to be defined by the
-library or by the page's own three rules, every widget the library defines
+library or by the page's own four rules, every widget the library defines
 has to appear in the page, and every slot the page calls has to exist on the
 backend. The last one is the same check ``test_shell.py`` makes for the
 window chrome, applied to the application's own slots.
@@ -51,6 +51,7 @@ _CLASS_ATTR = re.compile(r'class="([^"]+)"')
 SCRIPT_ONLY = {
     "combopop", "combo-opt", "combo-on", "open",   # the dropdown's popup
     "combo-c",                                     # widgets.js puts the arrow there
+    "fold-c",                                      # and the chevron on a fold's head
     "pickerpop", "picker-row", "picker-tag",       # setPicker() builds the button and its list
     "picker-label", "picker-note", "picker-c",
     "flagbox", "bare",                             # and a row's flag box, with its image or bare
@@ -190,10 +191,11 @@ def test_the_script_only_calls_the_library_it_loads():
         leaves |= set(re.findall(r"^function ([A-Za-z]\w*)", src, re.M))
         leaves |= set(re.findall(r"^const ([A-Za-z]\w*)", src, re.M))
     for name in ("Bridge", "be", "beJson", "Theme", "THEME_ROLES", "initSelects",
-                 "numStep", "fitOneLine", "initTitlebar", "roundedPolyPath", "CREDIT_TEXT"):
+                 "numStep", "fitOneLine", "initFolds", "setStcell", "initTitlebar",
+                 "roundedPolyPath", "CREDIT_TEXT"):
         assert name in leaves, name
     for name in ("Theme", "roundedPolyPath", "CREDIT_TEXT", "initTitlebar",
-                 "initSelects", "numStep", "fitOneLine", "beJson"):
+                 "initSelects", "numStep", "fitOneLine", "initFolds", "setStcell", "beJson"):
         assert name in APP_JS, f"the example never uses {name}"
 
 
@@ -393,7 +395,7 @@ def test_the_steps_move_the_panel_and_the_stage(win):
     wait(200)
     assert js(win, "document.querySelector('.rp-page.show').dataset.step") == "1"
     assert js(win, "document.getElementById('cv').classList.contains('hidden')") is False
-    assert js(win, "document.getElementById('dz').classList.contains('hidden')") is True
+    assert js(win, "document.getElementById('start').classList.contains('hidden')") is True
     assert js(win, "document.getElementById('cv').width") > 0
 
 

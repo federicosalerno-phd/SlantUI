@@ -103,6 +103,10 @@
         'jog-tick'               = '4px'
         'jog-mark'               = '20px'
         'jog-run'                = '400px'
+        'choice-w'               = '200px'
+        'choice-h'               = '120px'
+        'choice-sign'            = '28px'
+        'stcell-w'               = '150px'
         'blur'                   = '14px'
         'sheet-w'                = '520px'
         'sheet-wide'             = '660px'
@@ -157,6 +161,10 @@
         'jog-tick'               = 4
         'jog-mark'               = 20
         'jog-run'                = 400
+        'choice-w'               = 200
+        'choice-h'               = 120
+        'choice-sign'            = 28
+        'stcell-w'               = 150
         'blur'                   = 14
         'sheet-w'                = 520
         'sheet-wide'             = 660

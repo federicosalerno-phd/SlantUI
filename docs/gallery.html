@@ -619,6 +619,37 @@ meshing: 1 of 3
               </div>
 
               <div class="gal-cell">
+                <div class="sec-lbl">A section that opens</div>
+                <div class="col" data-shot="fold">
+                  <div class="fold">
+                    <button class="fold-hd" type="button"><span class="fold-name">Where the files go</span></button>
+                    <div class="fold-body">
+                      <div class="note note-path">D:/exports/2026-03-11</div>
+                    </div>
+                  </div>
+                  <div class="fold open">
+                    <button class="fold-hd" type="button"><span class="fold-name">Advanced</span></button>
+                    <div class="fold-body">
+                      <div class="col">
+                        <label class="toggle"><input type="checkbox" checked/>Keep every frame</label>
+                        <div class="slrow">
+                          <span class="sl-l">Quality</span>
+                          <input type="range" min="0" max="100" value="80"/>
+                          <span class="sl-v">80 %</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <p class="note">
+                  What a panel seldom needs, closed until the head is pressed.
+                  It grows to its height and shrinks back, and initFolds()
+                  puts the chevron on and can keep what the hand last did.
+                </p>
+                <div class="gal-name hidden">fold</div>
+              </div>
+
+              <div class="gal-cell">
                 <div class="sec-lbl">Metric rows</div>
                 <div data-shot="metrics">
                   <div class="mg" data-group="accent">The band</div>
@@ -686,6 +717,46 @@ meshing: 1 of 3
                   <div class="dz-sub">no dashed outline, a tint</div>
                 </div>
                 <div class="gal-name hidden">drop-zone-over</div>
+              </div>
+
+              <div class="gal-cell wide">
+                <div class="sec-lbl">A start page</div>
+                <div class="col" data-shot="start">
+                  <div class="choices">
+                    <button class="choice" type="button">
+                      <svg data-icon="open"></svg>
+                      <span class="choice-name">Open a file</span>
+                      <span class="choice-line">A photograph, a scan or a model</span>
+                    </button>
+                    <button class="choice" type="button">
+                      <svg data-icon="grid"></svg>
+                      <span class="choice-name">Line them up</span>
+                      <span class="choice-line">Two files in one frame</span>
+                    </button>
+                    <button class="choice" type="button">
+                      <svg data-icon="play"></svg>
+                      <span class="choice-name">Run the job</span>
+                      <span class="choice-line">On everything that is open</span>
+                    </button>
+                    <button class="choice" type="button" disabled>
+                      <svg data-icon="export"></svg>
+                      <span class="choice-name">Export</span>
+                      <span class="choice-line">Once there is something to write</span>
+                    </button>
+                  </div>
+                  <div class="stcells">
+                    <div class="stcell"><span class="sd ok"></span><span class="stcell-l">Files</span><span class="stcell-v">2 open</span></div>
+                    <div class="stcell"><span class="sd warn"></span><span class="stcell-l">Frame</span><span class="stcell-v">Not lined up</span></div>
+                    <button class="stcell" type="button"><span class="sd"></span><span class="stcell-l">Last run</span><span class="stcell-v">Never</span></button>
+                  </div>
+                </div>
+                <p class="note">
+                  Large choices and, under them, how things stand. The choices
+                  take as many columns as the page asks for and give one up
+                  before any of them is squeezed; one that cannot be taken yet
+                  is there, flattened.
+                </p>
+                <div class="gal-name hidden">start</div>
               </div>
 
               <div class="gal-cell">

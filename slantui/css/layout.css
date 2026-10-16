@@ -329,8 +329,9 @@ html[data-splash=lifting] body::after{
 /* Anything with a fill of its own goes up one step inside a block, or it would
    disappear into the card behind it. A chosen item keeps the accent, which is
    the next rule in components.css and wins on the same weight. */
-.block .toggle,.block .pi-row,.block .mitem,.block .log{background:var(--control)}
-.block .toggle:hover,.block .mitem:hover{background:var(--control-hover)}
+.block .toggle,.block .pi-row,.block .mitem,.block .log,.block .fold-hd{background:var(--control)}
+.block .toggle:hover,.block .mitem:hover,.block .fold-hd:hover{background:var(--control-hover)}
+.block .fold-hd:active{background:var(--control-active)}
 
 /* The block's number, taken from the order it was declared in the way the rail
    takes its own: blocks are things to do, one after another. */

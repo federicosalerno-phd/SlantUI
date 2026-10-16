@@ -44,8 +44,8 @@ both schemes, which is what a sheet of paper does.
 |---|---|---|
 | `surface-0` | The window backdrop, the plane everything sits on | `html`, `body`, `.stage` |
 | `surface-1` | Bands fixed to the window edge | `.titlebar`, `.topbar`, `.rp` |
-| `surface-2` | Strips and toolbars inside the work area | `.toolbar`, `.stpill` |
-| `surface-3` | The most raised plane | `.card`, `.combopop`, `.input`, `.rp-hd`, `.rp-foot` |
+| `surface-2` | Strips and toolbars inside the work area | `.toolbar`, `.stpill`, `.stcell` |
+| `surface-3` | The most raised plane | `.card`, `.combopop`, `.input`, `.rp-hd`, `.rp-foot`, `.fold-hd` |
 
 <picture>
 <source media="(prefers-color-scheme: dark)" srcset="img/gold-dark/panel.png">
@@ -63,8 +63,8 @@ palette and darker on a light one.
 
 | Role | What it is | Where it is drawn |
 |---|---|---|
-| `control` | The resting fill of a secondary control | `.btn-2`, `.wbtn`, the slider track, the scrollbar thumb, `.tbar-band` |
-| `control-hover` | The same control under the pointer | `.btn-2:hover`, `.combo:hover`, `.wbtn:hover` |
+| `control` | The resting fill of a secondary control | `.btn-2`, `.choice`, `.wbtn`, the slider track, the scrollbar thumb, `.tbar-band` |
+| `control-hover` | The same control under the pointer | `.btn-2:hover`, `.choice:hover`, `.combo:hover`, `.wbtn:hover` |
 | `control-active` | The same control while it is pressed | `.btn-2:active` |
 
 The band behind the title bar is `control` and not a surface, on purpose: it is

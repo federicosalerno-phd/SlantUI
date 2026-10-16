@@ -153,6 +153,7 @@
    feels like a slide. */
 .btn:hover,.wbtn:hover,.ct:hover,.tab:hover,.combo:hover,.combo.open,
 .combo-opt:hover,.mitem:hover,.mrow:hover,.dz:hover,.spin-b:hover,.more:hover,
+.fold-hd:hover,.choice:hover,.stcell:hover,
 .toast.show,.sheet.show.on{transition-duration:var(--t-in)}
 
 /* -- window buttons -------------------------------------------------------- */
@@ -544,6 +545,64 @@ html.jog-drag,html.jog-drag *{cursor:ew-resize !important}
 .toggle{flex-wrap:wrap}
 .toggle .aside{flex-basis:100%;padding-left:22px}
 
+/* -- a section that opens -------------------------------------------------- */
+/* WHAT IS RARELY NEEDED, UNDER A HEAD THAT OPENS IT. A panel that shows every
+   setting it has makes the reader find the one they came for among ten they
+   did not, so the settings a run seldom touches go in a fold: a head that
+   names what is in it, and under it the controls, closed until the head is
+   pressed (widgets.js, initFolds). The common case stays in plain view.
+
+   The head is a row like the other rows a panel holds, on the same fill, and
+   one slot tall, so a fold laid on the comb keeps to it. Its states are fills:
+   the control fill under the pointer, the pressed one while it is held, and
+   the focus ring every control has. The chevron at its end is the dropdown's
+   and turns over the same way when the fold opens. No line divides the head
+   from what it opens: the body starts one sibling's space under it.
+
+   What is in the body is the page's (slots, a column, rows of its own), and
+   the fold spaces none of it. It opens by growing to its own height and
+   closes by shrinking back to nothing, never by appearing at its full size:
+   the height moves (interpolate-size lets a height move to auto) over
+   --t-out, arriving on --ease-arrive and leaving on --ease-leave, and what
+   is inside comes up as it opens and goes quickly as it closes. An engine
+   that cannot move a height to auto opens it at once, which is also what a
+   reader who asked the system for less motion gets. Closed, it takes no room,
+   no press and no focus: it is hidden once it has finished closing, and
+   widgets.js makes it inert at once, so Tab never lands on a control nobody
+   can see. */
+.fold{display:flex;flex-direction:column;min-width:0}
+.fold-hd{
+  display:flex;align-items:center;gap:var(--sp-2);width:100%;min-height:var(--slot);
+  padding:0 var(--sp-2) 0 var(--sp-3);border-radius:var(--r);
+  background:var(--surface-3);color:var(--text-2);
+  font-size:var(--fs);font-weight:500;text-align:left;cursor:pointer;
+  transition:background var(--t-out),color var(--t-chg);
+}
+.fold-hd:hover{background:var(--control);color:var(--text-1)}
+.fold-hd:active{background:var(--control-active)}
+.fold.open>.fold-hd{color:var(--text-1)}
+/* The name is the part that gives way, and it stays on one line. */
+.fold-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* The sign is as large as the type of the head it closes, whatever that is. */
+.fold-c{
+  width:1em;height:1em;flex:none;margin-left:auto;
+  stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;
+  transition:transform var(--t-out) var(--ease-leave);
+}
+.fold.open>.fold-hd .fold-c{transform:rotate(180deg);transition-timing-function:var(--ease-arrive)}
+.fold-body{
+  height:0;overflow-x:visible;overflow-y:clip;interpolate-size:allow-keywords;
+  visibility:hidden;opacity:0;
+  transition:height var(--t-out) var(--ease-leave),padding-top var(--t-out) var(--ease-leave),
+             opacity var(--t-in) var(--ease-leave),visibility var(--t-out);
+}
+.fold.open>.fold-body{
+  height:auto;padding-top:var(--sp-1);visibility:visible;opacity:1;
+  transition:height var(--t-out) var(--ease-arrive),padding-top var(--t-out) var(--ease-arrive),
+             opacity var(--t-out) var(--ease-arrive);
+}
+@media (prefers-reduced-motion: reduce){.fold-body,.fold.open>.fold-body,.fold-c{transition:none}}
+
 /* -- a line of state that is a path ---------------------------------------- */
 /* A folder somebody chose. It is a note like any other except that it has no
    spaces to break at, so it is allowed to break anywhere: the alternative is a
@@ -864,3 +923,81 @@ html.jog-drag,html.jog-drag *{cursor:ew-resize !important}
 .dz:hover svg,.dz.dzover svg{opacity:1}
 .dz-lbl{font-size:14px;font-weight:var(--w-strong);text-align:center;line-height:1.5;margin-bottom:6px}
 .dz-sub{font-size:var(--fs-sm);color:var(--text-4)}
+
+/* -- a start page ---------------------------------------------------------- */
+/* WHERE AN APPLICATION STARTS: a few large choices, each a sign, a name and
+   one short line, and under them a row of cells saying how things stand. It
+   is what the window shows before anything is open, and what its mark
+   (setBrandAction) can take the reader back to.
+
+   A choice is a button drawn large: the secondary control's fill and its
+   three states, raised under the pointer and pressed while it is held, the
+   radius of a framed pane because it is the size of one, and the focus ring
+   every control has. A choice that cannot be taken yet is there and
+   flattened, the way a disabled button is, so the page does not change shape
+   the day it can. Its name and its line are one line each: a choice is read
+   at a glance, and a line that wraps is the wrong line.
+
+   The grid makes as many columns as the page asks for (--cols, a count the
+   page writes on it, two when it writes none) and gives one up whenever a
+   choice would come out narrower than --choice-w, down to a single column,
+   so a narrow window stacks the choices and never squeezes them. The smallest
+   a column may be is the larger of --choice-w and the share of the row that
+   --cols columns would each have, a gap less, which is what holds the count
+   at --cols on a wide page. The page gives the grid its width. Every choice
+   in a row is as tall as the tallest, the list's rule too: four choices of
+   four heights read as four kinds of thing. */
+.choices{
+  display:grid;gap:var(--sp-2);grid-auto-rows:1fr;
+  grid-template-columns:repeat(auto-fit,minmax(max(min(100%,var(--choice-w)),
+    calc((100% - var(--cols,2) * var(--sp-2)) / var(--cols,2))),1fr));
+}
+.choice{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--sp-1);
+  min-width:0;min-height:var(--choice-h);padding:var(--sp-3);
+  border-radius:var(--r-lg);background:var(--control);color:var(--text-2);
+  text-align:center;cursor:pointer;
+  transition:background var(--t-out),color var(--t-chg);
+}
+.choice:hover:not(:disabled):not(.off){background:var(--control-hover);color:var(--text-1)}
+.choice:active:not(:disabled):not(.off){background:var(--control-active)}
+.choice svg{
+  width:var(--choice-sign);height:var(--choice-sign);flex:none;margin-bottom:var(--sp-1);
+  stroke:currentColor;fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;
+}
+.choice-name{max-width:100%;font-size:var(--fs-lg);font-weight:var(--w-strong);color:var(--text-1);
+             white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.choice-line{max-width:100%;font-size:var(--fs-sm);color:var(--text-3);
+             white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* Not yet: the plainest fill and the faintest text, sign, name and line. */
+.choice:disabled,.choice.off{background:var(--surface-2);color:var(--text-4);cursor:default}
+.choice:disabled>*,.choice.off>*{color:var(--text-4)}
+
+/* How things stand, under the choices: one cell for each thing the reader
+   would otherwise go and look for, each a dot in a status colour (the .sd of
+   the status pill, neutral when it carries no state), a label and a value, on
+   the fill of a strip. A cell is read, not pressed, unless the page makes it
+   a <button>, and then it takes the hover and pressed fills like any other
+   control. The row shares out its width the way the choices do, in three
+   columns when the page writes no --cols, giving one up below --stcell-w. The
+   label and the value are one line each, and setStcell (widgets.js) writes
+   the value, its dot, and the whole value into the tooltip. */
+.stcells{
+  display:grid;gap:var(--sp-2);
+  grid-template-columns:repeat(auto-fit,minmax(max(min(100%,var(--stcell-w)),
+    calc((100% - var(--cols,3) * var(--sp-2)) / var(--cols,3))),1fr));
+}
+.stcell{
+  display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;column-gap:var(--sp-2);
+  min-width:0;padding:var(--sp-2) var(--sp-3);border-radius:var(--r-md);
+  background:var(--surface-2);text-align:left;
+  transition:background var(--t-out);
+}
+.stcell>.sd{grid-row:span 2;margin:0}
+.stcell-l{font-size:var(--fs-sm);color:var(--text-3);
+          white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stcell-v{font-size:var(--fs);color:var(--text-1);font-variant-numeric:tabular-nums;
+          white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+button.stcell{cursor:pointer}
+button.stcell:hover:not(:disabled){background:var(--control)}
+button.stcell:active:not(:disabled){background:var(--control-active)}

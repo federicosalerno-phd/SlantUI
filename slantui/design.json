@@ -1,5 +1,5 @@
 {
-  "slantui": "0.3.0",
+  "slantui": "0.4.0",
   "default": "gold-dark",
   "roles": [
     {
@@ -555,6 +555,34 @@
       "group": "jog",
       "value": "400px",
       "purpose": "How far the hand travels to run a jog from one end of its range to the other, when the page does not say what one pixel is worth.",
+      "kind": "length"
+    },
+    {
+      "name": "choice-w",
+      "group": "start",
+      "value": "200px",
+      "purpose": "The narrowest a choice on a start page may be. Narrower than this, its grid gives up a column instead.",
+      "kind": "length"
+    },
+    {
+      "name": "choice-h",
+      "group": "start",
+      "value": "120px",
+      "purpose": "How tall a choice is at least: its sign, its name and its line, with air above and below them.",
+      "kind": "length"
+    },
+    {
+      "name": "choice-sign",
+      "group": "start",
+      "value": "28px",
+      "purpose": "The sign on a choice, square.",
+      "kind": "length"
+    },
+    {
+      "name": "stcell-w",
+      "group": "start",
+      "value": "150px",
+      "purpose": "The narrowest a status cell under the choices may be, before its row gives up a column.",
       "kind": "length"
     },
     {

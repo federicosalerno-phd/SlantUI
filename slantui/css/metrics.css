@@ -143,6 +143,26 @@
   /* the page does not say what one pixel is worth. */
   --jog-run:400px;
 
+  /* a start page: the choices, and how things stand under them */
+  /* Where an application starts, and where its mark takes the reader back */
+  /* to: a few large choices, and a row of cells under them saying how */
+  /* things stand. The choices share a row in as many columns as the page */
+  /* asks for, and give one up whenever a choice would be narrower than */
+  /* --choice-w, down to a single column, so a narrow window stacks them */
+  /* and never squeezes them. The cells do the same at --stcell-w. Every */
+  /* choice in a row is as tall as the tallest, and never less than */
+  /* --choice-h. */
+  /* The narrowest a choice on a start page may be. Narrower than this, its grid gives up */
+  /* a column instead. */
+  --choice-w:200px;
+  /* How tall a choice is at least: its sign, its name and its line, with air above and */
+  /* below them. */
+  --choice-h:120px;
+  --choice-sign:28px;    /* The sign on a choice, square. */
+  /* The narrowest a status cell under the choices may be, before its row gives up a */
+  /* column. */
+  --stcell-w:150px;
+
   /* what opens over the page */
   /* One blur and two widths. The blur is the loading screen's, which is */
   /* the one thing that does put the page out of focus, because until it */

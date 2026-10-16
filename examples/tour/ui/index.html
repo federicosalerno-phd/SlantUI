@@ -113,15 +113,48 @@
         <span class="ct-fname fit" id="fname"></span>
       </div>
 
-      <!-- The stage. The canvas fills it (layout.css does that), the drop
-           zone is centred on it, and the two chrome boxes sit over both. -->
+      <!-- The stage. The canvas fills it (layout.css does that), the start
+           page is centred on it, and the two chrome boxes sit over both. -->
       <div class="stage" id="stage">
         <canvas id="cv"></canvas>
 
-        <div class="dz" id="dz">
-          <svg viewBox="0 0 24 24"><path d="M12 15.5V3.8"/><polyline points="7.6 8.2 12 3.8 16.4 8.2"/><path d="M4 15.2v3.2A1.6 1.6 0 0 0 5.6 20h12.8a1.6 1.6 0 0 0 1.6-1.6v-3.2"/></svg>
-          <div class="dz-lbl">Drop a file here</div>
-          <div class="dz-sub">or click to pick one</div>
+        <!-- The start page: a choice for each step after this one, the last
+             one not in the tour and so there and switched off; how things
+             stand, in two cells (setStcell in app.js), the second of which
+             is a button; and the drop card. -->
+        <div class="start" id="start">
+          <div class="choices">
+            <button class="choice" type="button" data-go="1">
+              <svg viewBox="0 0 24 24"><rect x="4.5" y="4.5" width="6" height="6" rx="1"/><rect x="13.5" y="4.5" width="6" height="6" rx="1"/><rect x="4.5" y="13.5" width="6" height="6" rx="1"/><rect x="13.5" y="13.5" width="6" height="6" rx="1"/></svg>
+              <span class="choice-name">Controls</span>
+              <span class="choice-line">The band, cut on the stage</span>
+            </button>
+            <button class="choice" type="button" data-go="2">
+              <svg viewBox="0 0 24 24"><path d="M7 4.6 19 12 7 19.4z"/></svg>
+              <span class="choice-name">Run</span>
+              <span class="choice-line">A slot, a signal, a wait</span>
+            </button>
+            <button class="choice" type="button" data-go="3">
+              <svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>
+              <span class="choice-name">Results</span>
+              <span class="choice-line">Numbers in rows</span>
+            </button>
+            <button class="choice" type="button" disabled>
+              <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+              <span class="choice-name">Export</span>
+              <span class="choice-line">Not in the tour</span>
+            </button>
+          </div>
+          <div class="stcells" style="--cols:2">
+            <div class="stcell" id="scFile"><span class="sd"></span><span class="stcell-l">File</span><span class="stcell-v">None yet</span></div>
+            <button class="stcell" type="button" id="scRun" data-go="2"><span class="sd"></span><span class="stcell-l">Last run</span><span class="stcell-v">Never</span></button>
+          </div>
+
+          <div class="dz" id="dz">
+            <svg viewBox="0 0 24 24"><path d="M12 15.5V3.8"/><polyline points="7.6 8.2 12 3.8 16.4 8.2"/><path d="M4 15.2v3.2A1.6 1.6 0 0 0 5.6 20h12.8a1.6 1.6 0 0 0 1.6-1.6v-3.2"/></svg>
+            <div class="dz-lbl">Drop a file here</div>
+            <div class="dz-sub">or click to pick one</div>
+          </div>
         </div>
 
         <div class="covl hidden" id="covl">
@@ -309,10 +342,6 @@ meshing: 1 of 3
             timer counting, which is all an example needs; the round trip is
             the same when the work is real.
           </p>
-          <div class="combo" id="length" tabindex="0" role="button" aria-haspopup="listbox"
-               data-options="Quick (1.2 s)|Normal (2.4 s)|Slow (4.8 s)" data-value="Normal (2.4 s)">
-            <span class="combo-v">Normal (2.4 s)</span>
-          </div>
           <div class="row">
             <button class="btn btn-primary btn-grow" id="btnRun">
               <svg viewBox="0 0 24 24"><path d="M7 4.6 19 12 7 19.4z"/></svg>
@@ -322,6 +351,18 @@ meshing: 1 of 3
               <svg viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" rx="1.5"/></svg>
               <span class="btn-label">Cancel</span>
             </button>
+          </div>
+          <!-- A section that opens: how long the job runs is rarely what a
+               reader came to change, so it waits under a head, closed. The
+               window remembers whether it was left open (data-remember). -->
+          <div class="fold" data-remember="tour-run">
+            <button class="fold-hd" type="button"><span class="fold-name">Advanced</span></button>
+            <div class="fold-body">
+              <div class="combo" id="length" tabindex="0" role="button" aria-haspopup="listbox"
+                   data-options="Quick (1.2 s)|Normal (2.4 s)|Slow (4.8 s)" data-value="Normal (2.4 s)">
+                <span class="combo-v">Normal (2.4 s)</span>
+              </div>
+            </div>
           </div>
 
           <div class="sec-lbl">The other wait</div>

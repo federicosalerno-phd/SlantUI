@@ -970,6 +970,129 @@ def test_the_jog_takes_the_arrow_keys_and_can_be_switched_off(js):
     assert J(js, "j2.listeners.pointerdown.length") == 1
 
 
+# A page's local storage, and a fold made the way a page writes one. Its body
+# writes down what it looked like each time the layout was taken, which is the
+# moment a transition would start from.
+FOLD_PAGE = """
+  let STORE = {};
+  globalThis.localStorage = {
+    getItem: function (k) { return k in STORE ? STORE[k] : null; },
+    setItem: function (k, v) { STORE[k] = String(v); },
+  };
+  const LAID = [], SAID = [];
+  function fold(head, cls, remember) {
+    const f = document.body.appendChild(new El('div', 'fold' + (cls ? ' ' + cls : '')));
+    if (remember) f.setAttribute('data-remember', remember);
+    f.appendChild(new El(head || 'button', 'fold-hd'));
+    const body = f.appendChild(new El('div', 'fold-body'));
+    body.appendChild(new El('button', 'btn btn-2'));
+    Object.defineProperty(body, 'offsetHeight', { get: function () {
+      LAID.push([body.style.transition, f.className]); return 0; } });
+    f.addEventListener('toggle', function () { SAID.push(f.open); });
+    return f;
+  }
+  function head(f) { return f.children[0]; }
+  function body(f) { return f.children[1]; }
+"""
+
+
+def test_a_fold_opens_and_closes_by_the_hand_and_says_so(js):
+    js.eval(FOLD_PAGE)
+    js.eval(_runnable("widgets.js"))
+    js.eval("const f = fold(); initFolds()")
+    # closed until asked for, and what is in it out of reach
+    assert J(js, "f.open") is False
+    assert J(js, "head(f).getAttribute('aria-expanded')") == "false"
+    assert J(js, "body(f).inert") is True
+    assert J(js, "head(f).getAttribute('aria-controls')") == J(js, "body(f).getAttribute('id')")
+    # the hand: open, closed, and `toggle` each time
+    js.eval("fire(head(f), 'click')")
+    assert J(js, "[f.open, f.classList.contains('open'), body(f).inert]") == [True, True, False]
+    assert J(js, "head(f).getAttribute('aria-expanded')") == "true"
+    js.eval("fire(head(f), 'click')")
+    assert J(js, "f.open") is False
+    assert J(js, "SAID") == [True, False]
+    # from code it moves and says nothing
+    js.eval("setFold(f, true)")
+    assert J(js, "[f.open, body(f).inert]") == [True, False]
+    js.eval("f.open = false")
+    assert J(js, "f.open") is False
+    assert J(js, "SAID") == [True, False]
+    # wired once, however many times it is asked
+    js.eval("initFolds(); initFolds()")
+    assert J(js, "head(f).listeners.click.length") == 1
+    # one that starts open is open, and was laid out open with nothing moving
+    js.eval("LAID.length = 0; const g = fold('button', 'open'); initFolds()")
+    assert J(js, "[g.open, body(g).inert]") == [True, False]
+    assert J(js, "LAID") == [["none", "fold open"]]
+    assert J(js, "body(g).style.transition") == ""
+
+
+def test_a_fold_head_that_is_not_a_button_is_given_the_keys(js):
+    js.eval(FOLD_PAGE)
+    js.eval(_runnable("widgets.js"))
+    js.eval("const f = fold('div'); initFolds()")
+    assert J(js, "head(f).getAttribute('role')") == "button"
+    assert J(js, "head(f).getAttribute('tabindex')") == "0"
+    assert J(js, "fire(head(f), 'keydown', { key: 'Enter' }).defaultPrevented") is True
+    assert J(js, "f.open") is True
+    js.eval("fire(head(f), 'keydown', { key: ' ' })")
+    assert J(js, "f.open") is False
+    js.eval("fire(head(f), 'keydown', { key: 'a' })")
+    assert J(js, "f.open") is False
+    assert J(js, "SAID") == [True, False]
+    # a <button> needs none of it: the engine sends its keys as a click
+    js.eval("const b = fold('button'); initFolds()")
+    assert J(js, "head(b).getAttribute('role')") is None
+    assert J(js, "head(b).listeners.keydown === undefined") is True
+
+
+def test_a_fold_keeps_what_the_hand_did_when_the_page_asks(js):
+    js.eval(FOLD_PAGE)
+    js.eval(_runnable("widgets.js"))
+    js.eval("const f = fold('button', '', 'run'); const n = fold(); initFolds();"
+            "fire(head(f), 'click'); fire(head(n), 'click')")
+    # the hand's choice is kept under the page's name, and only that one
+    assert J(js, "STORE") == {"slantui.fold.run": "1"}
+    # what the page sets from code is not the reader's choice
+    js.eval("setFold(f, false)")
+    assert J(js, "STORE") == {"slantui.fold.run": "1"}
+    # the next time the window opens, it comes back open, and without moving
+    js.eval("LAID.length = 0; const again = fold('button', '', 'run'); initFolds()")
+    assert J(js, "again.open") is True
+    assert J(js, "LAID") == [["none", "fold open"]]
+    # what was kept wins over the markup
+    js.eval("STORE['slantui.fold.run'] = '0'; const shut = fold('button', 'open', 'run'); initFolds()")
+    assert J(js, "shut.open") is False
+    # and a page with no storage at all still opens and closes
+    js.eval("globalThis.localStorage = { getItem: function () { throw new Error('no'); },"
+            "  setItem: function () { throw new Error('no'); } };"
+            "const bare = fold('button', '', 'run'); initFolds(); fire(head(bare), 'click')")
+    assert J(js, "bare.open") is True
+
+
+def test_a_status_cell_carries_its_dot_its_value_and_the_whole_value(js):
+    js.eval(_runnable("widgets.js"))
+    js.eval("""
+      const cell = new El('div', 'stcell');
+      const dot = cell.appendChild(new El('span', 'sd'));
+      cell.appendChild(new El('span', 'stcell-l'));
+      const v = cell.appendChild(new El('span', 'stcell-v'));
+      setStcell(cell, 'ok', 'a_very_long_photograph_name.jpeg');
+    """)
+    assert J(js, "[dot.className, v.textContent, v.title]") == \
+        ["sd ok", "a_very_long_photograph_name.jpeg", "a_very_long_photograph_name.jpeg"]
+    js.eval("setStcell(cell, '', 'None yet')")
+    assert J(js, "[dot.className, v.textContent]") == ["sd", "None yet"]
+    assert J(js, "cell.children.length") == 3
+    # a cell that has nothing yet is given its dot and its value
+    js.eval("const bare = new El('button', 'stcell'); setStcell(bare, 'warn', 3)")
+    assert J(js, "bare.children.map(function (c) { return c.className; }).sort()") == \
+        ["sd warn", "stcell-v"]
+    assert J(js, "bare.querySelector('.stcell-v').textContent") == "3"
+    assert J(js, "setStcell(null, 'ok', 'x')") is None
+
+
 def test_fit_one_line_shrinks_then_drops_the_middle(js):
     js.eval(_runnable("widgets.js"))
     js.eval("const box = new El('div', 'fit'); box.clientWidth = 120;")

@@ -336,6 +336,24 @@ nobody looks at again, so the test suite fails when one is.
 </picture>
 </td>
 </tr>
+<tr>
+<th align="center">A section that opens</th>
+<th align="center">A start page</th>
+</tr>
+<tr>
+<td align="center" valign="middle">
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/federicosalerno-phd/SlantUI/main/docs/img/gold-dark/fold.png">
+<img src="https://raw.githubusercontent.com/federicosalerno-phd/SlantUI/main/docs/img/gold-light/fold.png" width="284" alt="Two section heads with a chevron at the end: the first closed, the second open over a switch and a slider">
+</picture>
+</td>
+<td align="center" valign="middle">
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/federicosalerno-phd/SlantUI/main/docs/img/gold-dark/start.png">
+<img src="https://raw.githubusercontent.com/federicosalerno-phd/SlantUI/main/docs/img/gold-light/start.png" width="594" alt="Four large choices, each a sign, a name and a line, the last one switched off, and under them three cells, each a coloured dot, a label and a value">
+</picture>
+</td>
+</tr>
 </table>
 
 ## Colour
@@ -524,7 +542,8 @@ page from `file://`:
 icons.js         the named signs a window is made of, as markup
 theme.js         the roles read back off :root for a canvas, plus colour maths
 bridge.js        the QWebChannel transport, with a queue for calls made too early
-widgets.js       the dropdown, the jog, the number stepper, text that has to fit on one line
+widgets.js       the dropdown, the jog, the number stepper, a section that opens,
+                 text that has to fit on one line
 titlebar.js      the oblique band, the window buttons, the resize strips, the credit,
                  the mark as a button
 ```
@@ -757,7 +776,7 @@ way is under [Outside a browser](#outside-a-browser).*
 
 `docs/gallery.html` is a window holding a catalogue of the widget set, one
 cell per component, and `docs/capture.py` opens it and saves a picture of
-every cell in every palette: forty six shots, eight palettes, and the four parts
+every cell in every palette: forty eight shots, eight palettes, and the four parts
 of the shell shot where they are. There is no screenshot tool in it. The
 window renders the page, `grabWindow()` hands the frame back as an image, and
 the page itself says which rectangle to keep, so a picture is of the real

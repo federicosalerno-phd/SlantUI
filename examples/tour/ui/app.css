@@ -1,7 +1,7 @@
 /* ============================================================================
    What this page adds to SlantUI, which is as little as it sounds.
 
-   Three rules. Everything else on screen is a class out of layout.css or
+   Four rules. Everything else on screen is a class out of layout.css or
    components.css. The house rule holds here too: no colour is written as a
    value, only as a role, so this file is right on all eight palettes.
    ========================================================================== */
@@ -21,3 +21,8 @@
 @media (max-width: 1080px){
   .tb-r .btn-label{display:none}
 }
+
+/* The start page is a column as wide as the drop card under it, so the two
+   choices of a row and the two cells under them line up with its edges. The
+   stage centres it. */
+.start{width:440px;display:flex;flex-direction:column;gap:var(--sp-2)}

@@ -158,6 +158,18 @@ METRICS: tuple[Metric, ...] = (
            "How far the hand travels to run a jog from one end of its range to "
            "the other, when the page does not say what one pixel is worth."),
 
+    # ── a start page ────────────────────────────────────────────────────────
+    Metric("choice-w", "start", "200px",
+           "The narrowest a choice on a start page may be. Narrower than this, "
+           "its grid gives up a column instead."),
+    Metric("choice-h", "start", "120px",
+           "How tall a choice is at least: its sign, its name and its line, "
+           "with air above and below them."),
+    Metric("choice-sign", "start", "28px", "The sign on a choice, square."),
+    Metric("stcell-w", "start", "150px",
+           "The narrowest a status cell under the choices may be, before its "
+           "row gives up a column."),
+
     # ── what opens over the page ────────────────────────────────────────────
     Metric("blur", "overlay", "14px",
            "How far the page behind a veil goes out of focus."),
@@ -207,6 +219,7 @@ GROUPS: dict[str, str] = {
     "panel": "the side panel",
     "comb": "the comb the panel is laid on",
     "jog": "the jog, a number that is dragged",
+    "start": "a start page: the choices, and how things stand under them",
     "overlay": "what opens over the page",
     "motion": "motion. One material, three durations, a handover, a scene and four curves",
 }
@@ -243,6 +256,16 @@ GROUP_NOTES: dict[str, str] = {
         "it. --jog-run is that amount when the page does not give one: the whole\n"
         "range in four hundred pixels of travel. The strip is --jog-h tall so\n"
         "the hand finds it, and the tape drawn inside it is thinner than that."
+    ),
+    "start": (
+        "Where an application starts, and where its mark takes the reader back\n"
+        "to: a few large choices, and a row of cells under them saying how\n"
+        "things stand. The choices share a row in as many columns as the page\n"
+        "asks for, and give one up whenever a choice would be narrower than\n"
+        "--choice-w, down to a single column, so a narrow window stacks them\n"
+        "and never squeezes them. The cells do the same at --stcell-w. Every\n"
+        "choice in a row is as tall as the tallest, and never less than\n"
+        "--choice-h."
     ),
     "overlay": (
         "One blur and two widths. The blur is the loading screen's, which is\n"
