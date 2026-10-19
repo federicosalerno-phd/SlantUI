@@ -314,11 +314,12 @@ def test_bridge_says_when_the_object_is_not_there(js):
 def test_the_icon_set_is_on_one_grid(js):
     """Every sign on 24 by 24, so one stroke-width governs the lot.
 
-    Seven entries are exceptions and carry a `vb` of their own to say so: the
+    Nine entries are exceptions and carry a `vb` of their own to say so: the
     four window buttons, which are finished and drawn for a twelve pixel
-    button, the two stepper arrows, which fill a strip nine pixels by five
-    where a square drawing would come out five pixels tall, and the picker's
-    arrow, for the same reason.
+    button, and the sound switch's two that sit among them, the two stepper
+    arrows, which fill a strip of their own where a
+    square drawing would come out smaller, and the picker's arrow, for the
+    same reason.
 
     To see it fail, give a new entry a `vb` of its own.
     """
@@ -326,7 +327,8 @@ def test_the_icon_set_is_on_one_grid(js):
     odd = J(js, """(function(){var o=[];for(var n in ICONS){var e=ICONS[n];
       if(e&&e.vb&&e.vb!=='0 0 24 24')o.push(n);}return o;})()""")
     assert sorted(odd) == sorted(["win-minimise", "win-maximise", "win-restore",
-                                  "win-close", "step-up", "step-down", "picker-down"]), odd
+                                  "win-close", "sound-on", "sound-off",
+                                  "step-up", "step-down", "picker-down"]), odd
 
 
 def test_an_entry_comes_back_as_markup_whatever_shape_it_is(js):

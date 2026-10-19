@@ -24,20 +24,79 @@
    like every other sign, with the character set inside it, so a page never
    has to know which of its signs are finished.
 
-   The set is drawn on a 24 by 24 grid, stroked, never filled, so one
-   `stroke-width` in the stylesheet governs the lot. Seven entries carry a `vb`
-   of their own and are exceptions on purpose: the four window buttons, which
-   are finished and drawn for a twelve pixel button, the two stepper arrows,
-   which fill a strip nine pixels by five where a square drawing would come out
-   five pixels tall, and the picker's arrow, for the same reason.
+   The set is drawn on a 24 by 24 grid, stroked, so one `stroke-width` in the
+   stylesheet governs the lot. The one thing filled is a point: every arrow,
+   chevron and head is the same filled triangle (ARROW_HEAD, below). Nine
+   entries carry a `vb` of their own and are exceptions on purpose: the four
+   window buttons, which are finished and drawn for a twelve pixel button, and
+   the two of the sound switch that sits among them (sounds.js), the
+   two stepper arrows, which fill a strip of their own (four and a half pixels
+   by six and a half) where a square drawing would come out smaller, and the
+   picker's arrow, for the same reason and at the same size.
 
    Leaves on the window: ICONS, icon, setIcon, iconReport, iconInkShift,
-   iconCentred, iconInkAttrs.
+   iconCentred, iconInkAttrs, ARROW_HEAD, arrowHead, arrowHeadPath.
    ========================================================================== */
 
 /* eslint no-unused-vars: 0 */
 
 const ICON_GRID = '0 0 24 24';
+
+/* THE ARROWHEAD.
+
+   Every point a window draws is one triangle: filled, never two strokes
+   meeting in a V, and slim, half as wide as ARROW_HEAD of its length (0.9 to
+   2.6, 38 degrees at the point). Two strokes in a V have a round corner where
+   a point should be, and at the size of a button they read as a smudge; a
+   filled triangle keeps its point and its straight edges at every size and
+   every scaling. One shape, so the chevron on a button, the arrow of a
+   dropdown and the head of a curved arrow are one sign at three sizes, and an
+   application that draws its own arrows (a dimension line, a figure) draws
+   them with the same two functions:
+
+     arrowHead([x, y], [dx, dy], len)      the corners: the point at (x, y),
+                                           then the two ends of its base, len
+                                           behind it
+     arrowHeadPath([x, y], [dx, dy], len)  the same as a path's `d`
+
+   [dx, dy] is the way it points, of any length but none. A line that ends in
+   one stops inside it, where the triangle is wider than the line, so the two
+   read as one shape with the triangle's own point. */
+const ARROW_HEAD = 0.9 / 2.6;
+
+function arrowHead(tip, dir, len) {
+  const n = Math.hypot(dir[0], dir[1]) || 1, ux = dir[0] / n, uy = dir[1] / n, w = len * ARROW_HEAD;
+  const bx = tip[0] - ux * len, by = tip[1] - uy * len;
+  return [[tip[0], tip[1]], [bx - uy * w, by + ux * w], [bx + uy * w, by - ux * w]];
+}
+
+function _num(v) { return String(Math.round(v * 1000) / 1000); }
+
+function arrowHeadPath(tip, dir, len) {
+  const p = arrowHead(tip, dir, len);
+  return 'M' + p.map(function (q) { return _num(q[0]) + ' ' + _num(q[1]); }).join('L') + 'z';
+}
+
+/* A head as the set draws it: filled with the text colour and not stroked, so
+   its corners stay sharp whatever the stroke of the rest is. */
+function _head(tip, dir, len) {
+  return '<path d="' + arrowHeadPath(tip, dir, len) + '" fill="currentColor" stroke="none"/>';
+}
+
+/* A curved arrow: an arc about (cx, cy) of radius r from the angle `from` to
+   the angle `to`, in degrees the way SVG turns them (from the right, clockwise
+   on screen), with its head `len` long on the chord that ends at `to`. The arc
+   runs on into the head by a little more than half its stroke, so arc and head
+   join with no gap. */
+function _arcArrow(cx, cy, r, from, to, len) {
+  const sg = to > from ? 1 : -1, deg = 180 / Math.PI;
+  const at = to - sg * 2 * Math.asin(len / (2 * r)) * deg, into = at + sg * 1.4 / r * deg;
+  const p = function (a) { return [cx + r * Math.cos(a / deg), cy + r * Math.sin(a / deg)]; };
+  const a = p(from), e = p(into), b = p(at), t = p(to);
+  return '<path d="M' + _num(a[0]) + ' ' + _num(a[1]) + 'A' + r + ' ' + r + ' 0 '
+    + (Math.abs(into - from) > 180 ? 1 : 0) + ' ' + (sg > 0 ? 1 : 0) + ' ' + _num(e[0]) + ' ' + _num(e[1]) + '"/>'
+    + _head(t, [t[0] - b[0], t[1] - b[1]], len);
+}
 
 const ICONS = {
   /* ── the window's own buttons ──────────────────────────────────────────
@@ -54,25 +113,36 @@ const ICONS = {
     s: '<rect x="1.8" y="4.2" width="6" height="6" rx="1"/>'
       + '<path d="M4.6 4.2V2.8a1 1 0 0 1 1-1h3.6a1 1 0 0 1 1 1v3.6a1 1 0 0 1-1 1H8.8"/>' },
   'win-close': { vb: '0 0 12 12', s: '<path d="M3 3l6 6M9 3l-6 6"/>' },
+  /* The sound switch, on the same twelve and the same stroke: a speaker with
+     two waves, and the same speaker with a cross where the waves were. The
+     cross spans the same box as the waves, so the two drawings have one ink
+     box, are moved to the middle by one measure, and the speaker stays where
+     it is when the switch flips. */
+  'sound-on': { vb: '0 0 12 12', s: '<path d="M1 4.5H3.6L6 2.4V9.6L3.6 7.5H1Z"/>'
+    + '<path d="M8.156 4.444A2.2 2.2 0 0 1 8.156 7.556M9.570 3.030A4.2 4.2 0 0 1 9.570 8.970"/>' },
+  'sound-off': { vb: '0 0 12 12', s: '<path d="M1 4.5H3.6L6 2.4V9.6L3.6 7.5H1Z"/>'
+    + '<path d="M8 4.6l2.8 2.8M10.8 4.6l-2.8 2.8"/>' },
 
   /* ── pointing ──────────────────────────────────────────────────────── */
-  'chevron-up': { s: '<polyline points="7.5 14 12 9.5 16.5 14"/>' },
-  'chevron-down': { s: '<polyline points="7.5 10 12 14.5 16.5 10"/>' },
-  'chevron-left': { s: '<polyline points="14.5 5 7.5 12 14.5 19"/>' },
-  'chevron-right': { s: '<polyline points="9.5 5 16.5 12 9.5 19"/>' },
-  /* The stepper's two arrows. Filled, not stroked, and on a strip of their
-     own: see the note at the top. */
-  'step-up': { vb: '0 0 10 6', s: '<path d="M5 0.7 9.2 5.5 0.8 5.5z"/>' },
-  'step-down': { vb: '0 0 10 6', s: '<path d="M5 5.3 0.8 0.5 9.2 0.5z"/>' },
-  /* The picker's arrow: the same filled triangle New-SlantPicker draws in the
-     WPF half ("M 0,0 L 7,0 L 3.5,4.5 Z"), on a strip of its own for the same
-     reason as the stepper's. */
-  'picker-down': { vb: '0 0 7 4.5', s: '<path d="M0 0 7 0 3.5 4.5z"/>' },
+  /* The four ways, each the arrowhead fourteen long about the middle of the
+     grid. The names stay: they are what the pages ask for. */
+  'chevron-up': { s: _head([12, 5], [0, -1], 14) },
+  'chevron-down': { s: _head([12, 19], [0, 1], 14) },
+  'chevron-left': { s: _head([5, 12], [-1, 0], 14) },
+  'chevron-right': { s: _head([19, 12], [1, 0], 14) },
+  /* The stepper's two arrows: the arrowhead on a strip of its own, see the
+     note at the top, filled by its stylesheet (.spin-b svg). */
+  'step-up': { vb: '0 0 4.5 6.5', s: '<path d="' + arrowHeadPath([2.25, 0], [0, -1], 6.5) + '"/>' },
+  'step-down': { vb: '0 0 4.5 6.5', s: '<path d="' + arrowHeadPath([2.25, 6.5], [0, 1], 6.5) + '"/>' },
+  /* The picker's arrow: the arrowhead New-SlantPicker draws in the WPF half
+     ("M 0,0 L 4.5,0 L 2.25,6.5 Z"), on a strip of its own for the same reason
+     as the stepper's, as large as a dropdown's, filled by .picker-c. */
+  'picker-down': { vb: '0 0 4.5 6.5', s: '<path d="' + arrowHeadPath([2.25, 6.5], [0, 1], 6.5) + '"/>' },
 
   /* ── files ─────────────────────────────────────────────────────────── */
   open: 'M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z',
   'open-recent': { s: '<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>'
-    + '<polyline points="12 11 12 17"/><polyline points="9 14 12 17 15 14"/>' },
+    + '<path d="M12 9V12.4"/>' + _head([12, 18], [0, 1], 7) },
   save: { s: '<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>'
     + '<polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>' },
   /* TODO the same drawing as `save`: two different things wearing one sign.
@@ -87,9 +157,11 @@ const ICONS = {
     + '<path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/>' },
 
   /* ── acting ────────────────────────────────────────────────────────── */
-  undo: { s: '<path d="M4 12a8 8 0 1 1 2.3 5.6"/><path d="M4 12V7M4 12h5"/>' },
-  redo: { s: '<path d="M20 12a8 8 0 1 0 -2.3 5.6"/><path d="M20 12V7M20 12h-5"/>' },
-  reset: { s: '<polyline points="4 5.5 4 11 9.5 11"/><path d="M4.6 15a8 8 0 1 0 1.2-7"/>' },
+  /* Three turns on one circle, each with the arrowhead on its end: undo back
+     round to the left, redo its mirror, reset round to the top left. */
+  undo: { s: _arcArrow(12, 12, 8, 120, -190, 8.5) },
+  redo: { s: _arcArrow(12, 12, 8, 60, 370, 8.5) },
+  reset: { s: _arcArrow(12, 12, 8, 155, -160, 8.5) },
   run: 'M13 2L4 14h7l-1 8 9-12h-7z',
   play: 'M7 4.6 19 12 7 19.4z',
   stop: { s: '<rect x="6.5" y="6.5" width="11" height="11" rx="1.5"/>' },
@@ -114,6 +186,12 @@ const ICONS = {
     + '<rect x="4.5" y="13.5" width="6" height="6" rx="1"/><rect x="13.5" y="13.5" width="6" height="6" rx="1"/>' },
   fit: { s: '<circle cx="12" cy="12" r="5.5"/>'
     + '<path d="M12 1.5v4.5M12 18v4.5M1.5 12h4.5M18 12h4.5"/>' },
+  /* what is shown on the stage and what is not: an open eye, and the same eye
+     struck through, so a row of them reads at a glance */
+  eye: { s: '<path d="M2.5 12s3.6-6.5 9.5-6.5 9.5 6.5 9.5 6.5-3.6 6.5-9.5 6.5S2.5 12 2.5 12z"/>'
+    + '<circle cx="12" cy="12" r="2.8"/>' },
+  'eye-off': { s: '<path d="M2.5 12s3.6-6.5 9.5-6.5 9.5 6.5 9.5 6.5-3.6 6.5-9.5 6.5S2.5 12 2.5 12z"/>'
+    + '<path d="M4.5 4.5l15 15"/>' },
   jog: { g: '⇄' }
 };
 

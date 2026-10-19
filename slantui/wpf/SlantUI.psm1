@@ -2260,7 +2260,7 @@ function New-SlantPicker {
     $punto.Margin = New-Object System.Windows.Thickness(7, 0, 0, 0)
     $punto.Visibility = 'Collapsed'
     $freccia = New-Object System.Windows.Shapes.Path
-    $freccia.Data = [System.Windows.Media.Geometry]::Parse("M 0,0 L 7,0 L 3.5,4.5 Z")
+    $freccia.Data = [System.Windows.Media.Geometry]::Parse("M 0,0 L 4.5,0 L 2.25,6.5 Z")
     $freccia.Fill = $bc.ConvertFromString($pal.TextDim)
     $freccia.VerticalAlignment = 'Center'
     $freccia.Margin = New-Object System.Windows.Thickness(9, 1, 0, 0)
