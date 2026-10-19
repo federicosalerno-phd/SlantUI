@@ -698,6 +698,65 @@ function setJog(el, opts) {
   return el;
 }
 
+/* ── a slider for a fine value ────────────────────────────────────────────── */
+/* A native range with step="any" follows the hand as finely as the pointer
+   moves, with no steps. What it does not give is a small exact move from the
+   wheel or the keys: the wheel does nothing and an arrow takes a hundredth of
+   the range. A range that says data-fine="0.001" moves by that much for a
+   notch of the wheel or a press of an arrow, ten times that with Shift (Page
+   Up and Down ten times again, Home and End to its ends), and fires `input`
+   on every move and `change` once the hand stops: FINE_CHANGE_MS after the
+   last notch, or when the key comes up, as a drag does when it is let go.
+
+     <input type="range" min="0" max="1" step="any" data-fine="0.001"/>
+     initFineRanges(root)     wires every one under root (the page if left out)
+
+   Shift turns a vertical wheel into a horizontal one in the browser, so either
+   delta counts. */
+const FINE_CHANGE_MS = 300;
+
+function _fineMove(el, d) {
+  const lo = parseFloat(el.min || '0'), hi = parseFloat(el.max || '100'), now = parseFloat(el.value);
+  const v = +Math.min(hi, Math.max(lo, now + d)).toFixed(10);
+  if (v === now) return false;
+  el.value = String(v);
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+  return true;
+}
+
+function _fineWire(el) {
+  if (el._fine) return;
+  el._fine = true;
+  const fine = function (e) { return (parseFloat(el.getAttribute('data-fine')) || 0) * (e.shiftKey ? 10 : 1); };
+  el.addEventListener('wheel', function (e) {
+    const delta = e.deltaY || e.deltaX;
+    if (el.disabled || !delta) return;
+    e.preventDefault();
+    if (!_fineMove(el, delta < 0 ? fine(e) : -fine(e))) return;
+    clearTimeout(el._fineT);
+    el._fineT = setTimeout(function () { el.dispatchEvent(new Event('change', { bubbles: true })); },
+                           FINE_CHANGE_MS);
+  }, { passive: false });
+  el.addEventListener('keydown', function (e) {
+    if (el.disabled) return;
+    const f = fine(e), span = parseFloat(el.max || '100') - parseFloat(el.min || '0');
+    const d = { ArrowRight: f, ArrowUp: f, ArrowLeft: -f, ArrowDown: -f, PageUp: 10 * f, PageDown: -10 * f,
+                Home: -span, End: span }[e.key];
+    if (d === undefined) return;
+    e.preventDefault();
+    if (_fineMove(el, d)) el._fineKey = true;
+  });
+  el.addEventListener('keyup', function () {
+    if (!el._fineKey) return;
+    el._fineKey = false;
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+}
+
+function initFineRanges(root) {
+  (root || document).querySelectorAll('input[type=range][data-fine]').forEach(_fineWire);
+}
+
 /* ── a section that opens ─────────────────────────────────────────────────── */
 /* A group of controls under a head that opens it (components.css, .fold),
    closed until it is asked for. The page writes the head and the body, and

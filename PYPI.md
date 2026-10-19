@@ -535,7 +535,7 @@ behind it by being another surface, and its states are fills too.
 
 ## Scripts
 
-Five classic scripts, no modules, because the embedded browser serves the
+Six classic scripts, no modules, because the embedded browser serves the
 page from `file://`:
 
 ```
@@ -546,6 +546,7 @@ widgets.js       the dropdown, the jog, the number stepper, a section that opens
                  text that has to fit on one line
 titlebar.js      the oblique band, the window buttons, the resize strips, the credit,
                  the mark as a button
+sounds.js        the few sounds a window makes, and the switch on the band (Ctrl+M)
 ```
 
 ```python
@@ -555,7 +556,7 @@ from slantui.js import SCRIPTS, path, bundle
 `titlebar.js` cuts the band to the four metrics and the measured width of the
 brand block, so the taper starts where the name ends whatever the name is. It
 also writes the credit line the licence asks for, and makes the mark a button
-when an application has told it what pressing it does. The tests run all five
+when an application has told it what pressing it does. The tests run all six
 files in a bare V8 against a small fake DOM.
 
 ### Icons
@@ -584,8 +585,11 @@ font has no stroke, no grid and no weight of its own, and naming it does not
 change that; what it changes is that fixing it is one line, in one place, and
 `iconReport()` says how many are left and which names still share a drawing.
 
-Everything is on a 24 by 24 grid, stroked and never filled, so one
-`stroke-width` per context governs the lot. `.wbtn svg` carries its own,
+Everything is on a 24 by 24 grid, stroked, so one `stroke-width` per
+context governs the lot. The one thing filled is a point: every chevron,
+arrow and head is the same slim triangle, `arrowHead()` (half as wide as
+`ARROW_HEAD` of its length), which an application uses for arrows of its own
+with `arrowHeadPath()`. `.wbtn svg` carries its own stroke,
 because a twelve pixel button showing a twenty-four unit drawing halves every
 line it is given.
 
@@ -598,6 +602,51 @@ capitals, and lets the empty sides of both hang out of the group:
 change. The group then sits in the middle of the button to half a pixel. An
 application with signs of its own writes the same measure on them with
 `iconInkAttrs()`.
+
+### Sounds
+
+Some work is done by somebody looking elsewhere, at a bench or at a device in
+the hand, and a window says the few things worth knowing at once by ear as
+well: a step taken, a thing saved, a picture taken, something that did not
+work. A page asks for what a sound says, never for how it sounds:
+
+```javascript
+initSounds({ hints: { on: 'Sounds on', off: 'Sounds off' } });
+playSound('confirm');
+```
+
+```html
+<button class="btn" data-sound="forward">Next</button>
+```
+
+There are seven voices: `forward` and `back`, `shutter`, `on` and `off`,
+`confirm` and `error`, between 32 and 196 ms long. They are cut from Kenney's
+"Interface Sounds" and "UI Audio" (kenney.nl), which are in the public
+domain under CC0 1.0: two small glass bells, struck and left to ring or
+damped at once, and two clicks, with no glide and no note under 1 kHz. Each
+is faded in and out so its first and last samples are zero, and all are
+brought to one loudness, low. They ship inside `sounds.js` as samples, so
+nothing is loaded from anywhere.
+
+A sound that comes late is worse than none. The voices are turned into
+audio buffers and the audio context is opened when the page calls
+`initSounds()`, and it stays open; a control with `data-sound` makes its
+voice on the press itself, the pointer going down or Enter and Space, never
+on the release and never after an answer from the application. What the
+engine adds after that is `soundLatency()`. The same voice again too soon,
+or one that says less than the one before it, is dropped, so a quick run of
+steps is a sound or two and never a burst. Nothing plays on a pointer
+passing over something, and nothing plays before `initSounds()`.
+
+`initSounds()` also puts the switch first among the window buttons, a
+speaker that says whether sounds are on, and Ctrl+M flips it from anywhere.
+They are on until somebody turns them off, and the choice is kept in the
+page's storage, or by the application when it passes `on` and `keep`, which
+it has to for the choice to outlive the window: the engine's default profile
+forgets its storage when the window closes. The switch flips on the press
+too. `renderSound()` gives a voice as samples, through the same nodes, so
+what is measured is what is heard. The shell lets the page play sound from
+its first frame, without waiting for a press.
 
 ## Shell
 

@@ -170,6 +170,14 @@
    the next step up or it would not show. */
 .wbtn:hover{background:var(--control-hover);color:var(--text-1)}
 .wbtn-close:hover{background:var(--err);color:var(--on-status)}
+/* The sound switch (js/sounds.js) is the first of them, a step apart from the
+   three that belong to the window. It has no entrance of its own: measured,
+   an opacity animation started while the window was still coming up stayed
+   on its first frame for the whole session, and the switch was there, at
+   five per cent. When the key flips it, it lights for a moment (.on), the way
+   it lights under the pointer, so the eye finds what the key did. */
+.wbtn-sound{margin-right:var(--sp-2)}
+.wbtn.on{background:var(--control-hover);color:var(--text-1);transition-duration:var(--t-in)}
 
 /* -- window resize edges (frameless window) -------------------------------- */
 /* Thin invisible strips; the drag itself is handed to Windows, which is why
@@ -350,7 +358,7 @@ textarea.input{height:auto;display:block;padding:7px 12px;line-height:var(--lh);
 }
 .numwrap:hover .spin-b{color:var(--text-3)}
 .spin-b:hover{color:var(--accent-text)}
-.spin-b svg{width:9px;height:5.5px;fill:currentColor;stroke:none;display:block}
+.spin-b svg{width:4.5px;height:6.5px;fill:currentColor;stroke:none;display:block}
 
 /* -- dropdown (js/widgets.js) ---------------------------------------------- */
 /* A native <select> hands its popup to the platform, which paints it with its
@@ -365,7 +373,7 @@ textarea.input{height:auto;display:block;padding:7px 12px;line-height:var(--lh);
 .combo:hover,.combo.open{background:var(--control-hover);color:var(--text-1)}
 .combo-v{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
        font-size:var(--fs)}
-.combo-c{width:13px;height:13px;flex-shrink:0;margin-left:4px;
+.combo-c{width:11px;height:11px;flex-shrink:0;margin-left:4px;
        stroke:currentColor;fill:none;stroke-width:1.9;
        stroke-linecap:round;stroke-linejoin:round;opacity:.75}
 .combo.open .combo-c{transform:rotate(180deg)}
@@ -400,7 +408,7 @@ textarea.input{height:auto;display:block;padding:7px 12px;line-height:var(--lh);
   width:26px;margin-left:7px;flex:none;white-space:nowrap;
   font-size:var(--fs-sm);color:var(--text-2);
 }
-.picker-c{width:7px;height:4.5px;margin:1px 0 0 9px;flex:none;fill:var(--text-3);stroke:none}
+.picker-c{width:4.5px;height:6.5px;margin:1px 0 0 9px;flex:none;fill:var(--text-3);stroke:none}
 .pickerpop{
   position:fixed;z-index:10002;display:grid;grid-template-columns:repeat(4,auto);
   align-content:start;padding:4px;border-radius:var(--r-md);background:var(--overlay);
@@ -463,6 +471,15 @@ input[type=range]::-webkit-slider-thumb{
           stroke-linecap:round;stroke-linejoin:round}
 .sl-v{font-size:var(--fs);font-weight:var(--w-strong);width:56px;text-align:right;
       color:var(--text-1);flex-shrink:0;white-space:nowrap;font-variant-numeric:tabular-nums}
+/* A slider that wants its whole width: the name and the value on one line and
+   the track under them, across the row. In the panel down the right a row
+   leaves the track some sixty pixels between its label and its value, and a
+   short track is a coarse one: the hand moves a value a step for every pixel.
+   The markup is the plain row's (label, track, value); only the order on
+   screen changes. */
+.slrow.wide{flex-wrap:wrap;row-gap:var(--sp-2)}
+.slrow.wide>.sl-l{flex:1;width:auto;min-width:0}
+.slrow.wide>input[type=range]{order:1;flex:1 0 100%;margin-left:0;height:4px}
 
 /* -- jog ------------------------------------------------------------------- */
 /* A number that is dragged and not placed: a tape of ticks under a fixed
@@ -545,6 +562,32 @@ html.jog-drag,html.jog-drag *{cursor:ew-resize !important}
 .toggle{flex-wrap:wrap}
 .toggle .aside{flex-basis:100%;padding-left:22px}
 
+/* -- a setting by its name ------------------------------------------------- */
+/* ONE RULE FOR EVERY NAME A PANEL SHOWS. A name is a word or two, whole: never
+   a sentence and never cut short by hand to fit (no "dir.", no "(mm)"). What
+   the name leaves out, what the setting does and when it matters, is the
+   tooltip of its row, and the unit stands after the value, where the value is
+   read. A short value, a number, sits beside its name on one row (.field); a
+   wide one, a list, a choice or a text, has its name over it (.sec-lbl). So a
+   name always has the room of its row and never has to be squeezed.
+   The fields of one column line up: every value is as wide as the others and
+   its unit has a slot of its own, filled or not. */
+.field{display:grid;grid-template-columns:minmax(0,1fr) calc(var(--slot) * 2.25) calc(var(--sp-1) * 5);
+       align-items:center;column-gap:var(--sp-2)}
+.field-n{font-size:var(--fs);color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.field>.input,.field>.numwrap{width:100%;min-width:0}
+.field>.input-unit{margin-left:0}
+
+/* -- a value with a sign for its name ------------------------------------- */
+/* Where the same name would be read again and again, in every cell of a grid
+   or every row of a list, a small sign stands for it in front of the value and
+   the name is its tooltip. The sign is drawn as every other one (icons.js), at
+   the size of the text it stands in, and never parts from its value. */
+.ilbl{display:inline-flex;align-items:center;gap:calc(var(--sp-1) * .75);white-space:nowrap}
+.ilbl+.ilbl{margin-left:calc(var(--sp-1) * 2.5)}
+.ilbl svg{width:1.15em;height:1.15em;flex:none;
+          stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
 /* -- a section that opens -------------------------------------------------- */
 /* WHAT IS RARELY NEEDED, UNDER A HEAD THAT OPENS IT. A panel that shows every
    setting it has makes the reader find the one they came for among ten they
@@ -583,9 +626,10 @@ html.jog-drag,html.jog-drag *{cursor:ew-resize !important}
 .fold.open>.fold-hd{color:var(--text-1)}
 /* The name is the part that gives way, and it stays on one line. */
 .fold-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-/* The sign is as large as the type of the head it closes, whatever that is. */
+/* The sign follows the type of the head it closes, whatever that is: at the
+   usual type its arrowhead is as long as a dropdown's. */
 .fold-c{
-  width:1em;height:1em;flex:none;margin-left:auto;
+  width:.85em;height:.85em;flex:none;margin-left:auto;
   stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;
   transition:transform var(--t-out) var(--ease-leave);
 }
@@ -755,6 +799,10 @@ html.jog-drag,html.jog-drag *{cursor:ew-resize !important}
 }
 .mrow:hover{background:var(--control)}
 .mrow.active{background:var(--control);box-shadow:inset 3px 0 0 var(--gc,var(--accent-text))}
+/* A row that cannot be taken now (what it stands for is missing): faded, as
+   a list item that is off, and nothing lights under the pointer. */
+.mrow.off{opacity:.45;cursor:not-allowed}
+.mrow.off:hover{background:none}
 .ml{color:var(--text-3);flex:1;min-width:0;padding-right:8px}
 .mv{font-weight:var(--w-strong);color:var(--text-1);text-align:right;min-width:56px;
     font-variant-numeric:tabular-nums;letter-spacing:.2px}
@@ -763,13 +811,19 @@ html.jog-drag,html.jog-drag *{cursor:ew-resize !important}
 /* Told apart by their own fill instead of by a rule. What sits between two of
    them is the slot each one is in, not a margin either one carries. */
 .pi-row{
-  display:flex;justify-content:space-between;
+  display:flex;justify-content:space-between;gap:var(--sp-2);
   padding:5px 9px;
   background:var(--surface-3);border-radius:var(--r-xs);
   font-size:var(--fs);
 }
-.pi-l{color:var(--text-3)}
+/* The key keeps its words on one line, whatever the script (a CJK word
+   breaks between any two of its signs). The value is the part that gives
+   way, on one line too: a long one ends in an ellipsis, never on a second
+   line, and the application puts it whole on the row's hint. */
+.pi-l{color:var(--text-3);flex:none;white-space:nowrap}
 .pi-row span:last-child{font-variant-numeric:tabular-nums;color:var(--text-2)}
+.pi-row>span:last-child:not(.pi-l){min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  text-align:right}
 
 /* -- inline chips ---------------------------------------------------------- */
 .chip{
@@ -1062,3 +1116,24 @@ html.jog-drag,html.jog-drag *{cursor:ew-resize !important}
 button.stcell{cursor:pointer}
 button.stcell:hover:not(:disabled){background:var(--control)}
 button.stcell:active:not(:disabled){background:var(--control-active)}
+/* How things stand, as one quiet line (.stcells.line): the same cells and
+   setStcell, with no fill and no frame, small and faint, side by side from
+   the left edge of the row; the row breaks between cells when the width runs
+   out, never inside one. A cell made a <button> is pressed by its words,
+   which light up under the pointer. Its dot says its state by its shape as
+   well as its colour, for a reader who tells the status colours apart badly:
+   full when all is well, a ring for something still to do, a diamond for a
+   fault, a ring that pulses while it waits. */
+.stcells.line{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-1) calc(var(--sp-3) * 2)}
+.stcells.line>.stcell{display:inline-flex;flex:none;max-width:100%;gap:calc(var(--sp-1) * 1.5);
+  padding:var(--sp-1) 0;border-radius:0;background:none}
+.stcells.line>.stcell>.sd{margin:0}
+.stcells.line .stcell-l{color:var(--text-4);transition:color var(--t-out)}
+.stcells.line .stcell-v{font-size:var(--fs-sm);color:var(--text-3);transition:color var(--t-out)}
+.stcells.line>button.stcell:hover:not(:disabled),
+.stcells.line>button.stcell:active:not(:disabled){background:none}
+.stcells.line>button.stcell:hover:not(:disabled) .stcell-l{color:var(--text-3);transition-duration:var(--t-in)}
+.stcells.line>button.stcell:hover:not(:disabled) .stcell-v{color:var(--text-1);transition-duration:var(--t-in)}
+.stcells.line .sd.warn{background:none;box-shadow:inset 0 0 0 calc(var(--sp-1) * .375) var(--warn)}
+.stcells.line .sd.busy{background:none;box-shadow:inset 0 0 0 calc(var(--sp-1) * .375) var(--accent)}
+.stcells.line .sd.err{border-radius:0;transform:rotate(45deg) scale(.85)}
