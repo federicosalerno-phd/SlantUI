@@ -60,6 +60,7 @@ SCRIPT_ONLY = {
     "tbar-credit",                                 # titlebar.js writes it
     "drag", "jog-drag",                            # a jog while the hand holds it
     "press",                                       # a carousel's button while its key is down
+    "wbtn-sound",                                  # initSounds() puts the switch on the band
 }
 
 

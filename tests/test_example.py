@@ -62,6 +62,7 @@ SCRIPT_ONLY = {
     "busy", "ok", "warn", "err", "on", "done",     # states of a pill, a tab, a toggle
     "drag", "jog-drag",                            # a jog while the hand holds it
     "press",                                       # a carousel's button while its key is down
+    "wbtn-sound",                                  # initSounds() puts the switch on the band
 }
 
 

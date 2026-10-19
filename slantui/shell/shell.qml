@@ -41,6 +41,9 @@ Item {
         settings.javascriptEnabled: true
         settings.localContentCanAccessRemoteUrls: true
         settings.localContentCanAccessFileUrls: true
+        // The page is an application's, not a site's: its sounds (sounds.js)
+        // may play from the start, without waiting for a first press.
+        settings.playbackRequiresUserGesture: false
         // The page draws its own controls and never navigates: Chromium's
         // context menu (Back, Reload, ...) would only offer ways to lose the session.
         onContextMenuRequested: function (request) { request.accepted = true }
