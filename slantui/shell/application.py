@@ -19,8 +19,10 @@ import sys
 from . import win32
 from .qt import QApplication, Qt, QtWebEngineQuick, USE_QT6, run_app
 
-__all__ = ["Application", "BLIT_MODEL_VAR", "GRAPHICS_API_VAR", "chromium_flags", "configure_environment",
-           "scene_graph_api", "set_app_user_model_id", "software_forced", "SOFTWARE_RENDER_VAR"]
+__all__ = ["Application", "BLIT_MODEL_VAR", "FONT_DATABASE_GDI", "GRAPHICS_API_VAR", "chromium_flags",
+           "configure_environment", "keep_browser_data", "platform_arguments", "scene_graph_api",
+           "set_app_user_model_id",
+           "software_forced", "SOFTWARE_RENDER_VAR"]
 
 # Set to 1 by a user whose machine has a broken graphics driver: every SlantUI
 # application then draws through software, whatever the application asked.
@@ -31,6 +33,9 @@ BLIT_MODEL_VAR = "QT_D3D_NO_FLIP"
 
 # Qt's switch for the graphics API the scene graph draws with: see scene_graph_api.
 GRAPHICS_API_VAR = "QSG_RHI_BACKEND"
+
+# The platform options on Windows: the fonts listed through GDI. See platform_arguments.
+FONT_DATABASE_GDI = "windows:fontengine=gdi"
 
 
 def software_forced() -> bool:
@@ -128,6 +133,66 @@ def configure_environment(gpu: bool = True, extra: str = "") -> None:
         os.environ.setdefault("QSG_RHI_PREFER_SOFTWARE_RENDERER", "1")
 
 
+def platform_arguments(argv: list[str]) -> list[str]:
+    """``argv`` with the platform options a SlantUI window wants on Windows:
+    the installed fonts listed through GDI.
+
+    The first browser of a process makes its settings, and they ask Qt for the
+    default font of each generic family (QWebEngineSettings, then
+    QFont::defaultFamily). Qt's generic fallback then opens every family
+    installed, and with Qt's DirectWrite font database, the default since Qt
+    6.8, each font file is read into DirectWrite's cache inside the process,
+    on the window's thread, with the window not yet drawn. On a machine with
+    2,030 fonts (1,449 of them the user's own) the first browser held the
+    thread 5 s at the median and 37 s at worst, and 27 to 40 s while another
+    program held most of the memory. With the fonts listed through GDI
+    (``fontengine=gdi``; DirectWrite still draws the glyphs) it was 2.5 s at
+    the median and 2.8 s at worst, in alternating runs on 2026-10-21. An
+    option on the command line, not the environment: programs the
+    application starts do not inherit it. Nothing is added when the platform
+    is chosen already, in ``QT_QPA_PLATFORM`` or with ``-platform``.
+    """
+    argv = list(argv)
+    if sys.platform != "win32" or os.environ.get("QT_QPA_PLATFORM") or "-platform" in argv:
+        return argv
+    return (argv[:1] or [""]) + ["-platform", FONT_DATABASE_GDI] + argv[1:]
+
+
+def keep_browser_data(folder: str | os.PathLike) -> bool:
+    """The browser's profile (the one every window's page uses) kept on disk
+    in ``folder``, which must be a local folder, never a synced one. Must run
+    after the application object exists and before the first window.
+
+    Qt's default profile keeps everything in memory, and with it the GPU's
+    compiled shaders: every start compiled them again, on the page's thread.
+    A page that shows a 3D model stood still for that: 0.2 to 1 s for a
+    small model and 4.3 to 6 s for a large lit scene on an NVIDIA Quadro
+    T2000 through Direct3D 11; 0.6 s for the large one with the profile on
+    disk, in a start after one that had written its cache (2026-10-21; the
+    browser writes it a while after compiling, so a process killed at once
+    leaves it unwritten). Cookies are not kept and the HTTP cache stays in
+    memory: an application's page has no use for them. Returns False where
+    the profile cannot be set (PyQt5).
+    """
+    if not USE_QT6:
+        return False
+    from pathlib import Path
+
+    from PyQt6.QtWebEngineQuick import QQuickWebEngineProfile
+
+    root = Path(folder)
+    root.mkdir(parents=True, exist_ok=True)
+    p = QQuickWebEngineProfile.defaultProfile()
+    p.setStorageName("SlantUI")
+    p.setOffTheRecord(False)
+    p.setPersistentStoragePath(str(root / "storage"))
+    p.setCachePath(str(root / "cache"))
+    p.setDownloadPath(str(root / "downloads"))
+    p.setHttpCacheType(QQuickWebEngineProfile.HttpCacheType.MemoryHttpCache)
+    p.setPersistentCookiesPolicy(QQuickWebEngineProfile.PersistentCookiesPolicy.NoPersistentCookies)
+    return not p.isOffTheRecord()
+
+
 def set_app_user_model_id(app_id: str) -> None:
     """Give the process its own taskbar identity (Windows only).
 
@@ -158,12 +223,14 @@ class Application(QApplication):
     browser, or several: a tool that saves pictures of a window asks for
     ``--disable-lcd-text`` with it, so the glyphs in them carry no colour of
     their own. ``style`` is the widget style, which only the file dialogs
-    show; Fusion looks the same everywhere.
+    show; Fusion looks the same everywhere. ``storage`` is a local folder
+    the browser keeps its data in (keep_browser_data); without it the
+    browser keeps nothing on disk.
     """
 
     def __init__(self, name: str, *, app_id: str = "", gpu: bool = True,
                  chromium: str = "", argv: list[str] | None = None,
-                 style: str | None = "Fusion"):
+                 style: str | None = "Fusion", storage: str | os.PathLike | None = None):
         set_app_user_model_id(app_id)
         configure_environment(gpu, extra=chromium)
         if USE_QT6:
@@ -176,10 +243,12 @@ class Application(QApplication):
             QApplication.setAttribute(Qt.AA_DisableHighDpiScaling, True)
             QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, False)
         QtWebEngineQuick.initialize()     # before the application object, as Qt requires
-        super().__init__(list(sys.argv if argv is None else argv))
+        super().__init__(platform_arguments(sys.argv if argv is None else argv))
         self.setApplicationName(name)
         if style:
             self.setStyle(style)
+        if storage is not None:
+            keep_browser_data(storage)
 
     def run(self) -> int:
         """Run the event loop until the last window closes."""

@@ -239,10 +239,11 @@ class Window(QQuickView):
             # how the picture sits in its square is the markup's: an <img> is
             # stretched to it, a background is fitted inside it
             brand = Brand(runs=brand.runs, mark=True, logo=Path(logo),
-                          fill=brand.fill if brand.mark else False, action=brand.action)
+                          fill=brand.fill if brand.mark else False, action=brand.action,
+                          round=brand.round)
         if brand_action is not None:
             brand = Brand(runs=brand.runs, mark=brand.mark, logo=brand.logo, fill=brand.fill,
-                          action=bool(brand_action))
+                          action=bool(brand_action), round=brand.round)
 
         root = self.rootObject()
         self.band = NativeBand(root, palette=self.palette_slug, brand=brand,

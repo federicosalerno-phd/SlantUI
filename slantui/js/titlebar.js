@@ -326,7 +326,9 @@ function setBrandAction(fn, hint) {
   }
   if (!btn) {
     btn = document.createElement('button');
-    btn.className = 'tbar-logo-btn';
+    /* A mark that is a disc of its own (data-round on .tbar-logo) is the
+       button's disc: layout.css draws it the disc's size, with no fill. */
+    btn.className = 'tbar-logo-btn' + (logo.getAttribute('data-round') !== null ? ' round' : '');
     btn.setAttribute('type', 'button');
     brand.insertBefore(btn, logo);
     brand.removeChild(logo);

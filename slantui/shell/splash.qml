@@ -48,6 +48,7 @@ Item {
     property real burst: 0             // the ring's one flourish, at the end
     property string line: ""           // what is happening, in words
     property url logo: ""
+    property real logoSide: Math.round(ring * 0.52)    // a round mark fills the ring (splash.py)
     property bool over: false          // over an application's body, not on its own
     property bool veil: false          // and the page left in sight, under a scrim
     property real leave: 0             // the handover, 0 .. 1
@@ -209,8 +210,8 @@ Item {
             Image {
                 source: root.logo
                 visible: String(root.logo).length > 0
-                width: Math.round(root.ring * 0.52)
-                height: Math.round(root.ring * 0.52)
+                width: root.logoSide
+                height: root.logoSide
                 anchors.centerIn: parent
                 fillMode: Image.PreserveAspectFit    // the brand is not stretched
                 smooth: true

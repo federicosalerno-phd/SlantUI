@@ -58,6 +58,7 @@ SCRIPT_ONLY = {
     "flagbox", "bare",                             # and the flag's box, with its image or bare
     "maximized",                                   # the window state, on body
     "tbar-credit",                                 # titlebar.js writes it
+    "round",                                       # setBrandAction() on the disc of a round mark
     "drag", "jog-drag",                            # a jog while the hand holds it
     "press",                                       # a carousel's button while its key is down
     "wbtn-sound",                                  # initSounds() puts the switch on the band

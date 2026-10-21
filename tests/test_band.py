@@ -311,6 +311,24 @@ def _px(img, x, y):
     return c.name().upper()
 
 
+def test_a_round_mark_is_the_disc(band, app, tmp_path):
+    """data-round on the mark: the button's disc is the picture, the size of
+    the disc, with none of the disc's fill showing round it."""
+    logo = tmp_path / "round.svg"
+    logo.write_text('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">'
+                    '<circle cx="5" cy="5" r="5" fill="#1f4196"/></svg>', encoding="utf-8")
+    page = tmp_path / "index.html"
+    page.write_text(PAGE % ('<div class="tbar-logo" data-round></div>', "<b>Name</b>"), encoding="utf-8")
+    assert band.brand_from_page(page).round
+    b = band.Brand.of("Name", logo=logo, action=True, round=True)
+    lay = band.band_layout(1280, 1.0, b)
+    assert lay.mark == lay.disc
+    img = band.render_band(1280, 1.0, "gold-dark", b)
+    c = lay.disc.center()
+    rim = round(c.x() - lay.disc.width() / 2 + 1.5)       # just inside the edge, where a ring would be
+    assert _px(img, rim, round(c.y())) == "#1F4196"
+
+
 def test_the_picture_is_the_profile_in_the_palettes_roles(band, app):
     from slantui.css import band_roles
     from slantui.tokens import PALETTES

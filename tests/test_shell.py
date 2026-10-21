@@ -250,6 +250,25 @@ def test_configure_environment_chooses_the_blit_model_on_windows(monkeypatch):
     assert os.environ[BLIT_MODEL_VAR] == "0"
 
 
+def test_the_fonts_are_listed_through_gdi_on_windows(monkeypatch):
+    """Qt's DirectWrite font database read every installed font into the
+    process when the first browser made its settings: 5 to 37 s on the window's
+    thread with 2,030 fonts. A platform chosen already is left alone."""
+    from slantui.shell import application
+    from slantui.shell.application import FONT_DATABASE_GDI, platform_arguments
+
+    monkeypatch.delenv("QT_QPA_PLATFORM", raising=False)
+    monkeypatch.setattr(application.sys, "platform", "win32")
+    assert platform_arguments(["app.py", "--x"]) == ["app.py", "-platform", FONT_DATABASE_GDI, "--x"]
+    assert platform_arguments([]) == ["", "-platform", FONT_DATABASE_GDI]
+    assert platform_arguments(["app.py", "-platform", "offscreen"]) == ["app.py", "-platform", "offscreen"]
+    monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
+    assert platform_arguments(["app.py"]) == ["app.py"]
+    monkeypatch.delenv("QT_QPA_PLATFORM")
+    monkeypatch.setattr(application.sys, "platform", "linux")
+    assert platform_arguments(["app.py"]) == ["app.py"]
+
+
 def test_the_scene_graph_draws_with_opengl_on_intel_only():
     """QtWebEngine's Direct3D 11 hand over has no fence, and on an Intel
     adapter the screen showed older frames for a refresh; on NVIDIA it came

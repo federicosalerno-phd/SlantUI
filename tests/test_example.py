@@ -59,6 +59,7 @@ SCRIPT_ONLY = {
     "maximized",                                   # the window state, on body
     "tbar-credit",                                 # titlebar.js writes it
     "tbar-logo-btn",                               # setBrandAction() makes it
+    "round",                                       # and marks it so for a round mark (data-round)
     "busy", "ok", "warn", "err", "on", "done",     # states of a pill, a tab, a toggle
     "drag", "jog-drag",                            # a jog while the hand holds it
     "press",                                       # a carousel's button while its key is down

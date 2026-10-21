@@ -134,21 +134,26 @@ class Brand:
     drawn in it; ``fill`` says it is stretched to the square, as an ``<img>``
     is, instead of fitted inside it, as a background is. ``action`` is whether
     the page makes the mark a button (``setBrandAction``), which puts it in
-    its round disc.
+    its round disc. ``round`` is a mark that is a disc of its own (``data-round``
+    on ``.tbar-logo``): as a button it is drawn the size of the disc, in
+    place of the disc's fill, under the same shadow.
     """
     runs: tuple[tuple[str, bool], ...] = ()
     mark: bool = False
     logo: Path | None = None
     fill: bool = False
     action: bool = False
+    round: bool = False
 
     @classmethod
-    def of(cls, bold: str = "", name: str = "", logo=None, action: bool = False) -> "Brand":
+    def of(cls, bold: str = "", name: str = "", logo=None, action: bool = False,
+           round: bool = False) -> "Brand":
         """The two part name every window in this design has: a strong word
         and the rest, which carries its own leading space."""
         runs = tuple((t, strong) for t, strong in ((bold, True), (name, False)) if t)
         path = Path(logo) if logo else None
-        return cls(runs=runs, mark=path is not None, logo=path, action=bool(action))
+        return cls(runs=runs, mark=path is not None, logo=path, action=bool(action),
+                   round=bool(round))
 
     @property
     def text(self) -> str:
@@ -181,6 +186,7 @@ class _Markup(HTMLParser):
         self.mark = False
         self.logo: str | None = None
         self.img = False                 # the mark is an <img>, stretched to its square
+        self.round = False               # the mark is a disc of its own (data-round)
 
     def handle_starttag(self, tag, attrs):
         a = {k: (v if v is not None else "") for k, v in attrs}
@@ -190,6 +196,7 @@ class _Markup(HTMLParser):
         if "tbar-logo" in classes and not self.mark:
             self.mark = True
             self.img = tag == "img"
+            self.round = "data-round" in a
             if tag == "img" and a.get("src"):
                 self.logo = a["src"]
         self.cut = True
@@ -269,8 +276,8 @@ def brand_from_page(page: str | Path, words=None) -> Brand:
 
     The words inside ``.tbar-name``, in the strong ink inside ``<b>``, each
     stretch between two tags a run of its own as the page lays it out; the
-    mark's square if there is a ``.tbar-logo``, and its picture if that is an
-    ``<img>`` with a ``src``.
+    mark's square if there is a ``.tbar-logo``, its picture if that is an
+    ``<img>`` with a ``src``, and whether it is round (``data-round``).
 
     A page that writes its name from a script has elements with nothing in
     them. ``words(attributes, lang)`` is how the application says what they
@@ -300,7 +307,7 @@ def brand_from_page(page: str | Path, words=None) -> Brand:
         if candidate is not None and candidate.is_file():
             logo = candidate
     return Brand(runs=_collapse(parser.runs), mark=parser.mark, logo=logo,
-                 fill=parser.img, action=False)
+                 fill=parser.img, action=False, round=parser.round)
 
 
 # ── the face ─────────────────────────────────────────────────────────────────
@@ -516,6 +523,8 @@ def band_layout(width: float, scale: float, brand: Brand) -> BandLayout:
         if brand.action:
             r = _disc_side() * s / 2
             disc = _snap(QRectF(box.center().x() - r, box.center().y() - r, 2 * r, 2 * r))
+            if brand.round:
+                mark = disc                 # a round mark is the disc itself
         x += (side + px("tbar-mark-gap")) * s
     lines = []
     for text, strong in brand.runs:
@@ -585,11 +594,12 @@ def _normal_cdf(z: float) -> float:
     return 0.5 * (1.0 + math.erf(z / math.sqrt(2.0)))
 
 
-def _disc(p: QPainter, disc: QRectF, s: float, palette: str) -> None:
+def _disc(p: QPainter, disc: QRectF, s: float, palette: str, filled: bool = True) -> None:
     """The round button and the shadow under it. The shadow is the disc
     blurred by a Gaussian of sigma half the blur radius, which is what CSS
     means by a blur radius; across a circle that large the edge of it is the
-    normal curve, laid out along the radius."""
+    normal curve, laid out along the radius. Under a round mark only the
+    shadow: the mark is the disc."""
     r = disc.width() / 2
     sigma = px("tbar-lift-blur") / 2 * s
     reach = r + 3 * sigma
@@ -604,11 +614,12 @@ def _disc(p: QPainter, disc: QRectF, s: float, palette: str) -> None:
     p.setPen(Qt.PenStyle.NoPen)
     p.setBrush(grad)
     p.drawEllipse(centre, reach, reach)
-    p.setBrush(_colour(palette, _role("disc")))
-    p.drawEllipse(disc)
+    if filled:
+        p.setBrush(_colour(palette, _role("disc")))
+        p.drawEllipse(disc)
 
 
-def _logo(p: QPainter, box: QRectF, logo: Path, fill: bool, s: float) -> None:
+def _logo(p: QPainter, box: QRectF, logo: Path, fill: bool, s: float, round_: bool = False) -> None:
     """The mark inside its square, cut to the square's rounded corners.
 
     ``box`` is the square where the layout put it, between pixels. Chromium
@@ -618,7 +629,10 @@ def _logo(p: QPainter, box: QRectF, logo: Path, fill: bool, s: float) -> None:
     the page's does, and the others are a pixel out somewhere."""
     box = _snap(box)
     clip = QPainterPath()
-    clip.addRoundedRect(box, px("r") * s, px("r") * s)
+    if round_:
+        clip.addEllipse(box)                # a round mark, cut round as the page's button cuts it
+    else:
+        clip.addRoundedRect(box, px("r") * s, px("r") * s)
     svg = QSvgRenderer(str(logo)) if logo.suffix.lower() == ".svg" else None
     img = None if svg is not None else QImage(str(logo))
     if svg is not None:
@@ -702,9 +716,9 @@ def render_band(width: float, scale: float, palette: str, brand: Brand, *,
     ground = _colour(palette, _role("band"))
     p.fillPath(_svg_path(band_path(width, lay.x1), s), ground)
     if lay.disc is not None:
-        _disc(p, lay.disc, s, palette)
+        _disc(p, lay.disc, s, palette, filled=not brand.round)
     if lay.mark is not None and brand.logo is not None:
-        _logo(p, lay.mark, brand.logo, brand.fill, s)
+        _logo(p, lay.mark, brand.logo, brand.fill, s, round_=brand.round and lay.disc is not None)
     for line in lay.name:
         _write(p, line, _colour(palette, _role(line.part)), ground)
     if lay.credit is not None:

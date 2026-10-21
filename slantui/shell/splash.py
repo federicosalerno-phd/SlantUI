@@ -230,7 +230,10 @@ class Splash(QObject):
     the application's own colours; everything around it is the palette's.
     ``text`` is the first line under it, and ``busy`` starts in the waiting
     mode, where the arc turns instead of filling. ``veil`` keeps the page in
-    sight under the screen, for a wait in the middle of work.
+    sight under the screen, for a wait in the middle of work. ``since`` is
+    when the wait began, ``time.time()``, for a screen that takes over from
+    one already turning in another process (a ``slantui.firstwindow``): the
+    arc and the bar carry on from where that one had them.
     """
 
     # the handover: (how far, how long in seconds), or None before it starts
@@ -242,7 +245,8 @@ class Splash(QObject):
     def __init__(self, *, window=None, palette: str | None = None, logo=None,
                  text: str = "", busy: bool = False, ring: float = RING,
                  follow_page: bool = True,
-                 page_text: str = "loading the interface", veil: bool = False):
+                 page_text: str = "loading the interface", veil: bool = False,
+                 since: float | None = None):
         super().__init__(window)
         self.window = window
         self._own: QQuickView | None = None
@@ -251,7 +255,7 @@ class Splash(QObject):
         self._goal = 0.0
         self._pos = 0.0
         self._speed = 0.0
-        self._elapsed = 0.0
+        self._elapsed = max(0.0, time.time() - since) if since else 0.0
         self._busy = bool(busy)
         self._visible = False
         self._closing = None
@@ -326,6 +330,20 @@ class Splash(QObject):
         self._own = view
         return view.rootObject()
 
+    def _fit_logo(self, logo) -> None:
+        """How wide the mark is in the ring: half the ring for a mark, and the
+        ring filled, a thin gap inside the arc, for a picture that is a disc
+        of its own. The first window draws it the same, from the same rule
+        (slantui.firstwindow.logo_side)."""
+        from ..firstwindow import is_round, logo_side
+        pic = logo
+        if hasattr(pic, "pixmap"):                        # a QIcon
+            pic = pic.pixmap(QSize(256, 256))
+        if hasattr(pic, "toImage"):                       # a QPixmap
+            pic = pic.toImage()
+        ring = float(self._root.property("ring") or RING)
+        self._root.setProperty("logoSide", logo_side(ring, is_round(pic)))
+
     def _set_logo(self, logo) -> None:
         """A path, or a picture already in memory: an icon, a pixmap, an image.
 
@@ -338,6 +356,7 @@ class Splash(QObject):
         """
         if logo is None:
             return
+        self._fit_logo(logo)
         if isinstance(logo, (str, Path)):
             path = Path(logo)
             if path.is_file():
