@@ -59,7 +59,7 @@ except ImportError:  # pragma: no cover - depends on the install
     USE_QT6 = False
 
 __all__ = ["FirstWindow", "application", "is_round", "logo_side", "look", "paint_screen", "place", "RING",
-           "SPIN_MS", "SWEEP_MS"]
+           "SPIN_MS", "SWEEP_MS", "MOTION_FRAME_MS"]
 
 # The numbers of shell/splash.py and splash.qml, which this screen has to match
 # to the pixel and to the millisecond (tests/test_firstwindow.py holds them
@@ -69,6 +69,7 @@ SPIN_MS = 1150.0
 SWEEP_MS = 1750.0
 FRAME_MS = 16
 SHOWN_AFTER_MS = 50     # from the first paint to `shown`: the compositor's next frames, with room to spare
+MOTION_FRAME_MS = 25    # the frames of the motion a start draws without a toolkit (FirstWindow.motion): 40 a second
 
 # splash.qml's column, in its waiting mode: the ring, a gap, the line, a gap,
 # the bar. The figure is not drawn while waiting, and neither is its gap.
@@ -211,6 +212,19 @@ def _fit(w: float, h: float, side: float) -> tuple[float, float]:
     return w * k, h * k
 
 
+def _column(area: QRectF, lk: dict, ring: float, dpr: float):
+    """Where the column of the waiting mode goes in ``area``: the line's font and height, the middle across, and
+    the ring's top, on a whole pixel of the screen (the ring and the mark land on the very pixels splash.qml puts
+    them on)."""
+    font = QFont(lk["font"])
+    # a whole number, as QML's font.pixelSize takes it: rounded half up (11.5 is 12 there), never cut
+    font.setPixelSize(int(math.floor(float(lk["line"]) + 0.5)))
+    line_h = QFontMetricsF(font).height()
+    column = ring + FIGURE_GAP + line_h + BAR_GAP + BAR_HEIGHT
+    top = round((area.y() + (area.height() - column) / 2) * dpr) / dpr
+    return font, line_h, area.center().x(), top
+
+
 def paint_screen(p: QPainter, area: QRectF, lk: dict, *, spin: float = 0.0, phase: float = 0.0,
                  text: str = "", logo=None, ring: float = RING, round_logo: bool = False) -> None:
     """splash.qml in its waiting mode, painted into ``area`` (the body of a
@@ -222,16 +236,9 @@ def paint_screen(p: QPainter, area: QRectF, lk: dict, *, spin: float = 0.0, phas
     accent = _colour(lk["accent"])
     track = _colour(lk["track"])
     t = _thickness(ring)
-    font = QFont(lk["font"])
-    # a whole number, as QML's font.pixelSize takes it: rounded half up (11.5 is 12 there), never cut
-    font.setPixelSize(int(math.floor(float(lk["line"]) + 0.5)))
-    p.setFont(font)
-    line_h = QFontMetricsF(font).height()
-    column = ring + FIGURE_GAP + line_h + BAR_GAP + BAR_HEIGHT
-    cx = area.center().x()
-    # on a whole pixel of the screen: the ring and the mark land on the very pixels splash.qml puts them on
     dpr = p.device().devicePixelRatioF() if p.device() is not None else 1.0
-    top = round((area.y() + (area.height() - column) / 2) * dpr) / dpr
+    font, line_h, cx, top = _column(area, lk, ring, dpr)
+    p.setFont(font)
     cy = top + ring / 2
     r = (ring - t) / 2
     rect = QRectF(cx - r, cy - r, 2 * r, 2 * r)
@@ -330,7 +337,9 @@ class FirstWindow(QWidget):
     is, ``[x, y, w, h]`` in the band's pixels: a press there closes the window.
     ``size`` is the size the application's Window opens at, placed by
     :func:`place`. ``since`` is when the motion began (at the first frame on
-    screen), ``time.time()``, which a Splash taking over is given.
+    screen), ``time.time()``, which a Splash taking over is given; given to
+    the window, it is a start's own first frame already turning (:meth:`motion`),
+    and the window carries its motion on from there.
 
     ``shown`` is emitted once, when the first frame has been painted: the
     moment to start the application, which would otherwise compete with this
@@ -343,7 +352,8 @@ class FirstWindow(QWidget):
     closed = pyqtSignal()
 
     def __init__(self, *, palette: str | None = None, look: dict | None = None, logo=None, text: str = "",
-                 band=None, size: tuple[int, int] = (1280, 800), title: str = "", icon=None, close_rect=None):
+                 band=None, size: tuple[int, int] = (1280, 800), title: str = "", icon=None, close_rect=None,
+                 since: float | None = None):
         super().__init__(None, Qt.WindowType.Window | Qt.WindowType.FramelessWindowHint)
         self.look = dict(look) if look else _look_of(palette)
         self.text = text
@@ -365,8 +375,11 @@ class FirstWindow(QWidget):
         if close_rect is not None and len(close_rect) == 4:
             self._close_rect = QRectF(*(float(v) for v in close_rect))
         self.setGeometry(place(size))
-        self.since = time.time()
-        self._t0 = time.perf_counter()
+        # the motion reckoned from `since` when it began before this window (a start's own first frame, already
+        # turning), else from this window's first frame
+        self._since_given = since
+        self.since = time.time() if since is None else float(since)
+        self._t0 = time.perf_counter() - max(0.0, time.time() - self.since)
         self._painted = False
         self._motor = QTimer(self)
         self._motor.setInterval(FRAME_MS)
@@ -539,8 +552,44 @@ class FirstWindow(QWidget):
         self._logo = None                   # drawn at that scale: drawn again at the screen's
         return img
 
+    def motion(self, scale: float) -> dict:
+        """The parts of this window that move, as frames a start can put on screen without a toolkit: the ring
+        with the air around it (one turn of the arc) and the bar (one crossing), each a picture of its frames one
+        under the other, every MOTION_FRAME_MS, at ``scale``. ``{"frame_ms", "ring": {"rect": [x, y, w, h] in the
+        screen's pixels of this window, "n", "image"}, "bar": {...}}``; frame k is the motion k * frame_ms after
+        the first frame (picture()), so a start that shows them from its first frame on is this very window,
+        turning."""
+        band_h = float(self.look["band"])
+        area = QRectF(0, band_h, self.width(), self.height() - band_h)
+        _, line_h, cx, top = _column(area, self.look, RING, scale)
+        t = _thickness(RING)
+        reach = RING / 2 + 2.3 * t + 2               # the arc's head glows out to here
+        cy = top + RING / 2
+        bw = RING * 1.3
+        bar_y = top + RING + FIGURE_GAP + line_h + BAR_GAP
+        out = {"frame_ms": MOTION_FRAME_MS}
+        for name, box, period in (("ring", QRectF(cx - reach, cy - reach, 2 * reach, 2 * reach), SPIN_MS),
+                                  ("bar", QRectF(cx - bw / 2 - 2, bar_y - 2, bw + 4, BAR_HEIGHT + 4), SWEEP_MS)):
+            x0, y0 = math.floor(box.x() * scale), math.floor(box.y() * scale)
+            w = math.ceil((box.x() + box.width()) * scale) - x0
+            h = math.ceil((box.y() + box.height()) * scale) - y0
+            n = max(1, round(period / MOTION_FRAME_MS))
+            img = QImage(w, h * n, QImage.Format.Format_RGB32)
+            img.setDevicePixelRatio(scale)
+            p = QPainter(img)
+            for k in range(n):
+                p.save()
+                p.setClipRect(QRectF(0, k * h / scale, w / scale, h / scale))
+                p.translate(-x0 / scale, (k * h - y0) / scale)
+                self._draw(p, k * period / n, scale)
+                p.restore()
+            p.end()
+            out[name] = {"rect": [x0, y0, w, h], "n": n, "image": img}
+        self._logo = None                   # drawn at that scale: drawn again at the screen's
+        return out
+
     def paintEvent(self, event) -> None:     # noqa: N802
-        if not self._painted:               # the motion starts at the first frame on screen
+        if not self._painted and self._since_given is None:     # the motion starts at the first frame on screen
             self._t0, self.since = time.perf_counter(), time.time()
         p = QPainter(self)
         self._draw(p, (time.perf_counter() - self._t0) * 1000.0)

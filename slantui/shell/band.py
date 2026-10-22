@@ -344,10 +344,43 @@ def family(stack: str) -> str:
     return QFont().defaultFamily()
 
 
+@functools.lru_cache(maxsize=64)
+def _face_weight(fam: str, weight: int, italic: bool) -> int:
+    """The weight of the face the page draws ``weight`` with, as CSS font
+    matching picks it among the family's faces: the weight itself when there
+    is a face of it; past 500 the nearest heavier one first; under 400 the
+    nearest lighter one first; 400 and 500 each other first.
+
+    Asked for a weight it has no face of, Qt's font database does not always
+    land where the page does. With the fonts listed through GDI (application.py)
+    a family of 400 and 700 asked for 600 is matched to the 400 face made bold,
+    while DirectWrite draws the 700 face: the glyph numbers of the one are
+    drawn out of the other, and the name came out as other letters (Abadi,
+    2026-10-22). Asking for the face the page uses keeps the two on one file."""
+    try:
+        styles = QFontDatabase.styles(fam)
+        have = {int(QFontDatabase.weight(fam, st)) for st in styles if QFontDatabase.italic(fam, st) == italic}
+        have = have or {int(QFontDatabase.weight(fam, st)) for st in styles}
+    except Exception:                       # noqa: BLE001  a database that cannot say: as asked
+        return weight
+    have = {w for w in have if w > 0}
+    if not have or weight in have:
+        return weight
+    above = sorted(w for w in have if w > weight)
+    below = sorted((w for w in have if w < weight), reverse=True)
+    if 400 <= weight <= 500:
+        order = [w for w in above if w <= 500] + below + [w for w in above if w > 500]
+    elif weight < 400:
+        order = below + above
+    else:
+        order = above + below
+    return order[0]
+
+
 def _font(fam: str, weight: int, italic: bool, pixels: int) -> QFont:
     f = QFont(fam)
     f.setPixelSize(max(1, int(pixels)))
-    f.setWeight(QFont.Weight(weight))
+    f.setWeight(QFont.Weight(_face_weight(fam, weight, italic)))
     f.setItalic(italic)
     # A variable face asked for 600 through the weight comes back as its
     # Bold instance; asked on the axis it is the Semibold the page gets. A
