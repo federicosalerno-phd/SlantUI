@@ -84,6 +84,11 @@ FAKE_AUDIO = """
     n.stop = function (t) { n.stopAt = t; };
     return n;
   };
+  FakeAudio.prototype.createConstantSource = function () {
+    var n = new Node('constant'); n.offset = new Param(1);
+    n.start = function () { n.started = true; }; n.stop = function () { n.stopped = true; };
+    return n;
+  };
   FakeAudio.prototype.createBuffer = function (ch, len, rate) {
     var d = new Float32Array(len); var b = { ch: ch, len: len, rate: rate, getChannelData: function () { return d; } };
     BUFFERS.push(b); return b;
@@ -253,3 +258,16 @@ def test_a_device_not_yet_running_plays_when_it_starts_and_not_late(js):
     js.eval("_snd.ctx.state = 'suspended'; STARTS.length = 0")
     assert J(js, "playSound('confirm')") is True
     assert J(js, "STARTS.length") == 1                      # resumed, then played
+
+
+def test_the_device_is_kept_open_while_sounds_are_on_and_let_go_when_off(js):
+    # a context that plays only silence may have its device closed, and the next voice waits for it to open again
+    js.eval("initSounds({ on: true, band: false })")
+    awake = "NODES.filter(function (n) { return n.kind === 'constant'; })"
+    assert J(js, awake + ".length") == 1
+    assert J(js, awake + "[0].started && " + awake + "[0].outs[0] === _snd.ctx.destination") is True
+    assert 0 < J(js, awake + "[0].offset.value") < 1e-5             # far under hearing, never a tone
+    js.eval("setSoundsOn(false)")
+    assert J(js, awake + "[0].stopped") is True and J(js, "_snd.awake") is None
+    js.eval("NOW += 1000; setSoundsOn(true)")
+    assert J(js, awake + ".length") == 2 and J(js, "!!_snd.awake") is True

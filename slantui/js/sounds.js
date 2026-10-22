@@ -39,7 +39,13 @@
    voice is played on the press itself (pointerdown, or Enter and Space on
    the focused control), never on the release and never after an answer
    from the application. soundLatency() says what the engine adds on top:
-   the context's own buffer and the device's.
+   the context's own buffer and the device's. A context that has played
+   only silence for a while may have its device closed by the engine
+   (Chromium moves it to a silent stand-in after some seconds), and the next
+   voice then waits for the device to open again, a tenth of a second or
+   more. So while sounds are on a level far under hearing (SOUND_AWAKE,
+   about -130 dB, constant: no tone) keeps the device open, and every voice
+   starts at once.
 
    NO BURSTS. A voice asked for again inside its own gap is dropped, and so
    is one asked for within SOUND_NEAR_MS of another that says as much or
@@ -81,11 +87,12 @@ const SOUND_VOICES = {
 };
 
 const _GIVE_WAY_S = 0.004;        // how fast a voice that says less fades for one that says more
-const _RESUME_LATE_MS = 150;      // a sound still waiting for the device after this long is not played
+const _RESUME_LATE_MS = 150;
+const SOUND_AWAKE = 3e-7;          // the level that keeps the device open while sounds are on (far under hearing)      // a sound still waiting for the device after this long is not played
 
 const _snd = {
   ready: false, on: true, volume: 1, hints: null, keep: null, wired: false,
-  ctx: null, buffers: null, cur: null, last: {}, recent: [], flash: null, samples: {},
+  ctx: null, buffers: null, cur: null, last: {}, recent: [], flash: null, samples: {}, awake: null,
 };
 const _SND_STORE = 'slantui.sounds';
 
@@ -176,7 +183,27 @@ function _sndContext() {
   if (!AC) return null;
   try { _snd.ctx = new AC({ latencyHint: 'interactive' }); } catch (e) { _snd.ctx = null; }
   if (_snd.ctx) _snd.buffers = _sndPrepare(_snd.ctx);
+  _sndAwake();
   return _snd.ctx;
+}
+
+/* The device kept open while sounds are on (see AT ONCE), closed when off. */
+function _sndAwake() {
+  const ctx = _snd.ctx, want = !!(ctx && _snd.ready && _snd.on);
+  if (want === !!_snd.awake || (want && typeof ctx.createConstantSource !== 'function')) return;
+  try {
+    if (want) {
+      const src = ctx.createConstantSource();
+      src.offset.value = SOUND_AWAKE;
+      src.connect(ctx.destination);
+      src.start();
+      _snd.awake = src;
+    } else {
+      _snd.awake.stop();
+      _snd.awake.disconnect();
+      _snd.awake = null;
+    }
+  } catch (e) { _snd.awake = null; }
 }
 
 /* What the engine adds between a voice started and the ear, in ms: the
@@ -272,6 +299,7 @@ function setSoundsOn(on) {
   if (!_snd.ready || on === _snd.on) return soundsOn();
   if (!on) playSound('off');
   _snd.on = on;
+  _sndAwake();
   if (on) playSound('on');
   _sndKeep(on);
   _sndShow();
@@ -367,6 +395,7 @@ function initSounds(opts) {
   _snd.ready = true;
   // the device and every voice made ready now, so that a press is heard at once
   const ctx = _sndContext();
+  _sndAwake();
   if (ctx && ctx.state === 'suspended') _sndWake();
   if (!_snd.wired && typeof window !== 'undefined' && window.addEventListener) {
     _snd.wired = true;
