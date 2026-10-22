@@ -1,4 +1,5 @@
 import QtQuick 2.15
+import QtQuick.Window 2.15
 
 /* The loading screen, drawn the way the WPF half of the library draws it: the
    brand in the middle of a ring, a figure, a line saying what is happening,
@@ -104,12 +105,28 @@ Item {
     onBusyChanged: ringCanvas.requestPaint()
     onBurstChanged: ringCanvas.requestPaint()
 
+    // The line's height as slantui.firstwindow measures it (QFontMetricsF), not
+    // as a Text lays it out: the two differ by a pixel or two, and the ring is
+    // placed from it.
+    FontMetrics {
+        id: lineMetrics
+        font.family: fontFamily
+        font.pixelSize: lineSize
+    }
+    // The column as the waiting mode has it (ring, gap, line, gap, bar), which
+    // is what slantui.firstwindow draws: the ring and the mark sit where that
+    // column centred puts them, in every mode. The figure of a measured wait
+    // goes below the ring and pushes only the words down, so a screen that
+    // takes over from a first window, or leaves the waiting mode, never moves
+    // the mark by a pixel.
+    readonly property real waitColumn: ring + figureGap + lineMetrics.height + barGap + barHeight
+
     Column {
-        anchors.centerIn: parent
+        anchors.horizontalCenter: parent.horizontalCenter
+        // on a whole pixel of the screen, as the first window rounds it
+        y: Math.round((parent.height - root.waitColumn) / 2 * Screen.devicePixelRatio) / Screen.devicePixelRatio
         spacing: 0
         opacity: 1 - root.ringGone
-        scale: 1 + 0.08 * root.ringGrow
-        transformOrigin: Item.Center
 
         Item {
             width: root.ring
@@ -125,6 +142,10 @@ Item {
                 width: parent.width + 2 * root.halo
                 height: parent.height + 2 * root.halo
                 antialiasing: true
+                // at the handover the ring grows a little as it fades; the
+                // mark inside it keeps its size to the last frame
+                scale: 1 + 0.08 * root.ringGrow
+                transformOrigin: Item.Center
 
                 // an arc from twelve o'clock, clockwise, sweep as a fraction
                 // of a turn

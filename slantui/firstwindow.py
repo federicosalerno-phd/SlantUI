@@ -68,6 +68,7 @@ RING = 132.0
 SPIN_MS = 1150.0
 SWEEP_MS = 1750.0
 FRAME_MS = 16
+SHOWN_AFTER_MS = 50     # from the first paint to `shown`: the compositor's next frames, with room to spare
 
 # splash.qml's column, in its waiting mode: the ring, a gap, the line, a gap,
 # the bar. The figure is not drawn while waiting, and neither is its gap.
@@ -77,6 +78,7 @@ BAR_HEIGHT = 3.0
 
 # Windows 11: round corners and no hairline border, as win32.dress gives the
 # Window, so the two cannot be told apart at the handover.
+_DWMWA_TRANSITIONS_FORCEDISABLED = 3       # no fade in: the first frame under it goes the moment this one is up
 _DWMWA_WINDOW_CORNER_PREFERENCE = 33
 _DWMWA_BORDER_COLOR = 34
 _DWMWCP_ROUND = 2
@@ -221,12 +223,15 @@ def paint_screen(p: QPainter, area: QRectF, lk: dict, *, spin: float = 0.0, phas
     track = _colour(lk["track"])
     t = _thickness(ring)
     font = QFont(lk["font"])
-    font.setPixelSize(int(lk["line"]))      # a whole number, as QML's font.pixelSize takes it
+    # a whole number, as QML's font.pixelSize takes it: rounded half up (11.5 is 12 there), never cut
+    font.setPixelSize(int(math.floor(float(lk["line"]) + 0.5)))
     p.setFont(font)
     line_h = QFontMetricsF(font).height()
     column = ring + FIGURE_GAP + line_h + BAR_GAP + BAR_HEIGHT
     cx = area.center().x()
-    top = area.y() + (area.height() - column) / 2
+    # on a whole pixel of the screen: the ring and the mark land on the very pixels splash.qml puts them on
+    dpr = p.device().devicePixelRatioF() if p.device() is not None else 1.0
+    top = round((area.y() + (area.height() - column) / 2) * dpr) / dpr
     cy = top + ring / 2
     r = (ring - t) / 2
     rect = QRectF(cx - r, cy - r, 2 * r, 2 * r)
@@ -502,7 +507,8 @@ class FirstWindow(QWidget):
             dwm = ctypes.windll.dwmapi
             dwm.DwmSetWindowAttribute.argtypes = [wintypes.HWND, wintypes.DWORD, ctypes.c_void_p, wintypes.DWORD]
             hwnd = wintypes.HWND(int(self.winId()))
-            for attr, val in ((_DWMWA_WINDOW_CORNER_PREFERENCE, _DWMWCP_ROUND),
+            for attr, val in ((_DWMWA_TRANSITIONS_FORCEDISABLED, 1),
+                              (_DWMWA_WINDOW_CORNER_PREFERENCE, _DWMWCP_ROUND),
                               (_DWMWA_BORDER_COLOR, _DWMWA_COLOR_NONE)):
                 v = ctypes.c_uint(val)
                 dwm.DwmSetWindowAttribute(hwnd, attr, ctypes.byref(v), 4)
@@ -541,4 +547,6 @@ class FirstWindow(QWidget):
         p.end()
         if not self._painted:
             self._painted = True
-            QTimer.singleShot(0, self.shown.emit)
+            # painted is not yet on screen: the compositor shows it at its next frame or two, and whatever is
+            # under this window (a first frame of the start's own) must stay until then, or the desktop shows
+            QTimer.singleShot(SHOWN_AFTER_MS, self.shown.emit)
