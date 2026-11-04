@@ -2040,6 +2040,7 @@ function Get-SlantWidgetColours {
     $w = (Get-SlantPalette).Wpf
     return @{
         Panel3    = $c['surface-3']
+        Control   = $c['control']
         Line      = $c['control-active']
         Hover     = $c['control-hover']
         TextSoft  = $c['text-2']
@@ -2224,7 +2225,18 @@ function New-SlantPicker {
         # the last rows are under the edge anyway. Shorter, and scrolling, reads
         # better, and the row that is current brings itself into view when it
         # opens.
-        [double]$MaxHeight = 0
+        [double]$MaxHeight = 0,
+        # The button as a pill with a circle: 30 high, the radius half the
+        # height, the icon inside a 22 circle concentric with the left cap and 4
+        # px of border all round, then the tag, an optional second word in the
+        # faint text, and a chevron. Without it, the button of before: a small
+        # rounded rectangle, which the applications already using this keep.
+        [switch]$Pill,
+        # Something to put under the list, rebuilt on every opening: a section
+        # of its own (the models and the levels of reasoning of an engine, for
+        # instance), which is not an entry and does not close the dropdown by
+        # itself. The scriptblock returns a UIElement, or nothing.
+        [scriptblock]$Footer = $null
     )
     $pal = Get-SlantWidgetColours
     $bc = New-Object System.Windows.Media.BrushConverter
@@ -2233,24 +2245,51 @@ function New-SlantPicker {
     $radice = New-Object System.Windows.Controls.Grid
     $radice.HorizontalAlignment = 'Left'
 
+    $fondoBtn = $(if ($Pill) { $pal.Control } else { $pal.Panel3 })
     $btn = New-Object System.Windows.Controls.Border
-    $btn.Background = $bc.ConvertFromString($pal.Panel3)
-    $btn.CornerRadius = New-Object System.Windows.CornerRadius(5)
-    $btn.Height = 26
-    $btn.Padding = New-Object System.Windows.Thickness(9, 0, 9, 0)
+    $btn.Background = $bc.ConvertFromString($fondoBtn)
+    $btn.CornerRadius = New-Object System.Windows.CornerRadius($(if ($Pill) { 15 } else { 5 }))
+    $btn.Height = $(if ($Pill) { 30 } else { 26 })
+    $btn.Padding = $(if ($Pill) { New-Object System.Windows.Thickness(4, 0, 10, 0) } else { New-Object System.Windows.Thickness(9, 0, 9, 0) })
     $btn.Cursor = 'Hand'
     $riga = New-Object System.Windows.Controls.StackPanel
     $riga.Orientation = 'Horizontal'
     $riga.VerticalAlignment = 'Center'
     $ospiteIcona = New-Object System.Windows.Controls.ContentControl
     $ospiteIcona.VerticalAlignment = 'Center'
+    # in the pill the icon sits inside its circle, cut round: a flag is a
+    # disc there, the logo of an engine a mark on a dark coin
+    $cerchioIcona = $null
+    if ($Pill) {
+        $cerchioIcona = New-Object System.Windows.Controls.Border
+        $cerchioIcona.Width = 22; $cerchioIcona.Height = 22
+        $cerchioIcona.CornerRadius = New-Object System.Windows.CornerRadius(11)
+        $cerchioIcona.Background = $bc.ConvertFromString('#2A2A31')
+        $cerchioIcona.VerticalAlignment = 'Center'
+        $tondo = New-Object System.Windows.Controls.Grid
+        $tondo.Width = 14; $tondo.Height = 14
+        $tondo.Clip = New-Object System.Windows.Media.EllipseGeometry((New-Object System.Windows.Point(7, 7)), 7, 7)
+        $vbIcona = New-Object System.Windows.Controls.Viewbox
+        $vbIcona.Stretch = 'UniformToFill'
+        $vbIcona.Child = $ospiteIcona
+        [void]$tondo.Children.Add($vbIcona)
+        $cerchioIcona.Child = $tondo
+    }
     $sigla = New-Object System.Windows.Controls.TextBlock
-    $sigla.FontSize = 11.5
+    $sigla.FontSize = $(if ($Pill) { 12.5 } else { 11.5 })
     $sigla.FontFamily = $font
     $sigla.Foreground = $bc.ConvertFromString($pal.TextSoft)
     $sigla.VerticalAlignment = 'Center'
-    $sigla.Margin = New-Object System.Windows.Thickness(7, 0, 0, 0)
-    if ($TagWidth -gt 0) { $sigla.Width = $TagWidth }
+    $sigla.Margin = $(if ($Pill) { New-Object System.Windows.Thickness(9, 0, 0, 1) } else { New-Object System.Windows.Thickness(7, 0, 0, 0) })
+    if ($TagWidth -gt 0 -and -not $Pill) { $sigla.Width = $TagWidth }
+    if ($TagWidth -gt 0 -and $Pill) { $sigla.MinWidth = $TagWidth }
+    $seconda = New-Object System.Windows.Controls.TextBlock
+    $seconda.FontSize = 12
+    $seconda.FontFamily = $font
+    $seconda.Foreground = $bc.ConvertFromString($pal.TextFaint)
+    $seconda.VerticalAlignment = 'Center'
+    $seconda.Margin = New-Object System.Windows.Thickness(6, 0, 0, 1)
+    $seconda.Visibility = 'Collapsed'
     # the status dot, when an entry has one: it says whether the work stays on
     # this machine or leaves it, and it is the most important thing this dropdown
     # has to say
@@ -2260,12 +2299,24 @@ function New-SlantPicker {
     $punto.Margin = New-Object System.Windows.Thickness(7, 0, 0, 0)
     $punto.Visibility = 'Collapsed'
     $freccia = New-Object System.Windows.Shapes.Path
-    $freccia.Data = [System.Windows.Media.Geometry]::Parse("M 0,0 L 4.5,0 L 2.25,6.5 Z")
-    $freccia.Fill = $bc.ConvertFromString($pal.TextDim)
+    if ($Pill) {
+        # the chevron of the pills, drawn as a stroke and not a filled wedge
+        $freccia.Data = [System.Windows.Media.Geometry]::Parse("M 0,0 L 3.4,3.4 L 6.8,0")
+        $freccia.Stroke = $bc.ConvertFromString($pal.TextFaint)
+        $freccia.StrokeThickness = 1.4
+        $freccia.StrokeStartLineCap = 'Round'
+        $freccia.StrokeEndLineCap = 'Round'
+        $freccia.StrokeLineJoin = 'Round'
+        $freccia.Margin = New-Object System.Windows.Thickness(8, 1, 0, 0)
+    } else {
+        $freccia.Data = [System.Windows.Media.Geometry]::Parse("M 0,0 L 4.5,0 L 2.25,6.5 Z")
+        $freccia.Fill = $bc.ConvertFromString($pal.TextDim)
+        $freccia.Margin = New-Object System.Windows.Thickness(9, 1, 0, 0)
+    }
     $freccia.VerticalAlignment = 'Center'
-    $freccia.Margin = New-Object System.Windows.Thickness(9, 1, 0, 0)
-    [void]$riga.Children.Add($ospiteIcona)
+    if ($Pill) { [void]$riga.Children.Add($cerchioIcona) } else { [void]$riga.Children.Add($ospiteIcona) }
     [void]$riga.Children.Add($sigla)
+    [void]$riga.Children.Add($seconda)
     [void]$riga.Children.Add($punto)
     [void]$riga.Children.Add($freccia)
     $btn.Child = $riga
@@ -2279,7 +2330,7 @@ function New-SlantPicker {
     # popup). The pointer goes on lightening it the way it lightens every other
     # button: it lightens from there, because Add-SlantHover starts at the base
     # value, and the base value is what this function rewrites.
-    $fondoBase = ([System.Windows.Media.SolidColorBrush]$bc.ConvertFromString($pal.Panel3)).Color
+    $fondoBase = ([System.Windows.Media.SolidColorBrush]$bc.ConvertFromString($fondoBtn)).Color
     $fondoAcceso = Get-SlantHoverColor $fondoBase 0.14
     $accendi = {
         param([bool]$giu)
@@ -2341,6 +2392,11 @@ function New-SlantPicker {
     $scorri.Padding = New-Object System.Windows.Thickness(0)
     $lista = New-Object System.Windows.Controls.StackPanel
     $scorri.Content = $lista
+    # the footer, when there is one, goes in as the last child of the list on
+    # every opening: the list stays the scroll viewer's content, which is the
+    # shape the applications (and the tests) already walk
+    $piede = New-Object System.Windows.Controls.ContentControl
+    $piede.Tag = '__footer__'
     $cornice.Child = $scorri
     $pop.Child = $cornice
     [void]$radice.Children.Add($pop)
@@ -2351,7 +2407,7 @@ function New-SlantPicker {
     # agree with Popup.IsOpen while the way out is animating.
     $stato = [PSCustomObject]@{ Code = "$Current"; Voci = @($Items); Riempita = $false
                                 Giu = $false; Chiudendo = $false; Agganciato = $false
-                                Chiudi = $null }
+                                Chiudi = $null; Caption = ""; Sub = "" }
 
     # the way in and the way out. The transform group is built once and reused,
     # so transforms do not pile up on every opening
@@ -2438,7 +2494,11 @@ function New-SlantPicker {
         if (-not $voce) { return }
         $stato.Code = "$($voce.Code)"
         $ospiteIcona.Content = $(if ($voce.Visual) { & $voce.Visual } else { $null })
-        $sigla.Text = $(if ($voce.Tag) { "$($voce.Tag)" } else { $stato.Code.ToUpper() })
+        # a caption set from outside (SetCaption) wins over the entry's tag: the
+        # pill of an engine says its model, not its name
+        $sigla.Text = $(if ($stato.Caption) { "$($stato.Caption)" } elseif ($voce.Tag) { "$($voce.Tag)" } else { $stato.Code.ToUpper() })
+        $seconda.Text = "$($stato.Sub)"
+        $seconda.Visibility = $(if ($stato.Sub) { 'Visible' } else { 'Collapsed' })
         if ($voce.Dot) {
             $punto.Fill = $bc.ConvertFromString("$($voce.Dot)")
             $punto.Visibility = 'Visible'
@@ -2709,12 +2769,25 @@ function New-SlantPicker {
             $log = Get-Command Write-SlantNote -ErrorAction SilentlyContinue
             if ($log) { & $log "picker: the list will not build: $($_.Exception.Message)" }
         }
+        if ($Footer) {
+            try {
+                $el = & $Footer
+                $piede.Content = $el
+                if ($lista.Children.Contains($piede)) { $lista.Children.Remove($piede) }
+                if ($el) { [void]$lista.Children.Add($piede) }
+            } catch {
+                if ($lista.Children.Contains($piede)) { $lista.Children.Remove($piede) }
+                $log = Get-Command Write-SlantNote -ErrorAction SilentlyContinue
+                if ($log) { & $log "picker: the footer will not build: $($_.Exception.Message)" }
+            }
+        }
         try { & $sistema } catch { }
         & $aggancia
         # the lit background follows the current choice, which can have been
         # changed after the list was already built
         try {
             foreach ($r in @($lista.Children)) {
+                if ("$($r.Tag)" -eq '__footer__') { continue }
                 $suo = ("$($r.Tag)" -eq "$($stato.Code)")
                 $r.Background = $(if ($suo) { $bc.ConvertFromString($pal.Panel3) }
                                   else { [System.Windows.Media.Brushes]::Transparent })
@@ -2782,6 +2855,17 @@ function New-SlantPicker {
     # to warm the list once the window has drawn: whoever opens the window does
     # it after the first render, the way a scan of the folders is done
     $picker | Add-Member -MemberType ScriptMethod -Name Warm -Value { & $riempi }.GetNewClosure()
+    # What the button says, from outside: the main word and a second, fainter
+    # one (an empty main word goes back to the entry's tag). The pill of an
+    # engine says the model and the level of reasoning of the session in front.
+    $picker | Add-Member -MemberType ScriptMethod -Name SetCaption -Value {
+        param([string]$main, [string]$sub = "")
+        $stato.Caption = "$main"
+        $stato.Sub = "$sub"
+        & $mostra $stato.Code
+    }.GetNewClosure()
+    $picker | Add-Member -MemberType ScriptMethod -Name Caption -Value { return "$($sigla.Text)" }.GetNewClosure()
+    $picker | Add-Member -MemberType ScriptMethod -Name SubCaption -Value { return "$($seconda.Text)" }.GetNewClosure()
     return $picker
 }
 
