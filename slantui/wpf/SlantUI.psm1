@@ -1502,6 +1502,61 @@ function Set-SlantLogo {
 # here, and a zoom Windows manages to do anyway is undone the moment WPF
 # reports it.
 
+# ── the strip under the thin half of the band ───────────────────────────────
+# Under the thin half the bar's own box shows, and it has no colour of its
+# own there: it takes whatever is under the bar, so the page reads as reaching
+# up under the band and the band reads as thin. It is the rule js/titlebar.js
+# keeps for the web; until November 2026 this half painted surface-1 there
+# (#101013) above a page in surface-0 (#0D0D0F), and the band looked two rows
+# tall, a thin one and a grey one under it.
+#
+# The colour under a point is read the way elementsFromPoint is read on the
+# web: every element hit there, front to back, each one's own fill with its
+# alpha taken down by its opacity and every ancestor's, laid one under the
+# other until the result is opaque, and the window's own background last.
+function Get-SlantFillUnder($Root, [System.Windows.Point]$At, $Skip, $Ground) {
+    $hits = New-Object System.Collections.ArrayList
+    $cb = [System.Windows.Media.HitTestResultCallback]{
+        param($r)
+        [void]$hits.Add($r.VisualHit)
+        return [System.Windows.Media.HitTestResultBehavior]::Continue
+    }.GetNewClosure()
+    try {
+        [System.Windows.Media.VisualTreeHelper]::HitTest($Root, $null, $cb,
+            (New-Object System.Windows.Media.PointHitTestParameters($At)))
+    } catch { }
+    $r = 0.0; $g = 0.0; $b = 0.0; $a = 0.0
+    foreach ($v in $hits) {
+        if ($a -ge 0.999) { break }
+        if ($null -ne $Skip -and (Test-SlantVisualAncestor $v $Skip)) { continue }
+        $fill = $null
+        try {
+            if ($v -is [System.Windows.Controls.Panel] -or $v -is [System.Windows.Controls.Border] -or
+                $v -is [System.Windows.Controls.Control]) { $fill = $v.Background }
+        } catch { }
+        if ($fill -isnot [System.Windows.Media.SolidColorBrush]) { continue }
+        $c = $fill.Color
+        $al = ($c.A / 255.0) * $fill.Opacity
+        $n = $v
+        while ($null -ne $n -and $al -gt 0) {
+            try { $al *= [double]$n.Opacity } catch { }
+            if ([object]::ReferenceEquals($n, $Root)) { break }
+            $n = [System.Windows.Media.VisualTreeHelper]::GetParent($n)
+        }
+        if ($al -le 0) { continue }
+        $k = (1.0 - $a) * $al
+        $r += $c.R * $k; $g += $c.G * $k; $b += $c.B * $k; $a += $k
+    }
+    if ($a -lt 0.999 -and $Ground -is [System.Windows.Media.SolidColorBrush]) {
+        $c = $Ground.Color
+        $k = (1.0 - $a) * ($c.A / 255.0)
+        $r += $c.R * $k; $g += $c.G * $k; $b += $c.B * $k; $a += $k
+    }
+    if ($a -le 0) { return [System.Windows.Media.Colors]::Transparent }
+    return [System.Windows.Media.Color]::FromArgb([byte][Math]::Round(255 * [Math]::Min(1.0, $a)),
+        [byte][Math]::Round($r / $a), [byte][Math]::Round($g / $a), [byte][Math]::Round($b / $a))
+}
+
 function Install-SlantWindow {
     <#  .SYNOPSIS  Dress a WPF window in this design's chrome.
 
@@ -1606,6 +1661,104 @@ function Install-SlantWindow {
         OnMaximized = $null
         BrandButton = $null
         BrandAction = $null
+        # the splash holds the strip while the window is empty (Show-SlantSplash):
+        # a colour measured then goes to the one it will hand back
+        HeldStrip  = $null
+        StripTimer = $null
+        StripColours = ''
+    }
+
+    # Before anything is measured the strip has the window's own colour, which
+    # is the stage's: the fill New-SlantTitleBar gives a bar of its own is the
+    # step rail's, and in a window with no rail that is a grey line.
+    if ($Window.Background -is [System.Windows.Media.Brush]) { $bar.Element.Background = $Window.Background }
+
+    $chrome | Add-Member -MemberType ScriptMethod -Name PaintStrip -Value {
+        <#  Read what is under the bar and paint the strip with it. One colour
+            is a fill; several are hard stops at the edges between them,
+            found to half a pixel. Called on its own after the first frame and
+            after every change of size; an application that repaints what is
+            under the bar calls it too.  #>
+        try {
+            $sh = $this.Body; $el = $this.Element
+            $w = $sh.ActualWidth
+            if ($w -le 0 -or $el.ActualHeight -le 0) { return }
+            $y = $el.ActualHeight + 0.5
+            if ($y -ge $sh.ActualHeight) { return }
+            $terra = $this.Window.Background
+            $io = $this
+            $leggi = { param([double]$x) "$(Get-SlantFillUnder $io.Body (New-Object System.Windows.Point($x, $y)) $io.Element $terra)" }
+            $da = [Math]::Max(0.5, [Math]::Min($w - 1, $this.Brand.ActualWidth))
+            $ultimo = $w - 1
+            $colore = & $leggi $da
+            $tratti = New-Object System.Collections.ArrayList
+            [void]$tratti.Add(@($colore, 0.0))
+            # three readings first: a page with one colour under the bar,
+            # which is almost every page, costs three hit tests
+            $meta = & $leggi (($da + $ultimo) / 2)
+            $fondo = & $leggi $ultimo
+            if ($meta -ne $colore -or $fondo -ne $colore) {
+                $x0 = $da
+                for ($x = $da + 32; $x0 -lt $ultimo; $x += 32) {
+                    $x1 = [Math]::Min($x, $ultimo)
+                    $c = & $leggi $x1
+                    if ($c -ne $colore) {
+                        $lo = $x0; $hi = $x1
+                        while ($hi - $lo -gt 0.5) {
+                            $mid = ($lo + $hi) / 2
+                            if ((& $leggi $mid) -eq $colore) { $lo = $mid } else { $hi = $mid }
+                        }
+                        $colore = & $leggi $hi
+                        [void]$tratti.Add(@($colore, [Math]::Round($hi)))
+                        $x0 = $hi; $x = $hi
+                        continue
+                    }
+                    $x0 = $x1
+                }
+            }
+            $firma = (@($tratti | ForEach-Object { "$($_[0])@$($_[1])" }) -join ';') + "|$([Math]::Round($w))"
+            if ($firma -eq $this.StripColours) { return }
+            $this.StripColours = $firma
+            $conv = [System.Windows.Media.ColorConverter]
+            if ($tratti.Count -eq 1) {
+                $pennello = New-Object System.Windows.Media.SolidColorBrush($conv::ConvertFromString("$($tratti[0][0])"))
+            } else {
+                $pennello = New-Object System.Windows.Media.LinearGradientBrush
+                $pennello.MappingMode = 'Absolute'
+                $pennello.StartPoint = New-Object System.Windows.Point(0, 0)
+                $pennello.EndPoint = New-Object System.Windows.Point($w, 0)
+                for ($i = 0; $i -lt $tratti.Count; $i++) {
+                    $cc = $conv::ConvertFromString("$($tratti[$i][0])")
+                    $inizio = [double]$tratti[$i][1] / $w
+                    $fine = $(if ($i + 1 -lt $tratti.Count) { [double]$tratti[$i + 1][1] / $w } else { 1.0 })
+                    [void]$pennello.GradientStops.Add((New-Object System.Windows.Media.GradientStop($cc, $inizio)))
+                    [void]$pennello.GradientStops.Add((New-Object System.Windows.Media.GradientStop($cc, $fine)))
+                }
+            }
+            if ($pennello.CanFreeze) { $pennello.Freeze() }
+            if ($null -ne $this.HeldStrip) { $this.HeldStrip.Was = $pennello }
+            else { $el.Background = $pennello }
+        } catch { }
+    }
+
+    # After a change of size the strip is read again once the size has stopped
+    # changing: a resize is a burst of SizeChanged, and three hit tests a pixel
+    # would be what makes a drag lag behind the hand.
+    $chrome | Add-Member -MemberType ScriptMethod -Name PaintStripSoon -Value {
+        try {
+            if ($null -eq $this.StripTimer) {
+                $t = New-Object System.Windows.Threading.DispatcherTimer
+                $t.Interval = [TimeSpan]::FromMilliseconds(120)
+                $io = $this
+                $t.add_Tick({
+                    param($src, $e)
+                    try { $src.Stop(); $io.PaintStrip() } catch { }
+                }.GetNewClosure())
+                $this.StripTimer = $t
+            }
+            $this.StripTimer.Stop()
+            $this.StripTimer.Start()
+        } catch { }
     }
 
     $chrome | Add-Member -MemberType ScriptMethod -Name SetBrandAction -Value {
@@ -1980,7 +2133,8 @@ function Install-SlantWindow {
     $chrome.Attach()
     $Window.add_SourceInitialized({ $chrome.Attach() }.GetNewClosure())
     $Window.add_Loaded({ $chrome.Attach(); $chrome.Shape() }.GetNewClosure())
-    $Window.add_ContentRendered({ $chrome.Shape() }.GetNewClosure())
+    $Window.add_ContentRendered({ $chrome.Shape(); $chrome.PaintStrip() }.GetNewClosure())
+    $shell.add_SizeChanged({ $chrome.PaintStripSoon() }.GetNewClosure())
     $bar.Element.add_SizeChanged({ $chrome.Shape() }.GetNewClosure())
     $bar.Brand.add_SizeChanged({ $chrome.Shape() }.GetNewClosure())
     $Window.add_LocationChanged({ $chrome.Track() }.GetNewClosure())
@@ -3260,6 +3414,7 @@ function Show-SlantSplash {
                 Brush = New-Object System.Windows.Media.SolidColorBrush $vuotoC
             }
             $Chrome.Element.Background = $striscia.Brush
+            try { $Chrome.HeldStrip = $striscia } catch { }
         }
 
         # the application's own content is the second row of the shell; the band
@@ -3407,6 +3562,7 @@ function Show-SlantSplash {
         Text    = $Text
         Empty   = $vuota
         Strip   = $striscia
+        Chrome  = $(if ($nuda) { $null } else { $Chrome })
     }
 
     $splash | Add-Member -MemberType ScriptMethod -Name SetProgress -Value {
@@ -3566,7 +3722,12 @@ function Show-SlantSplash {
                     } catch { }
                     # and the bar gets its own brush back, the one the band
                     # was built with, not a copy that happens to match it
-                    try { if ($null -ne $me.Strip) { $me.Strip.Bar.Background = $me.Strip.Was } } catch { }
+                    try {
+                        if ($null -ne $me.Strip) {
+                            $me.Strip.Bar.Background = $me.Strip.Was
+                            if ($null -ne $me.Chrome) { $me.Chrome.HeldStrip = $null; $me.Chrome.PaintStripSoon() }
+                        }
+                    } catch { }
                 })
             } catch { }
         }.GetNewClosure()

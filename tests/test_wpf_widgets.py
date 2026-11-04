@@ -1000,6 +1000,80 @@ def test_a_mark_sits_whole_and_centred_on_its_coin(disc, where, scale):
     assert m["BoxH"] > m["BoxW"], m
 
 
+# ── the strip under the band ────────────────────────────────────────────────
+# Under the thin half of the band the bar has no colour of its own: it takes
+# whatever is under it, like js/titlebar.js on the web. A window whose stage
+# is surface-0 with a bar painted surface-1 above it shows a grey row under
+# the band, and the band reads as twice as tall as it is.
+_STRIP_PROBE = r"""
+$ErrorActionPreference = 'Stop'
+Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
+Import-Module '{module}' -Force
+$out = [ordered]@{}
+$xaml = @'
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        Width="900" Height="400" WindowStartupLocation="Manual" Left="-20000" Top="-20000"
+        ShowInTaskbar="False" ShowActivated="False" Background="#0D0D0F">
+  <Grid>
+    <Grid.ColumnDefinitions><ColumnDefinition Width="300"/><ColumnDefinition/></Grid.ColumnDefinitions>
+    <Border x:Name="Rail" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Background="#101013"/>
+    <Border Grid.Column="1" Background="#0D0D0F"><TextBlock Text="stage" Foreground="White"/></Border>
+  </Grid>
+</Window>
+'@
+$w = [System.Windows.Markup.XamlReader]::Load((New-Object System.Xml.XmlNodeReader ([xml]$xaml)))
+$chrome = Install-SlantWindow -Window $w -Bold 'Slant' -Name ' check'
+$w.add_ContentRendered({
+    $t = New-Object System.Windows.Threading.DispatcherTimer
+    $t.Interval = [TimeSpan]::FromMilliseconds(400)
+    $t.add_Tick({
+        param($s, $e)
+        $s.Stop()
+        try {
+            $b = $chrome.Element.Background
+            $out.Kind = $b.GetType().Name
+            if ($b -is [System.Windows.Media.LinearGradientBrush]) {
+                $out.Stops = @($b.GradientStops | ForEach-Object { "$($_.Color)@$([Math]::Round($_.Offset * $chrome.Body.ActualWidth))" })
+            } else { $out.Colour = "$($b.Color)" }
+            $sw = [Diagnostics.Stopwatch]::StartNew(); $chrome.StripColours = ''; $chrome.PaintStrip(); $out.PaintMs = [int]$sw.ElapsedMilliseconds
+            # una pagina tutta di un colore
+            $w.Content.Children[1].Children[0].Background = (New-Object System.Windows.Media.BrushConverter).ConvertFromString('#0D0D0F')
+            $w.UpdateLayout()
+            $sw = [Diagnostics.Stopwatch]::StartNew(); $chrome.PaintStrip(); $out.PaintOneMs = [int]$sw.ElapsedMilliseconds
+            $b2 = $chrome.Element.Background
+            $out.Kind2 = $b2.GetType().Name; $out.Colour2 = "$($b2.Color)"
+        } catch { $out.Error = "$($_.Exception.Message) @ $($_.InvocationInfo.ScriptLineNumber)" }
+        $w.Close()
+    }.GetNewClosure())
+    $t.Start()
+}.GetNewClosure())
+[void]$w.ShowDialog()
+$out | ConvertTo-Json -Compress
+"""
+
+
+@pytest.fixture(scope="module")
+def strip(tmp_path_factory) -> dict:
+    script = (_STRIP_PROBE.replace("{", "{{").replace("}", "}}")
+              .replace("{{module}}", "{module}"))
+    return _probe(tmp_path_factory.mktemp("slantstrip"), "strip", script)
+
+
+def test_the_strip_takes_the_colours_under_the_bar(strip):
+    """A rail on the left and the stage on the right: the strip is the rail's
+    colour as far as the rail goes, to the pixel, and the stage's after."""
+    assert strip["Kind"] == "LinearGradientBrush", strip
+    assert strip["Stops"] == ["#FF101013@0", "#FF101013@300",
+                              "#FF0D0D0F@300", "#FF0D0D0F@900"], strip
+
+
+def test_one_colour_under_the_bar_is_one_fill_and_cheap(strip):
+    """The common case, a page of one colour, is three hit tests."""
+    assert strip["Kind2"] == "SolidColorBrush", strip
+    assert strip["Colour2"] == "#FF0D0D0F", strip
+    assert strip["PaintOneMs"] < 50, strip
+
+
 # ── the SVG reader ──────────────────────────────────────────────────────────
 # The samples are written here and read there. They cover what the reader says
 # it does and nothing it says it does not: shapes, nested groups, transforms,
