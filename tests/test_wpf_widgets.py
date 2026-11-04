@@ -798,6 +798,208 @@ def test_the_dropdown_stays_inside_the_window(picker):
     assert picker["FrameW"] > picker["ScrollBar"], "no width was measured at all"
 
 
+# ── the disc in the pill ────────────────────────────────────────────────────
+# The flag of a language in the circle of its pill, and the mark of an engine
+# on its coin, measured on the pixels. The coin is painted magenta, which no
+# flag has, so every pixel that is not magenta is drawing: its weight is how
+# far it is from magenta (the antialiased rim weighs by its coverage), and from
+# there the centroid, the area, the bounding box and the radius in eight
+# directions. Measured at 1x, 2x and 3x, in the pill and in a row of the open
+# dropdown, because those are two different discs that must look the same.
+_DISC_PROBE = r"""
+param([string]$Flag, [string]$Mark)
+$ErrorActionPreference = 'Stop'
+Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
+Import-Module '{module}' -Force
+$out = [ordered]@{}
+
+function Find-Coin($root, [double]$size) {
+    $q = New-Object System.Collections.Queue; $q.Enqueue($root)
+    while ($q.Count -gt 0) {
+        $x = $q.Dequeue()
+        if ($x -is [System.Windows.Controls.Border] -and $x.Width -eq $size -and $x.CornerRadius.TopLeft -eq $size / 2) { return $x }
+        if ($x -is [System.Windows.Controls.Grid] -and "$($x.Tag)" -like 'slant-disc:*' -and $x.Width -eq $size) { return $x }
+        $n = [System.Windows.Media.VisualTreeHelper]::GetChildrenCount($x)
+        for ($i = 0; $i -lt $n; $i++) { $q.Enqueue([System.Windows.Media.VisualTreeHelper]::GetChild($x, $i)) }
+    }
+    return $null
+}
+
+function Measure-Coin($root, [double]$size, [double]$scale) {
+    $coin = Find-Coin $root $size
+    if (-not $coin) { return @{ Error = 'no coin' } }
+    $magenta = New-Object System.Windows.Media.SolidColorBrush([System.Windows.Media.Color]::FromRgb(255, 0, 255))
+    if ($coin -is [System.Windows.Controls.Border]) { $coin.Background = $magenta }
+    else { $coin.Children[0].Fill = $magenta }
+    # The bitmap is of the root of the tree the coin is in: the window, or
+    # the popup's own root for a row of the open list. A child rendered on its
+    # own comes with its offset inside its parent and lands off the bitmap,
+    # and a VisualBrush frames what is drawn and not the layout box.
+    $top = $coin
+    while ($true) {
+        $su = [System.Windows.Media.VisualTreeHelper]::GetParent($top)
+        if ($null -eq $su) { break }
+        $top = $su
+    }
+    $top.UpdateLayout()
+    $p = $coin.TransformToAncestor($top).Transform((New-Object System.Windows.Point(0, 0)))
+    $cx = ($p.X + $size / 2) * $scale; $cy = ($p.Y + $size / 2) * $scale
+    $W = [int][Math]::Ceiling($top.ActualWidth * $scale); $H = [int][Math]::Ceiling($top.ActualHeight * $scale)
+    $dpi = 96.0 * $scale
+    $rtb = New-Object System.Windows.Media.Imaging.RenderTargetBitmap -ArgumentList $W, $H, $dpi, $dpi, ([System.Windows.Media.PixelFormats]::Pbgra32)
+    $rtb.Render($top)
+    $stride = $W * 4; $px = New-Object byte[] ($stride * $H)
+    $rtb.CopyPixels($px, $stride, 0)
+    $peso = { param($o) [Math]::Max([Math]::Max($px[$o + 1] / 255.0, (255 - $px[$o + 2]) / 255.0), (255 - $px[$o]) / 255.0) }
+    $r = $size / 2 * $scale; $lim = $r - 0.75 * $scale
+    $sx = 0.0; $sy = 0.0; $sw = 0.0; $x0 = 1e9; $x1 = -1e9; $y0 = 1e9; $y1 = -1e9
+    for ($yy = [int]($cy - $r); $yy -le [int]($cy + $r); $yy++) {
+        for ($xx = [int]($cx - $r); $xx -le [int]($cx + $r); $xx++) {
+            $dx = $xx + 0.5 - $cx; $dy = $yy + 0.5 - $cy
+            if ($dx * $dx + $dy * $dy -gt $lim * $lim) { continue }
+            $w = & $peso ($yy * $stride + $xx * 4)
+            if ($w -lt 0.03) { continue }
+            $w = [Math]::Min(1.0, $w * 1.6)
+            $sx += $w * ($xx + 0.5); $sy += $w * ($yy + 0.5); $sw += $w
+            if ($w -ge 0.5) {
+                if ($xx -lt $x0) { $x0 = $xx }; if ($xx + 1 -gt $x1) { $x1 = $xx + 1 }
+                if ($yy -lt $y0) { $y0 = $yy }; if ($yy + 1 -gt $y1) { $y1 = $yy + 1 }
+            }
+        }
+    }
+    if ($sw -le 0) { return @{ Error = 'nothing drawn' } }
+    $reach = @()
+    foreach ($d in 0, 45, 90, 135, 180, 225, 270, 315) {
+        $a = $d * [Math]::PI / 180.0; $t = 0.0
+        while ($t -lt $r) {
+            $xx = [int][Math]::Floor($cx + [Math]::Cos($a) * $t); $yy = [int][Math]::Floor($cy + [Math]::Sin($a) * $t)
+            # 0.3 and not 0.5: two bands that meet on a fraction of a pixel
+            # leave a seam a quarter transparent, and that is not the edge
+            if ((& $peso ($yy * $stride + $xx * 4)) -lt 0.3) { break }
+            $t += 0.25
+        }
+        $reach += [Math]::Round($t / $scale, 3)
+    }
+    return @{ CentroidX = ($sx / $sw - $cx) / $scale; CentroidY = ($sy / $sw - $cy) / $scale
+              BoxX = (($x0 + $x1) / 2.0 - $cx) / $scale; BoxY = (($y0 + $y1) / 2.0 - $cy) / $scale
+              BoxW = ($x1 - $x0) / $scale; BoxH = ($y1 - $y0) / $scale
+              Area = $sw / ($scale * $scale); Reach = $reach }
+}
+
+try {
+    $w = New-Object System.Windows.Window
+    $w.WindowStyle = 'None'; $w.ShowInTaskbar = $false; $w.ShowActivated = $false
+    $w.Left = -20000; $w.Top = -20000; $w.Width = 360; $w.Height = 200
+    $w.Background = [System.Windows.Media.Brushes]::Black
+    $g = New-Object System.Windows.Controls.Grid
+    $w.Content = $g
+    $w.Show()
+    $flagImg = New-SlantVectorImage -Path $Flag
+    $markImg = New-SlantVectorImage -Path $Mark
+    foreach ($caso in @(
+        @{ Name = 'flag'; Item = [PSCustomObject]@{ Code = 'f'; Tag = 'F'; Label = 'flag'; Disc = $flagImg } }
+        @{ Name = 'mark'; Item = [PSCustomObject]@{ Code = 'm'; Tag = 'M'; Label = 'mark'; Disc = { $markImg }.GetNewClosure(); DiscFit = 'Contain' } })) {
+        $pk = New-SlantPicker -Items @($caso.Item) -Current $caso.Item.Code -Pill
+        $g.Children.Clear(); [void]$g.Children.Add($pk.Element)
+        $w.UpdateLayout()
+        $btn = $pk.Element.Children[0]
+        foreach ($s in 1, 2, 3) { $out["$($caso.Name)Pill$s"] = Measure-Coin $btn 22 $s }
+        $pk.Toggle()
+        # the popup is a window of its own and lays itself out on the
+        # dispatcher: everything queued above idle runs before this returns
+        # and it comes in with a fade and from 96.5 per cent: measured during
+        # those 210 ms it is a smaller, paler disc
+        $sw0 = [Diagnostics.Stopwatch]::StartNew()
+        while ($sw0.ElapsedMilliseconds -lt 450) {
+            $w.Dispatcher.Invoke([action] { }, [System.Windows.Threading.DispatcherPriority]::ApplicationIdle)
+            Start-Sleep -Milliseconds 15
+        }
+        $riga = $pk.Popup.Child.Child.Content.Children[0]
+        $riga.UpdateLayout()
+        foreach ($s in 1, 2, 3) { $out["$($caso.Name)Row$s"] = Measure-Coin $riga 18 $s }
+        # and no thread of a border inside the disc: the only things in it
+        # are the coin and the drawing
+        $coin = Find-Coin $btn 22
+        $out["$($caso.Name)Pieces"] = @($coin.Child.Children | ForEach-Object { $_.GetType().Name })
+        $pk.Close()
+    }
+    $w.Close()
+} catch { $out.Error = "$($_.Exception.Message) @ $($_.InvocationInfo.ScriptLineNumber)" }
+$out | ConvertTo-Json -Depth 6 -Compress
+"""
+
+# a flag in the proportions of the real ones, 4:3, three bands; and a mark
+# taller than it is wide, whose ears a disc filled edge to edge would cut off
+_DISC_FLAG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480">
+  <path fill="#009246" d="M0 0h213.3v480H0z"/>
+  <path fill="#ffffff" d="M213.3 0h213.4v480H213.3z"/>
+  <path fill="#ce2b37" d="M426.7 0H640v480H426.7z"/>
+</svg>"""
+_DISC_MARK = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <path fill="#FFFFFF" d="M8 2h3v6h2V2h3v20H8z"/>
+</svg>"""
+
+
+@pytest.fixture(scope="module")
+def disc(tmp_path_factory) -> dict:
+    folder = tmp_path_factory.mktemp("slantdisc")
+    (folder / "flag.svg").write_text(_DISC_FLAG, encoding="utf-8")
+    (folder / "mark.svg").write_text(_DISC_MARK, encoding="utf-8")
+    script = (_DISC_PROBE.replace("{", "{{").replace("}", "}}")
+              .replace("{{module}}", "{module}"))
+    return _probe(folder, "disc", script,
+                  ("-Flag", str(folder / "flag.svg"), "-Mark", str(folder / "mark.svg")))
+
+
+@pytest.mark.parametrize("where", ["Pill", "Row"])
+@pytest.mark.parametrize("scale", [1, 2, 3])
+def test_a_flag_is_a_disc_centred_on_its_circle(disc, where, scale):
+    """The centroid of the coloured area on the centre of the circle, within a
+    tenth of a pixel at 3x (a quarter at 1x, where a pixel is a pixel); the
+    area of a full disc of 14, and not the 14 by 12 the bordered box left
+    behind, whose border stayed inside the circle as a flat band above and
+    another below."""
+    m = disc[f"flag{where}{scale}"]
+    assert "Error" not in m, m
+    tol = 0.1 if scale == 3 else 0.25
+    assert abs(m["CentroidX"]) <= tol, m
+    assert abs(m["CentroidY"]) <= tol, m
+    assert abs(m["Area"] - 3.14159 * 49) <= 0.04 * 3.14159 * 49, m
+
+
+@pytest.mark.parametrize("where", ["Pill", "Row"])
+def test_the_disc_is_round_with_no_flat_sides(disc, where):
+    """The radius walked out from the centre in eight directions, at 3x: a
+    circle gives the same number eight times, a disc with a band across the top
+    gives a short one straight up and straight down."""
+    reach = disc[f"flag{where}3"]["Reach"]
+    assert max(reach) - min(reach) <= 0.34, reach
+    assert min(reach) >= 6.6, reach
+
+
+def test_nothing_but_the_coin_and_the_drawing_is_in_the_circle(disc):
+    """No box with a border scaled into the circle: the drawing is the fill of
+    an ellipse, so there is no thread of an outline to sit off centre."""
+    assert disc["flagPieces"] == ["Ellipse"], disc["flagPieces"]
+    assert disc["markPieces"] == ["Rectangle"], disc["markPieces"]
+
+
+@pytest.mark.parametrize("where", ["Pill", "Row"])
+@pytest.mark.parametrize("scale", [1, 2, 3])
+def test_a_mark_sits_whole_and_centred_on_its_coin(disc, where, scale):
+    """A mark is centred on its own bounds, not on its weight (a llama has its
+    ears up top), and is never cut by the circle: its box is the inner square,
+    taller than wide like the drawing, with room left all round."""
+    m = disc[f"mark{where}{scale}"]
+    assert "Error" not in m, m
+    tol = 0.17 if scale == 3 else 0.5
+    assert abs(m["BoxX"]) <= tol, m
+    assert abs(m["BoxY"]) <= tol, m
+    inner = 12
+    assert m["BoxH"] <= inner + 0.5, m
+    assert m["BoxH"] > m["BoxW"], m
+
+
 # ── the SVG reader ──────────────────────────────────────────────────────────
 # The samples are written here and read there. They cover what the reader says
 # it does and nothing it says it does not: shapes, nested groups, transforms,

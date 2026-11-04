@@ -2213,6 +2213,86 @@ function Test-SlantVisualAncestor($nodo, $radice) {
     return $false
 }
 
+# A drawing inside a circle: the flag of a language, the mark of an engine.
+#
+# Until November 2026 the picker put the application's own icon (a bordered
+# box, 18 by 13.5) inside a Viewbox in UniformToFill, inside a grid clipped
+# round. Centred, it was cut evenly, but three things were left. The box's one
+# pixel border came along scaled by 1.037 and stayed inside the disc as a flat
+# band at the top and another at the bottom: the coloured area measured 14 by
+# 12, and the flag read as a pill lying on its side. The border is
+# snapped to device pixels, so at 1x and 2x the two bands came out of
+# different heights and moved the flag by a fifth of a pixel. And a mark that
+# is not a rectangle (the llama, the star) was filled into the circle too, and
+# the circle cut its ears off.
+#
+# Here nothing is placed and then cut. The circle IS the drawing: an ellipse
+# whose fill is the image, through a brush that centres it (AlignmentX and
+# AlignmentY) and either covers the disc (a flag, cropped evenly on the long
+# side) or sits inside it whole (a mark, on its coin). The ellipse has a size
+# that is an even number of pixels less than the coin, so its offset is a
+# whole number at every scale and there is nothing for layout rounding to move.
+function New-SlantDisc {
+    param(
+        [Parameter(Mandatory = $true)]$Source,
+        [double]$Size = 22,
+        [double]$Inner = 14,
+        [ValidateSet('Cover', 'Contain')][string]$Fit = 'Cover',
+        [string]$Coin = '#2A2A31'
+    )
+    $bc = New-Object System.Windows.Media.BrushConverter
+    $g = New-Object System.Windows.Controls.Grid
+    $g.Width = $Size; $g.Height = $Size
+    $g.VerticalAlignment = 'Center'
+    $g.HorizontalAlignment = 'Center'
+    $g.SnapsToDevicePixels = $false
+    if ($Coin) {
+        $moneta = New-Object System.Windows.Shapes.Ellipse
+        $moneta.Width = $Size; $moneta.Height = $Size
+        $moneta.Fill = $bc.ConvertFromString($Coin)
+        [void]$g.Children.Add($moneta)
+    }
+    $pennello = New-Object System.Windows.Media.ImageBrush
+    $pennello.ImageSource = $Source
+    $pennello.AlignmentX = 'Center'
+    $pennello.AlignmentY = 'Center'
+    $pennello.Stretch = $(if ($Fit -eq 'Cover') { 'UniformToFill' } else { 'Uniform' })
+    if ($pennello.CanFreeze) { $pennello.Freeze() }
+    if ($Fit -eq 'Cover') {
+        $disco = New-Object System.Windows.Shapes.Ellipse
+    } else {
+        # a mark is not cut: it is a square the size of the inner circle's
+        # bounding box, and the mark sits whole inside it, centred on its own
+        # bounds (which for a drawing are its shapes, not its canvas)
+        $disco = New-Object System.Windows.Shapes.Rectangle
+    }
+    $disco.Width = $Inner; $disco.Height = $Inner
+    # the frame of a dropdown snaps to device pixels and its children inherit
+    # it: a rectangle snapped there lands a third of a pixel up and to the left
+    # at 3x, and a mark is the one thing in here that has to be centred
+    $disco.SnapsToDevicePixels = $false
+    $disco.UseLayoutRounding = $false
+    $disco.HorizontalAlignment = 'Center'
+    $disco.VerticalAlignment = 'Center'
+    $disco.Fill = $pennello
+    [void]$g.Children.Add($disco)
+    # what the tests and the applications look for
+    $g.Tag = "slant-disc:$Fit"
+    return $g
+}
+
+# The image an entry offers for its disc: a source, or a scriptblock that
+# returns one. Nothing, when it offers none or its scriptblock fails.
+function Get-SlantDiscSource($voce) {
+    try {
+        $d = $voce.Disc
+        if ($null -eq $d) { return $null }
+        if ($d -is [scriptblock]) { $d = & $d }
+        if ($d -is [System.Windows.Media.ImageSource]) { return $d }
+    } catch { }
+    return $null
+}
+
 function New-SlantPicker {
     param(
         [array]$Items,
@@ -2499,7 +2579,22 @@ function New-SlantPicker {
         if (-not $voce -and @($stato.Voci).Count -gt 0) { $voce = @($stato.Voci)[0] }
         if (-not $voce) { return }
         $stato.Code = "$($voce.Code)"
-        $ospiteIcona.Content = $(if ($voce.Visual) { & $voce.Visual } else { $null })
+        # In the pill, an entry that offers its art as an image (Disc) is drawn
+        # as the circle itself, centred to the pixel (New-SlantDisc). One that
+        # offers only an element (Visual) goes in the box of before, scaled to
+        # fill and cut round: a language added by hand has no flag, only its
+        # letters, and those are not an image.
+        $arte = $null
+        if ($cerchioIcona) { $arte = Get-SlantDiscSource $voce }
+        if ($arte) {
+            $adatta = $(if ("$($voce.DiscFit)" -eq 'Contain') { 'Contain' } else { 'Cover' })
+            $cerchioIcona.Child = New-SlantDisc -Source $arte -Size 22 -Coin '' -Fit $adatta `
+                                                -Inner $(if ($adatta -eq 'Contain') { 12 } else { 14 })
+            $ospiteIcona.Content = $null
+        } else {
+            if ($cerchioIcona -and -not [object]::ReferenceEquals($cerchioIcona.Child, $tondo)) { $cerchioIcona.Child = $tondo }
+            $ospiteIcona.Content = $(if ($voce.Visual) { & $voce.Visual } else { $null })
+        }
         # a caption set from outside (SetCaption) wins over the entry's tag: the
         # pill of an engine says its model, not its name
         $sigla.Text = $(if ($stato.Caption) { "$($stato.Caption)" } elseif ($voce.Tag) { "$($voce.Tag)" } else { $stato.Code.ToUpper() })
@@ -2554,7 +2649,17 @@ function New-SlantPicker {
                 $cd.SharedSizeGroup = $g
                 [void]$sp.ColumnDefinitions.Add($cd)
             }
-            if ($l.Visual) {
+            # the same disc as the pill, a size smaller: a flag in the list is
+            # the flag on the button, not a rectangle that becomes a circle
+            # once chosen
+            $arteR = $null
+            if ($Pill) { $arteR = Get-SlantDiscSource $l }
+            if ($arteR) {
+                $fitR = $(if ("$($l.DiscFit)" -eq 'Contain') { 'Contain' } else { 'Cover' })
+                $vis = New-SlantDisc -Source $arteR -Size 18 -Fit $fitR -Inner $(if ($fitR -eq 'Contain') { 12 } else { 14 })
+                [System.Windows.Controls.Grid]::SetColumn($vis, 0)
+                [void]$sp.Children.Add($vis)
+            } elseif ($l.Visual) {
                 $vis = & $l.Visual
                 if ($vis) {
                     [System.Windows.Controls.Grid]::SetColumn($vis, 0)
@@ -3512,5 +3617,5 @@ Export-ModuleMember -Function Get-SlantDataPath, Get-SlantTokens, Get-SlantPalet
     Get-SlantWidgetColours, Set-SlantLogger, Write-SlantNote,
     Get-SlantHoverColor, Find-SlantHoverTarget, New-SlantHoverStoryboard,
     Get-SlantBaseBrushColor, Add-SlantHover, Set-SlantBorderColor, Test-SlantVisualAncestor,
-    New-SlantPicker,
+    New-SlantDisc, Get-SlantDiscSource, New-SlantPicker,
     New-SlantArcGeometry, Show-SlantSplash, Initialize-SlantSplash
