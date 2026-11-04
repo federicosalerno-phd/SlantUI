@@ -80,6 +80,12 @@ using System.Windows.Threading;
 // which at the defaults goes from 0, the parts closed around the hub, to
 // sixteen units and back in 2.4 seconds, each part a third of a turn behind
 // the one before. Only a vector mark has parts: a raster stands still.
+//
+// Curve "smooth" passes the sine through a smoothstep before it is used: the
+// same two ends and the same cycle, but the part lingers a moment at each end,
+// closed and open, and travels in between. A plain sine never rests, and on a
+// mark that moves a long way that reads as a twitch; with the rest it reads
+// as a breath.
 public sealed class SlantMotion
 {
     public string Preset = "none";
@@ -91,6 +97,7 @@ public sealed class SlantMotion
     public int Centre = -1;                 // the part the lines start from; -1 finds the hub
     public int Arrive = -1;                 // ms for the parts to open when the screen comes up
     public int Settle = -1;                 // ms for them to come home before it goes
+    public string Curve = "sine";           // "sine", or "smooth": a rest at either end
 
     // the movement as it was drawn: eight units either side of eight, on a
     // mark 238.92 units tall
@@ -411,6 +418,7 @@ public class SlantRing : FrameworkElement
     private double _period = 2.4, _offset, _amplitude, _stagger, _height;
     private int _settleMs;
     private bool _settling;
+    private bool _smooth;
 
     public int PartCount { get { return _parts == null ? 0 : _parts.Length; } }
     public int MovingCount { get { return _parts == null ? 0 : _moving; } }
@@ -420,7 +428,14 @@ public class SlantRing : FrameworkElement
     {
         if (p.Turn < 0 || env <= 0) return 0.0;
         double a = 2 * Math.PI * t / _period - p.Turn * _stagger;
-        return env * _height * (_offset + _amplitude * Math.Sin(a));
+        double w = Math.Sin(a);
+        if (_smooth)
+        {
+            double u = (1.0 + w) / 2.0;
+            u = u * u * (3.0 - 2.0 * u);
+            w = 2.0 * u - 1.0;
+        }
+        return env * _height * (_offset + _amplitude * w);
     }
 
     // The line of each part, for a test to read: "x,y" for one that moves,
@@ -607,6 +622,7 @@ public class SlantRing : FrameworkElement
         _stagger = stagger * Math.PI / 180.0;
         _settleMs = m.Settle >= 0 ? m.Settle : 260;
         _settling = false;
+        _smooth = string.Equals((m.Curve ?? "").Trim(), "smooth", StringComparison.OrdinalIgnoreCase);
 
         DoubleAnimation clock = new DoubleAnimation(0.0, _period, TimeSpan.FromSeconds(_period));
         clock.RepeatBehavior = RepeatBehavior.Forever;
@@ -964,26 +980,29 @@ public sealed class SlantSplashCore
 
         _percentText = new TextBlock();
         _percentText.FontFamily = ff;
-        _percentText.FontSize = 13;
+        // a bigger ring brings bigger words, but less than in proportion: the
+        // ring is the picture and the words are its caption
+        double grow = Math.Sqrt(Math.Max(1.0, _size / 132.0));
+        _percentText.FontSize = Math.Round(13 * grow * 2) / 2;
         _percentText.FontWeight = FontWeights.SemiBold;
         _percentText.Foreground = ab;
         _percentText.HorizontalAlignment = HorizontalAlignment.Center;
-        _percentText.Margin = new Thickness(0, 17, 0, 0);
+        _percentText.Margin = new Thickness(0, Math.Round(17 * grow), 0, 0);
         _percentText.Text = "0%";
         centre.Children.Add(_percentText);
 
         _lineText = new TextBlock();
         _lineText.FontFamily = ff;
-        _lineText.FontSize = 11.5;
+        _lineText.FontSize = Math.Round(11.5 * grow * 2) / 2;
         _lineText.Foreground = tb;
         _lineText.HorizontalAlignment = HorizontalAlignment.Center;
-        _lineText.Margin = new Thickness(0, 5, 0, 0);
+        _lineText.Margin = new Thickness(0, Math.Round(5 * grow), 0, 0);
         _lineText.Text = firstLine == null ? "" : firstLine;
         centre.Children.Add(_lineText);
 
         _pulse = new SlantPulse(Math.Round(_size * 1.30), 3.0, _accent, _track);
         _pulse.HorizontalAlignment = HorizontalAlignment.Center;
-        _pulse.Margin = new Thickness(0, 15, 0, 0);
+        _pulse.Margin = new Thickness(0, Math.Round(15 * grow), 0, 0);
         centre.Children.Add(_pulse);
 
         // the figure is written by the arc's own animation, frame by frame

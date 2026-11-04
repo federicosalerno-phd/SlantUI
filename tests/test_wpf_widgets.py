@@ -455,6 +455,16 @@ $w.add_ContentRendered({{
             $out.PulseOffsets = @($b.Core.MarkOffsets())
             Close-Splash $b
 
+            # --- the smooth curve: the same ends, a rest at either one -------
+            $sm = Show-SlantSplash -Chrome $chrome -Logo $Mark -Text 'starting' -Motion pulse `
+                                   -MotionOptions @{{ Arrive = 0; Period = 3.0; Curve = 'smooth' }}
+            [System.Threading.Thread]::Sleep(250)
+            $sa = $sm.Core.MotionClock
+            $out.SmoothOffsets = @($sm.Core.MarkOffsets())
+            $sb = $sm.Core.MotionClock
+            $out.SmoothClock = @($sa, $sb)
+            Close-Splash $sm
+
             # --- no motion asked for: the mark is one image, as before -----
             $n = Show-SlantSplash -Chrome $chrome -Logo $Mark -Text 'starting'
             [System.Threading.Thread]::Sleep(150)
@@ -565,6 +575,28 @@ def test_pulse_moves_every_part_in_step_and_holds_the_ones_asked(motion):
     off = motion["PulseOffsets"]
     assert off[0] == 0 and off[1] == 0
     assert off[2] == pytest.approx(off[3], abs=1e-9)
+
+
+def test_the_smooth_curve_rests_at_the_ends_and_keeps_the_cycle(motion):
+    """The sine through a smoothstep: at a given time the part is where that
+    formula puts it, which is never further out than the sine would take it,
+    and the two ends (0 and twice the breath) are the same."""
+    import math
+    a, b = motion["SmoothClock"]
+    got = motion["SmoothOffsets"]
+    breath = 100 * 8.0 / 238.92
+
+    def at(t):
+        w = math.sin(2 * math.pi * t / 3.0)
+        u = (1 + w) / 2
+        u = u * u * (3 - 2 * u)
+        return breath * (1 + (2 * u - 1))
+
+    lo, hi = at(a), at(b)
+    assert got[1] == 0
+    for g in (got[0], got[2], got[3]):
+        assert min(lo, hi) - 0.05 <= g <= max(lo, hi) + 0.05, (got, lo, hi)
+        assert -1e-6 <= g <= 2 * breath + 1e-6
 
 
 def test_no_motion_means_one_image_as_before(motion):
@@ -796,6 +828,189 @@ def test_the_dropdown_stays_inside_the_window(picker):
         f"the dropdown ends at {top + picker['FrameH']} in a window "
         f"{picker['WindowH']} tall")
     assert picker["FrameW"] > picker["ScrollBar"], "no width was measured at all"
+
+
+# ── the plain pill and the anchored dropdown ────────────────────────────────
+# Two shapes for a dropdown of words only. The plain pill is the pill without
+# its circle: same height, a radius of half of it, the caption and the chevron,
+# and at a fixed width the caption is cut while the chevron stays at the right
+# end. The anchored one opens from an element of the application's own (a word
+# on a white page) and leaves that element exactly as it found it.
+_PLAIN_PROBE = r"""
+param()
+$ErrorActionPreference = 'Stop'
+Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
+Import-Module '{module}' -Force
+
+$out = [ordered]@{{}}
+function Send-Press($el, $evento) {{
+    $a = New-Object System.Windows.Input.MouseButtonEventArgs(
+        [System.Windows.Input.Mouse]::PrimaryDevice, 0, [System.Windows.Input.MouseButton]::Left)
+    $a.RoutedEvent = $evento
+    $el.RaiseEvent($a)
+}}
+
+$xaml = @'
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Width="640" Height="420" WindowStartupLocation="Manual"
+        Left="-20000" Top="-20000" ShowInTaskbar="False" ShowActivated="False">
+  <Grid x:Name="Inside">
+    <Border x:Name="Elsewhere" Background="#01000000"/>
+    <StackPanel x:Name="Row" Orientation="Vertical" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="20">
+      <Border x:Name="Word" Background="#FFF4EFE3" CornerRadius="10" Padding="10,1,9,2" HorizontalAlignment="Left">
+        <TextBlock Text="Major revision" Foreground="#FF222222"/>
+      </Border>
+    </StackPanel>
+  </Grid>
+</Window>
+'@
+$w = [System.Windows.Markup.XamlReader]::Load((New-Object System.Xml.XmlNodeReader ([xml]$xaml)))
+$row = $w.FindName('Row')
+$word = $w.FindName('Word')
+
+$voci = @(
+    [PSCustomObject]@{{ Code = 'state'; Tag = 'by state' }},
+    [PSCustomObject]@{{ Code = 'date'; Tag = 'by date of the last change, newest first' }},
+    [PSCustomObject]@{{ Code = 'name'; Tag = 'by name' }})
+$cambi = New-Object System.Collections.ArrayList
+$plain = New-SlantPicker -Items $voci -Current 'date' -Plain -Width 180 `
+    -OnChange {{ param($c) [void]$cambi.Add("p:$c") }}
+[void]$row.Children.Add($plain.Element)
+$short = New-SlantPicker -Items $voci -Current 'state' -Plain -Height 22
+[void]$row.Children.Add($short.Element)
+
+$scelte = @('Accept', 'Minor revision', 'Major revision', 'Reject') | ForEach-Object {{ [PSCustomObject]@{{ Code = $_; Tag = $_ }} }}
+$anchored = New-SlantPicker -Items $scelte -Current 'Major revision' -Anchor $word `
+    -OnChange {{ param($c) [void]$cambi.Add("a:$c") }}
+[void]$row.Children.Add($anchored.Element)
+$out.AnchorParentKept = [object]::ReferenceEquals($word.Parent, $row)
+$out.AnchorTipBefore = "$($word.ToolTip)"
+
+$w.add_ContentRendered({{
+    $t = New-Object System.Windows.Threading.DispatcherTimer
+    $t.Interval = [TimeSpan]::FromMilliseconds(250)
+    $t.add_Tick({{
+        param($s, $e)
+        $s.Stop()
+        try {{
+            $giu = [System.Windows.UIElement]::PreviewMouseLeftButtonDownEvent
+            $btn = $plain.Element.Children[0]
+            $w.UpdateLayout()
+            # Prime pays the first opening and leaves the dropdown shut
+            $plain.Prime()
+            $out.PrimedClosed = (-not $plain.IsDown() -and -not $plain.Popup.IsOpen)
+            $out.PrimedOpacity = $plain.Popup.Child.Opacity
+            $out.PrimedRows = $plain.Popup.Child.Child.Content.Children.Count
+            $out.PlainHeight = $btn.ActualHeight
+            $out.PlainWidth = $btn.ActualWidth
+            $out.PlainRadius = $btn.CornerRadius.TopLeft
+            $riga = $btn.Child
+            $out.PlainChildren = @($riga.Children | ForEach-Object {{ $_.GetType().Name }})
+            $out.PlainCircles = @($riga.Children | Where-Object {{ $_ -is [System.Windows.Controls.Border] -and $_.Visibility -eq 'Visible' }}).Count
+            $sigla = @($riga.Children | Where-Object {{ $_ -is [System.Windows.Controls.TextBlock] }})[0]
+            $out.PlainCaption = "$($sigla.Text)"
+            $out.PlainTrimming = "$($sigla.TextTrimming)"
+            $freccia = @($riga.Children | Where-Object {{ $_ -is [System.Windows.Shapes.Path] }})[0]
+            $fx = $freccia.TransformToAncestor($btn).Transform((New-Object System.Windows.Point($freccia.ActualWidth, 0))).X
+            $out.ChevronGapRight = $btn.ActualWidth - $fx
+            $out.ShortHeight = $short.Element.Children[0].ActualHeight
+            $out.ShortRadius = $short.Element.Children[0].CornerRadius.TopLeft
+
+            Send-Press $btn $giu
+            $w.UpdateLayout()
+            $out.PlainOpen = $plain.IsDown()
+            $lista = $plain.Popup.Child.Child.Content
+            $out.PlainRows = $lista.Children.Count
+            $sc = @($lista.Children | Where-Object {{ "$($_.Tag)" -eq 'name' }})[0]
+            Send-Press $sc ([System.Windows.UIElement]::MouseLeftButtonUpEvent)
+            $out.PlainCode = $plain.Code()
+            $out.PlainAfter = $plain.IsDown()
+
+            $fondo = "$($word.Background)"
+            Send-Press $word $giu
+            $w.UpdateLayout()
+            $out.AnchorOpen = $anchored.IsDown()
+            $out.AnchorBackgroundSame = ("$($word.Background)" -eq $fondo)
+            $out.AnchorPlacement = [object]::ReferenceEquals($anchored.Popup.PlacementTarget, $word)
+            $lista2 = $anchored.Popup.Child.Child.Content
+            $out.AnchorRows = $lista2.Children.Count
+            Send-Press $word $giu
+            $out.AnchorSecond = $anchored.IsDown()
+            Send-Press $word $giu
+            $w.UpdateLayout()
+            $sc2 = @($lista2.Children | Where-Object {{ "$($_.Tag)" -eq 'Reject' }})[0]
+            Send-Press $sc2 ([System.Windows.UIElement]::MouseLeftButtonUpEvent)
+            $out.AnchorCode = $anchored.Code()
+            $out.AnchorAfter = $anchored.IsDown()
+            $out.AnchorTipAfter = "$($word.ToolTip)"
+            $out.AnchorParentAfter = [object]::ReferenceEquals($word.Parent, $row)
+            $out.Changes = @($cambi)
+        }} catch {{
+            $out.Error = "$($_.Exception.Message) @ $($_.InvocationInfo.ScriptLineNumber)"
+        }}
+        $w.Close()
+    }}.GetNewClosure())
+    $t.Start()
+}}.GetNewClosure())
+
+[void]$w.ShowDialog()
+$out | ConvertTo-Json -Depth 6 -Compress
+"""
+
+
+@pytest.fixture(scope="module")
+def plain(tmp_path_factory) -> dict:
+    return _probe(tmp_path_factory.mktemp("slantplain"), "plain", _PLAIN_PROBE)
+
+
+def test_the_plain_pill_is_a_pill_without_a_circle(plain):
+    """30 high with a radius of half of it, like the pill with the icon, and
+    nothing in it but the caption and the chevron."""
+    assert plain["PlainHeight"] == 30
+    assert plain["PlainRadius"] == 15
+    assert plain["PlainCircles"] == 0
+    assert plain["ShortHeight"] == 22
+    assert plain["ShortRadius"] == 11
+
+
+def test_a_fixed_width_cuts_the_caption_and_keeps_the_chevron_at_the_end(plain):
+    assert plain["PlainWidth"] == 180
+    assert plain["PlainTrimming"] == "CharacterEllipsis"
+    assert plain["PlainCaption"].startswith("by date")
+    # the padding on the right is 10: the chevron ends there, not after the text
+    assert plain["ChevronGapRight"] == pytest.approx(10, abs=1.0)
+
+
+def test_prime_pays_the_first_opening_and_leaves_it_shut(plain):
+    """Opened invisible and closed at once: afterwards nothing is down, the
+    frame is opaque again for the real opening, and the rows are built."""
+    assert plain["PrimedClosed"] is True
+    assert plain["PrimedOpacity"] == 1
+    assert plain["PrimedRows"] == 3
+
+
+def test_the_plain_pill_opens_and_chooses_like_the_others(plain):
+    assert plain["PlainOpen"] is True
+    assert plain["PlainRows"] == 3
+    assert plain["PlainCode"] == "name"
+    assert plain["PlainAfter"] is False
+
+
+def test_an_anchor_opens_the_dropdown_and_is_left_as_it_was(plain):
+    """The word on the page keeps its colours, its place and its tooltip, and
+    the press on it toggles the dropdown the way the picker's own button does."""
+    assert plain["AnchorParentKept"] is True
+    assert plain["AnchorOpen"] is True
+    assert plain["AnchorBackgroundSame"] is True
+    assert plain["AnchorPlacement"] is True
+    assert plain["AnchorRows"] == 4
+    assert plain["AnchorSecond"] is False
+    assert plain["AnchorCode"] == "Reject"
+    assert plain["AnchorAfter"] is False
+    assert plain["AnchorTipAfter"] == plain["AnchorTipBefore"]
+    assert plain["AnchorParentAfter"] is True
+    assert plain["Changes"] == ["p:name", "a:Reject"]
 
 
 # ── the disc in the pill ────────────────────────────────────────────────────

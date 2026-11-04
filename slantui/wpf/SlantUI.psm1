@@ -2470,7 +2470,26 @@ function New-SlantPicker {
         # of its own (the models and the levels of reasoning of an engine, for
         # instance), which is not an entry and does not close the dropdown by
         # itself. The scriptblock returns a UIElement, or nothing.
-        [scriptblock]$Footer = $null
+        [scriptblock]$Footer = $null,
+        # The pill without the circle: the same 30-high pill with a radius of
+        # half its height, the tag and the chevron, for a dropdown whose
+        # entries are words and nothing else (a sort order, a model, a voice).
+        # Without it an application with only words to offer fell back on the
+        # system ComboBox, which is light, square and opens its own way.
+        [switch]$Plain,
+        # The button's width and height, when the row it sits in wants them
+        # fixed: a caption longer than the width is cut with an ellipsis, and
+        # the chevron keeps its place at the right end. Zero means the
+        # natural measure (30 high for -Pill and -Plain, 26 otherwise).
+        [double]$Width = 0,
+        [double]$Height = 0,
+        # An element of the application's own that opens the dropdown in place
+        # of the picker's button: a word on a page that is not dark, which has
+        # to keep the page's colours, and still opens the library's dropdown.
+        # The anchor is not touched (not lit, not moved, no tooltip written);
+        # the picker's Element holds only the popup and has to be put in the
+        # tree somewhere near it, for the popup to find the window's resources.
+        $Anchor = $null
     )
     $pal = Get-SlantWidgetColours
     $bc = New-Object System.Windows.Media.BrushConverter
@@ -2479,12 +2498,17 @@ function New-SlantPicker {
     $radice = New-Object System.Windows.Controls.Grid
     $radice.HorizontalAlignment = 'Left'
 
-    $fondoBtn = $(if ($Pill) { $pal.Control } else { $pal.Panel3 })
+    $asola = ($Pill -or $Plain)
+    $fondoBtn = $(if ($asola) { $pal.Control } else { $pal.Panel3 })
+    $alto = $(if ($Height -gt 0) { $Height } elseif ($asola) { 30 } else { 26 })
     $btn = New-Object System.Windows.Controls.Border
     $btn.Background = $bc.ConvertFromString($fondoBtn)
-    $btn.CornerRadius = New-Object System.Windows.CornerRadius($(if ($Pill) { 15 } else { 5 }))
-    $btn.Height = $(if ($Pill) { 30 } else { 26 })
-    $btn.Padding = $(if ($Pill) { New-Object System.Windows.Thickness(4, 0, 10, 0) } else { New-Object System.Windows.Thickness(9, 0, 9, 0) })
+    $btn.CornerRadius = New-Object System.Windows.CornerRadius($(if ($asola) { $alto / 2 } else { 5 }))
+    $btn.Height = $alto
+    $btn.Padding = $(if ($Pill) { New-Object System.Windows.Thickness(4, 0, 10, 0) }
+                     elseif ($Plain) { New-Object System.Windows.Thickness(12, 0, 10, 0) }
+                     else { New-Object System.Windows.Thickness(9, 0, 9, 0) })
+    if ($Width -gt 0) { $btn.Width = $Width }
     $btn.Cursor = 'Hand'
     $riga = New-Object System.Windows.Controls.StackPanel
     $riga.Orientation = 'Horizontal'
@@ -2516,11 +2540,13 @@ function New-SlantPicker {
         $cerchioIcona.Child = $tondo
     }
     $sigla = New-Object System.Windows.Controls.TextBlock
-    $sigla.FontSize = $(if ($Pill) { 12.5 } else { 11.5 })
+    $sigla.FontSize = $(if ($asola -and $alto -ge 28) { 12.5 } else { 11.5 })
     $sigla.FontFamily = $font
     $sigla.Foreground = $bc.ConvertFromString($pal.TextSoft)
     $sigla.VerticalAlignment = 'Center'
-    $sigla.Margin = $(if ($Pill) { New-Object System.Windows.Thickness(9, 0, 0, 1) } else { New-Object System.Windows.Thickness(7, 0, 0, 0) })
+    $sigla.Margin = $(if ($Pill) { New-Object System.Windows.Thickness(9, 0, 0, 1) }
+                      elseif ($Plain) { New-Object System.Windows.Thickness(0, 0, 0, 1) }
+                      else { New-Object System.Windows.Thickness(7, 0, 0, 0) })
     if ($TagWidth -gt 0 -and -not $Pill) { $sigla.Width = $TagWidth }
     if ($TagWidth -gt 0 -and $Pill) { $sigla.MinWidth = $TagWidth }
     $seconda = New-Object System.Windows.Controls.TextBlock
@@ -2539,7 +2565,7 @@ function New-SlantPicker {
     $punto.Margin = New-Object System.Windows.Thickness(7, 0, 0, 0)
     $punto.Visibility = 'Collapsed'
     $freccia = New-Object System.Windows.Shapes.Path
-    if ($Pill) {
+    if ($asola) {
         # the chevron of the pills, drawn as a stroke and not a filled wedge
         $freccia.Data = [System.Windows.Media.Geometry]::Parse("M 0,0 L 3.4,3.4 L 6.8,0")
         $freccia.Stroke = $bc.ConvertFromString($pal.TextFaint)
@@ -2554,14 +2580,26 @@ function New-SlantPicker {
         $freccia.Margin = New-Object System.Windows.Thickness(9, 1, 0, 0)
     }
     $freccia.VerticalAlignment = 'Center'
-    if ($Pill) { [void]$riga.Children.Add($cerchioIcona) } else { [void]$riga.Children.Add($ospiteIcona) }
+    if ($Pill) { [void]$riga.Children.Add($cerchioIcona) } elseif (-not $Plain) { [void]$riga.Children.Add($ospiteIcona) }
     [void]$riga.Children.Add($sigla)
     [void]$riga.Children.Add($seconda)
     [void]$riga.Children.Add($punto)
     [void]$riga.Children.Add($freccia)
     $btn.Child = $riga
-    [void]$radice.Children.Add($btn)
-    Add-SlantHover $btn
+    # a fixed width: the caption takes what is left once the padding and the
+    # chevron are counted, is cut with an ellipsis past it, and the chevron
+    # stays at the right end whatever the caption says
+    if ($Width -gt 0) {
+        $sigla.TextTrimming = 'CharacterEllipsis'
+        $sigla.Width = [Math]::Max(10, $Width - $btn.Padding.Left - $btn.Padding.Right - $freccia.Margin.Left - 8 - $sigla.Margin.Left)
+    }
+    if ($Anchor) {
+        # the application's own element is the button: it keeps its look
+        $btn = $Anchor
+    } else {
+        [void]$radice.Children.Add($btn)
+        Add-SlantHover $btn
+    }
 
     # An open dropdown is a state, and it has to be seen once the pointer has
     # gone elsewhere: while it stays down the button's background sits on the
@@ -2574,6 +2612,7 @@ function New-SlantPicker {
     $fondoAcceso = Get-SlantHoverColor $fondoBase 0.14
     $accendi = {
         param([bool]$giu)
+        if ($Anchor) { return }
         try {
             $vecchio = $null
             $bb = $btn.GetAnimationBaseValue([System.Windows.Controls.Border]::BackgroundProperty)
@@ -2758,7 +2797,7 @@ function New-SlantPicker {
             $punto.Fill = $bc.ConvertFromString("$($voce.Dot)")
             $punto.Visibility = 'Visible'
         } else { $punto.Visibility = 'Collapsed' }
-        if ($voce.Tip) { $btn.ToolTip = "$($voce.Tip)" }
+        if ($voce.Tip -and -not $Anchor) { $btn.ToolTip = "$($voce.Tip)" }
     }.GetNewClosure()
 
     # The rows are built on the FIRST opening and not at startup. Drawing five
@@ -2781,14 +2820,18 @@ function New-SlantPicker {
         $ilCambia = $OnChange
         $ilAccendi = $accendi
         $loStato = $stato
-        # Every row is a grid and not a stack, and the four columns share their
-        # measure with the ones of the other rows (SharedSizeGroup, inside the
-        # scope that is the list): logo, tag, name and note all start at the same
-        # x. Stacked, every row laid itself out on its own and each note ended up
-        # at a different distance from the left, which is what the dropdown
-        # looked like: the notes scattered down the right hand side.
-        [System.Windows.Controls.Grid]::SetIsSharedSizeScope($lista, $true)
+        # Every row is a grid and not a stack, and the four columns have the
+        # same width in every row: logo, tag, name and note all start at the
+        # same x. Stacked, every row laid itself out on its own and each note
+        # ended up at a different distance from the left, which is what the
+        # dropdown looked like: the notes scattered down the right hand side.
+        # The widths are measured once, here, when the rows are built, and
+        # written down as fixed widths. They used to be shared at layout time
+        # (SharedSizeGroup), which is the same picture but is paid again on
+        # every opening, because a popup lays its content out from scratch each
+        # time it opens: with forty-five rows that was most of the opening.
         $gruppi = @('pkIcon', 'pkTag', 'pkLabel', 'pkNote')
+        $righe = New-Object System.Collections.ArrayList
         foreach ($l in @($stato.Voci)) {
             $codice = "$($l.Code)"
             $vr = New-Object System.Windows.Controls.Border
@@ -2800,7 +2843,6 @@ function New-SlantPicker {
             foreach ($g in $gruppi) {
                 $cd = New-Object System.Windows.Controls.ColumnDefinition
                 $cd.Width = New-Object System.Windows.GridLength(0, 'Auto')
-                $cd.SharedSizeGroup = $g
                 [void]$sp.ColumnDefinitions.Add($cd)
             }
             # the same disc as the pill, a size smaller: a flag in the list is
@@ -2879,6 +2921,22 @@ function New-SlantPicker {
                 }
             }.GetNewClosure())
             [void]$lista.Children.Add($vr)
+            [void]$righe.Add($sp)
+        }
+        # the widest cell of every column, then that width in every row
+        $infinito = New-Object System.Windows.Size([double]::PositiveInfinity, [double]::PositiveInfinity)
+        $larghe = @(0.0, 0.0, 0.0, 0.0)
+        foreach ($sp in $righe) {
+            foreach ($cella in $sp.Children) {
+                $col = [System.Windows.Controls.Grid]::GetColumn($cella)
+                $cella.Measure($infinito)
+                if ($cella.DesiredSize.Width -gt $larghe[$col]) { $larghe[$col] = $cella.DesiredSize.Width }
+            }
+        }
+        foreach ($sp in $righe) {
+            for ($c = 0; $c -lt 4; $c++) {
+                $sp.ColumnDefinitions[$c].Width = New-Object System.Windows.GridLength([Math]::Ceiling($larghe[$c]))
+            }
         }
     }.GetNewClosure()
 
@@ -3120,6 +3178,38 @@ function New-SlantPicker {
     # to warm the list once the window has drawn: whoever opens the window does
     # it after the first render, the way a scan of the folders is done
     $picker | Add-Member -MemberType ScriptMethod -Name Warm -Value { & $riempi }.GetNewClosure()
+    # The first opening of a popup costs a quarter of a second more than the
+    # ones after it: the window of the popup and its first layout. Prime pays
+    # it at a moment chosen by the application (the wait while it starts),
+    # opening the dropdown with its frame invisible and closing it at once, so
+    # that the first click of the person is as quick as the tenth. It does
+    # nothing if the dropdown is down, or if the button is not in a window yet.
+    $picker | Add-Member -MemberType ScriptMethod -Name Prime -Value {
+        if ($stato.Giu -or $pop.IsOpen) { return }
+        if ($null -eq [System.Windows.Window]::GetWindow($btn)) { return }
+        try {
+            & $riempi
+            # the footer too, the way an opening puts it in: it is part of what
+            # the first opening would otherwise build
+            if ($Footer) {
+                try {
+                    $el = & $Footer
+                    $piede.Content = $el
+                    if ($el -and -not $lista.Children.Contains($piede)) { [void]$lista.Children.Add($piede) }
+                } catch { }
+            }
+            try { & $sistema } catch { }
+            $cornice.BeginAnimation([System.Windows.UIElement]::OpacityProperty, $null)
+            $cornice.Opacity = 0.0
+            $pop.IsOpen = $true
+            $cornice.UpdateLayout()
+        } catch { }
+        try { $pop.IsOpen = $false } catch { }
+        $cornice.BeginAnimation([System.Windows.UIElement]::OpacityProperty, $null)
+        $cornice.Opacity = 1.0
+        $stato.Giu = $false
+        $stato.Chiudendo = $false
+    }.GetNewClosure()
     # What the button says, from outside: the main word and a second, fainter
     # one (an empty main word goes back to the entry's tag). The pill of an
     # engine says the model and the level of reasoning of the session in front.
@@ -3345,8 +3435,10 @@ function Show-SlantSplash {
                             drawing order from 0, that never move), Centre (the
                             part the lines start from, when the hub should not
                             be found by itself), Arrive (ms for the parts to
-                            open when the screen comes up, 420) and Settle (ms
-                            for them to come home before it goes, 260).
+                            open when the screen comes up, 420), Settle (ms
+                            for them to come home before it goes, 260) and
+                            Curve ('sine', or 'smooth', which rests a moment
+                            at either end of the movement, like a breath).
 
         .EXAMPLE
             $splash = Show-SlantSplash -Chrome $chrome -Logo .\brand.svg -Text 'starting'
@@ -3487,6 +3579,9 @@ function Show-SlantSplash {
             if ($MotionOptions.ContainsKey('Still') -and $null -ne $MotionOptions['Still']) {
                 $ferme = @($MotionOptions['Still'] | ForEach-Object { [int]$_ })
                 $moto.Still = [int[]]$ferme
+            }
+            if ($MotionOptions.ContainsKey('Curve') -and $null -ne $MotionOptions['Curve']) {
+                $moto.Curve = "$($MotionOptions['Curve'])"
             }
             $core.SetMotion($moto)
         } catch {
