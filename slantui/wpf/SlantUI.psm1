@@ -2271,6 +2271,12 @@ function New-SlantPicker {
         $tondo.Clip = New-Object System.Windows.Media.EllipseGeometry((New-Object System.Windows.Point(7, 7)), 7, 7)
         $vbIcona = New-Object System.Windows.Controls.Viewbox
         $vbIcona.Stretch = 'UniformToFill'
+        # Filling the circle makes a flag wider than it, and a box wider than
+        # its slot is laid down from the left edge when its alignment is
+        # Stretch: the flag was cut on the right only and sat off centre in the
+        # disc. Centred, it is cut the same on both sides.
+        $vbIcona.HorizontalAlignment = 'Center'
+        $vbIcona.VerticalAlignment = 'Center'
         $vbIcona.Child = $ospiteIcona
         [void]$tondo.Children.Add($vbIcona)
         $cerchioIcona.Child = $tondo
