@@ -3772,7 +3772,7 @@ Export-ModuleMember -Function Get-SlantDataPath, Get-SlantTokens, Get-SlantPalet
     Initialize-SlantChrome, Get-SlantCreditText, Set-SlantWindowFrame, Set-SlantWindowScheme,
     Set-SlantWindowTransitions, Test-SlantWindowZoomed, Get-SlantWindowStyle,
     Get-SlantWindowSizes, Get-SlantWindowHandle, Get-SlantWorkArea,
-    New-SlantWindowButton, New-SlantTitleBar, Set-SlantLogo, Install-SlantWindow,
+    New-SlantWindowButton, New-SlantTitleBar, Set-SlantLogo, Install-SlantWindow, Get-SlantFillUnder,
     New-SlantBrandButton, Set-SlantBrandAction,
     New-SlantVectorImage, Get-SlantArtSource, ConvertTo-SlantSvgTransform,
     Get-SlantWidgetColours, Set-SlantLogger, Write-SlantNote,
