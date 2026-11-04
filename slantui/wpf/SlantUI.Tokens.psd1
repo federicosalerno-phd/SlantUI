@@ -72,10 +72,10 @@
         'fs-xs'                  = '10px'
         'fs-lg'                  = '13.5px'
         'fs-brand'               = '14.5px'
-        'fs-credit'              = '11px'
+        'fs-credit'              = '9px'
         'ls-brand'               = '.15px'
         'ls-strong'              = '.4px'
-        'ls-credit'              = '.25px'
+        'ls-credit'              = '.2px'
         'w'                      = '400'
         'w-strong'               = '600'
         'lh'                     = '1.45'
@@ -134,10 +134,10 @@
         'fs-xs'                  = 10
         'fs-lg'                  = 13.5
         'fs-brand'               = 14.5
-        'fs-credit'              = 11
+        'fs-credit'              = 9
         'ls-brand'               = 0.15
         'ls-strong'              = 0.4
-        'ls-credit'              = 0.25
+        'ls-credit'              = 0.2
         'tbar-h'                 = 44
         'tbar-thin'              = 28
         'tbar-slant'             = 38

@@ -85,13 +85,13 @@ METRICS: tuple[Metric, ...] = (
     Metric("fs-xs", "type", "10px", "Uppercase section labels."),
     Metric("fs-lg", "type", "13.5px", "Panel titles."),
     Metric("fs-brand", "type", "14.5px", "The application's name in the title band."),
-    Metric("fs-credit", "type", "11px",
+    Metric("fs-credit", "type", "9px",
            "The credit line in the title band, which the licence keeps at this size."),
     Metric("ls-brand", "type", ".15px", "The spacing between the letters of the name."),
     Metric("ls-strong", "type", ".4px",
            "The spacing between the letters of the name's strong word, a little wider "
            "because a heavier face closes up."),
-    Metric("ls-credit", "type", ".25px", "The spacing between the letters of the credit line."),
+    Metric("ls-credit", "type", ".2px", "The spacing between the letters of the credit line."),
     Metric("w", "type", "400", "The weight of text that is not strong.", kind="number"),
     Metric("w-strong", "type", "600",
            "Strong text: a label that heads something, a title, the application's own "

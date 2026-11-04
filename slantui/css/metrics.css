@@ -51,12 +51,12 @@
   --fs-lg:13.5px;        /* Panel titles. */
   --fs-brand:14.5px;     /* The application's name in the title band. */
   /* The credit line in the title band, which the licence keeps at this size. */
-  --fs-credit:11px;
+  --fs-credit:9px;
   --ls-brand:.15px;      /* The spacing between the letters of the name. */
   /* The spacing between the letters of the name's strong word, a little wider because a */
   /* heavier face closes up. */
   --ls-strong:.4px;
-  --ls-credit:.25px;     /* The spacing between the letters of the credit line. */
+  --ls-credit:.2px;      /* The spacing between the letters of the credit line. */
   --w:400;               /* The weight of text that is not strong. */
   /* Strong text: a label that heads something, a title, the application's own word in */
   /* its name. */

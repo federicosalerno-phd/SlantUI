@@ -343,7 +343,7 @@
     {
       "name": "fs-credit",
       "group": "type",
-      "value": "11px",
+      "value": "9px",
       "purpose": "The credit line in the title band, which the licence keeps at this size.",
       "kind": "length"
     },
@@ -364,7 +364,7 @@
     {
       "name": "ls-credit",
       "group": "type",
-      "value": ".25px",
+      "value": ".2px",
       "purpose": "The spacing between the letters of the credit line.",
       "kind": "length"
     },
