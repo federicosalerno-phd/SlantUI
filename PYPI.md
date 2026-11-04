@@ -912,6 +912,27 @@ transforms and inherited paint, no `<use>`, no gradients in `<defs>`, no clip
 paths, no CSS. A `d` attribute is already the syntax `Geometry.Parse` takes,
 so there is no path parser in it at all.
 
+A vector brand can also move while the screen is up. `-Motion breathe` reads
+the drawing into its parts, its top-level shapes, and moves each one out along
+its own line and back, one after the other; `-Motion pulse` moves them all in
+step. The line runs from the hub, the shape sitting on the middle of the frame,
+which holds still, through the part's own centroid, so nothing has to be told
+which way a part points. The numbers are the preset's unless the application
+gives its own, and the distances are fractions of the mark's height, so one
+preset fits any mark:
+
+```powershell
+$splash = Show-SlantSplash -Chrome $chrome -Logo .\brand.svg -Motion breathe `
+                           -MotionOptions @{ Period = 3.2; Still = @(1) }
+```
+
+The parts open out of the whole mark when the screen comes up, and `Hide()`
+brings them home before the fade starts, because a mark that fades with its
+parts still apart looks dropped. The movement is drawn on the splash's own
+thread like the ring, so it keeps going while the application holds its
+thread down. A raster has no parts and stands still, and so does every mark
+when `-Motion` is not given. The Qt half does not move the mark yet.
+
 Two widgets come with it, because two applications would have drawn them
 differently within a month. `Add-SlantHover` is the one hover every clickable
 thing in this design shares, on the colour of the background and on nothing

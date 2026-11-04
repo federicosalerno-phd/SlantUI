@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Threading;
 using System.Windows;
@@ -52,6 +53,50 @@ using System.Windows.Threading;
 // stopped. It never walks backwards, so a step announcing less than the creep
 // has already drawn is taken as a line of text and no more.
 
+// How the brand moves while the screen is up. Nothing moves unless an
+// application asks for it: a preset is a name and a handful of numbers, and
+// the parts it moves are read off the drawing itself, so one preset fits a
+// mark it has never seen.
+//
+//   * "breathe": each part moves out along its own line and back, one after
+//     the other, so the mark seems to breathe in turns;
+//   * "pulse": the same movement with every part in step;
+//   * "none": the mark stands still, which is what it has always done.
+//
+// A part is one top-level shape of the drawing; a group holding a single
+// thing is opened up until there is more than one thing inside. Its line runs
+// from the centre of the movement through the part's own centroid. The centre
+// is the part sitting on the middle of the mark, when there is one, and that
+// part is the hub: it holds still and the others move away from it. A mark
+// with no hub moves about the middle of its frame. The frame is the box the
+// mark was drawn in, its viewBox when it came from an SVG.
+//
+// Distances are fractions of the frame's height, so a preset reads the same
+// on a mark of any size: 0.0335 is eight units on a mark 239 tall. The
+// distance of part k at time t is
+//
+//     d = height * (Offset + Amplitude * sin(2 pi t / Period - k * Stagger))
+//
+// which at the defaults goes from 0, the parts closed around the hub, to
+// sixteen units and back in 2.4 seconds, each part a third of a turn behind
+// the one before. Only a vector mark has parts: a raster stands still.
+public sealed class SlantMotion
+{
+    public string Preset = "none";
+    public double Period = double.NaN;      // seconds for one cycle
+    public double Offset = double.NaN;      // the middle of the movement
+    public double Amplitude = double.NaN;   // how far it goes either side of the middle
+    public double Stagger = double.NaN;     // degrees between one part and the next
+    public int[] Still;                     // parts that never move, in drawing order
+    public int Centre = -1;                 // the part the lines start from; -1 finds the hub
+    public int Arrive = -1;                 // ms for the parts to open when the screen comes up
+    public int Settle = -1;                 // ms for them to come home before it goes
+
+    // the movement as it was drawn: eight units either side of eight, on a
+    // mark 238.92 units tall
+    public const double Breath = 8.0 / 238.92;
+}
+
 // The element that, in the window's tree, holds the place of a drawing that
 // lives on another thread. It takes no mouse: there is nothing to click up
 // here, and letting the click through leaves the pointer to the page below.
@@ -96,6 +141,30 @@ public class SlantRing : FrameworkElement
     public static readonly DependencyProperty IndeterminateProperty =
         DependencyProperty.Register("Indeterminate", typeof(bool), typeof(SlantRing),
             new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.AffectsRender));
+
+    // The time of the brand's movement, in seconds within one cycle, and how
+    // much of the movement is let through: 0 is every part at home, 1 the
+    // whole of it. Both are animated on the drawing thread, so the mark moves
+    // while the application holds its own thread down, like the ring does.
+    public static readonly DependencyProperty MotionClockProperty =
+        DependencyProperty.Register("MotionClock", typeof(double), typeof(SlantRing),
+            new FrameworkPropertyMetadata(0.0, FrameworkPropertyMetadataOptions.AffectsRender));
+
+    public static readonly DependencyProperty MotionAmountProperty =
+        DependencyProperty.Register("MotionAmount", typeof(double), typeof(SlantRing),
+            new FrameworkPropertyMetadata(1.0, FrameworkPropertyMetadataOptions.AffectsRender));
+
+    public double MotionClock
+    {
+        get { return (double)GetValue(MotionClockProperty); }
+        set { SetValue(MotionClockProperty, value); }
+    }
+
+    public double MotionAmount
+    {
+        get { return (double)GetValue(MotionAmountProperty); }
+        set { SetValue(MotionAmountProperty, value); }
+    }
 
     // Called on every animated frame of Progress, on the drawing thread. The
     // figure under the ring is written from here and from nowhere else: a
@@ -288,7 +357,297 @@ public class SlantRing : FrameworkElement
         double ar = _logo.Width > 0 && _logo.Height > 0 ? _logo.Width / _logo.Height : 1.0;
         double w = _logoSide, h = _logoSide;
         if (ar > 1.0) h = w / ar; else w = h * ar;
-        dc.DrawImage(_logo, new Rect(c.X - w / 2.0, c.Y - h / 2.0, w, h));
+        Rect where = new Rect(c.X - w / 2.0, c.Y - h / 2.0, w, h);
+        if (_parts == null || _box.Width <= 0 || _box.Height <= 0)
+        {
+            dc.DrawImage(_logo, where);
+            return;
+        }
+
+        // The same placement DrawImage gives the whole drawing, the box of
+        // the mark onto the square, and then each part on its own, moved
+        // along its line. The clip the drawing carried is left behind on
+        // purpose: it is the box of the mark at rest, and a part on its way
+        // out would be cut by it.
+        double s = where.Width / _box.Width;
+        Matrix place = Matrix.Identity;
+        place.Translate(-_box.X, -_box.Y);
+        place.Scale(s, s);
+        place.Translate(where.X, where.Y);
+        dc.PushTransform(new MatrixTransform(place));
+        bool faded = _innerOpacity < 0.999;
+        if (faded) dc.PushOpacity(_innerOpacity);
+        double t = MotionClock, env = MotionAmount;
+        for (int i = 0; i < _parts.Length; i++)
+        {
+            Part p = _parts[i];
+            double d = Distance(p, t, env);
+            bool moved = p.Turn >= 0 && Math.Abs(d) > 1e-6;
+            if (moved) dc.PushTransform(new TranslateTransform(p.Way.X * d, p.Way.Y * d));
+            if (_hasInner) dc.PushTransform(_innerTransform);
+            dc.DrawDrawing(p.Art);
+            if (_hasInner) dc.Pop();
+            if (moved) dc.Pop();
+        }
+        if (faded) dc.Pop();
+        dc.Pop();
+    }
+
+    // --- the brand in parts ----------------------------------------------
+    private sealed class Part
+    {
+        public Drawing Art;
+        public Point Centroid;
+        public Vector Way;          // a unit vector, in the mark's own units
+        public int Turn = -1;       // its place among the parts that move; -1 holds still
+    }
+
+    private Part[] _parts;
+    private int _moving;
+    private Rect _box;
+    private bool _hasInner;
+    private MatrixTransform _innerTransform;
+    private double _innerOpacity = 1.0;
+    private double _period = 2.4, _offset, _amplitude, _stagger, _height;
+    private int _settleMs;
+    private bool _settling;
+
+    public int PartCount { get { return _parts == null ? 0 : _parts.Length; } }
+    public int MovingCount { get { return _parts == null ? 0 : _moving; } }
+    public int SettleMs { get { return _parts == null || _moving == 0 ? 0 : _settleMs; } }
+
+    private double Distance(Part p, double t, double env)
+    {
+        if (p.Turn < 0 || env <= 0) return 0.0;
+        double a = 2 * Math.PI * t / _period - p.Turn * _stagger;
+        return env * _height * (_offset + _amplitude * Math.Sin(a));
+    }
+
+    // The line of each part, for a test to read: "x,y" for one that moves,
+    // "still" for one that does not, in drawing order.
+    public string Ways()
+    {
+        if (_parts == null) return "";
+        List<string> o = new List<string>();
+        foreach (Part p in _parts)
+            o.Add(p.Turn < 0 ? "still"
+                  : p.Way.X.ToString("0.000", CultureInfo.InvariantCulture) + "," +
+                    p.Way.Y.ToString("0.000", CultureInfo.InvariantCulture));
+        return string.Join(";", o.ToArray());
+    }
+
+    // Where each part is now, as a distance from home in the mark's units.
+    public double[] Offsets()
+    {
+        if (_parts == null) return new double[0];
+        double t = MotionClock, env = MotionAmount;
+        double[] o = new double[_parts.Length];
+        for (int i = 0; i < _parts.Length; i++) o[i] = Distance(_parts[i], t, env);
+        return o;
+    }
+
+    // The centroid of a shape: the shoelace sum over its outline, flattened
+    // into segments. A shape with no area, or a drawing that is not a single
+    // shape, falls back to the middle of its box.
+    private static Point Centroid(Drawing d)
+    {
+        GeometryDrawing gd = d as GeometryDrawing;
+        if (gd != null && gd.Geometry != null)
+        {
+            try
+            {
+                PathGeometry flat = gd.Geometry.GetFlattenedPathGeometry();
+                double a = 0, cx = 0, cy = 0;
+                foreach (PathFigure f in flat.Figures)
+                {
+                    List<Point> pts = new List<Point>();
+                    pts.Add(f.StartPoint);
+                    foreach (PathSegment seg in f.Segments)
+                    {
+                        PolyLineSegment pl = seg as PolyLineSegment;
+                        if (pl != null) { foreach (Point q in pl.Points) pts.Add(q); continue; }
+                        LineSegment ls = seg as LineSegment;
+                        if (ls != null) pts.Add(ls.Point);
+                    }
+                    for (int i = 0; i < pts.Count; i++)
+                    {
+                        Point p0 = pts[i], p1 = pts[(i + 1) % pts.Count];
+                        double cross = p0.X * p1.Y - p1.X * p0.Y;
+                        a += cross;
+                        cx += (p0.X + p1.X) * cross;
+                        cy += (p0.Y + p1.Y) * cross;
+                    }
+                }
+                if (Math.Abs(a) > 1e-9)
+                {
+                    Point p = new Point(cx / (3 * a), cy / (3 * a));
+                    // whether the flattened copy has the shape's transform
+                    // folded into its points or kept aside is WPF's business;
+                    // what it kept aside is applied here, so both ways agree
+                    if (flat.Transform != null && !flat.Transform.Value.IsIdentity)
+                        p = flat.Transform.Value.Transform(p);
+                    return p;
+                }
+            }
+            catch { }
+        }
+        Rect b = d.Bounds;
+        if (b.IsEmpty) return new Point(0, 0);
+        return new Point(b.X + b.Width / 2.0, b.Y + b.Height / 2.0);
+    }
+
+    // Read the parts off the drawing and start the movement. Called on the
+    // drawing thread; the drawing is frozen, so reading it from here is fine.
+    public void SetMotion(SlantMotion m)
+    {
+        _parts = null;
+        _moving = 0;
+        BeginAnimation(MotionClockProperty, null);
+        BeginAnimation(MotionAmountProperty, null);
+        if (m == null) return;
+        string preset = (m.Preset ?? "none").Trim().ToLowerInvariant();
+        if (preset != "breathe" && preset != "pulse") return;
+        DrawingImage di = _logo as DrawingImage;
+        if (di == null || di.Drawing == null) return;
+
+        Drawing root = di.Drawing;
+        _box = root.Bounds;
+        if (_box.IsEmpty || _box.Width <= 0 || _box.Height <= 0) return;
+
+        // The frame of the mark, which is where its middle is and what its
+        // height is measured on: the clip the drawing carries when it has one,
+        // because that is the box the mark was drawn in (an SVG's viewBox).
+        // The bounds of a clipped group are the clip cut down to what is
+        // inside it, and a mark that does not fill its box would have its
+        // middle somewhere it was never drawn.
+        Rect frame = _box;
+        DrawingGroup rg = root as DrawingGroup;
+        if (rg != null && rg.ClipGeometry != null)
+        {
+            Rect cb = rg.ClipGeometry.Bounds;
+            if (!cb.IsEmpty && cb.Width > 0 && cb.Height > 0)
+            {
+                if (rg.Transform != null) cb.Transform(rg.Transform.Value);
+                frame = cb;
+            }
+        }
+
+        // open the groups that hold one thing each, carrying what they would
+        // have applied to it: a transform and an opacity
+        Matrix inner = Matrix.Identity;
+        double opacity = 1.0;
+        Drawing level = root;
+        List<Drawing> arts = new List<Drawing>();
+        while (true)
+        {
+            DrawingGroup g = level as DrawingGroup;
+            if (g == null) { arts.Add(level); break; }
+            if (g.Transform != null) inner = Matrix.Multiply(g.Transform.Value, inner);
+            opacity *= g.Opacity;
+            if (g.Children.Count == 1) { level = g.Children[0]; continue; }
+            foreach (Drawing ch in g.Children) arts.Add(ch);
+            break;
+        }
+        if (arts.Count == 0) return;
+
+        Part[] parts = new Part[arts.Count];
+        for (int i = 0; i < arts.Count; i++)
+        {
+            Part p = new Part();
+            p.Art = arts[i];
+            p.Centroid = inner.Transform(Centroid(arts[i]));
+            parts[i] = p;
+        }
+
+        // the centre: the part asked for, or the hub, the part whose centroid
+        // sits on the middle of the frame within four hundredths of its size
+        Point mid = new Point(frame.X + frame.Width / 2.0, frame.Y + frame.Height / 2.0);
+        double near = 0.04 * Math.Max(frame.Width, frame.Height);
+        int hub = -1;
+        if (m.Centre >= 0 && m.Centre < parts.Length) hub = m.Centre;
+        else
+        {
+            double best = double.MaxValue;
+            for (int i = 0; i < parts.Length; i++)
+            {
+                double dd = (parts[i].Centroid - mid).Length;
+                if (dd < best) { best = dd; hub = i; }
+            }
+            if (best > near) hub = -1;
+        }
+        Point centre = hub >= 0 ? parts[hub].Centroid : mid;
+
+        HashSet<int> still = new HashSet<int>();
+        if (hub >= 0) still.Add(hub);
+        if (m.Still != null) foreach (int k in m.Still) still.Add(k);
+        int turn = 0;
+        for (int i = 0; i < parts.Length; i++)
+        {
+            Vector v = parts[i].Centroid - centre;
+            // a part on the centre itself has no line to move along
+            if (still.Contains(i) || v.Length < near) continue;
+            v.Normalize();
+            parts[i].Way = v;
+            parts[i].Turn = turn++;
+        }
+        if (turn == 0) return;
+
+        _parts = parts;
+        _moving = turn;
+        _height = frame.Height;
+        _hasInner = !inner.IsIdentity;
+        _innerTransform = new MatrixTransform(inner);
+        _innerTransform.Freeze();
+        _innerOpacity = opacity;
+        _period = !double.IsNaN(m.Period) && m.Period > 0.05 ? m.Period : 2.4;
+        _offset = !double.IsNaN(m.Offset) ? m.Offset : SlantMotion.Breath;
+        _amplitude = !double.IsNaN(m.Amplitude) ? m.Amplitude : SlantMotion.Breath;
+        double stagger = !double.IsNaN(m.Stagger) ? m.Stagger
+                         : (preset == "pulse" ? 0.0 : 360.0 / turn);
+        _stagger = stagger * Math.PI / 180.0;
+        _settleMs = m.Settle >= 0 ? m.Settle : 260;
+        _settling = false;
+
+        DoubleAnimation clock = new DoubleAnimation(0.0, _period, TimeSpan.FromSeconds(_period));
+        clock.RepeatBehavior = RepeatBehavior.Forever;
+        BeginAnimation(MotionClockProperty, clock);
+
+        // The parts open from home when the screen comes up, so the first
+        // frame shows the mark whole, as it is everywhere else, and the
+        // movement grows out of it instead of starting in the middle.
+        int arrive = m.Arrive >= 0 ? m.Arrive : 420;
+        if (arrive > 0)
+        {
+            DoubleAnimation open = new DoubleAnimation(0.0, 1.0, TimeSpan.FromMilliseconds(arrive));
+            open.EasingFunction = new SlantSmoothEase();
+            open.FillBehavior = FillBehavior.Stop;
+            MotionAmount = 1.0;
+            BeginAnimation(MotionAmountProperty, open);
+        }
+        else MotionAmount = 1.0;
+    }
+
+    // The parts come home, from wherever they are, on a curve that leaves
+    // quickly and settles. It returns how long that takes, so the caller can
+    // start the fade after it: a mark that fades while still apart looks
+    // like it was dropped. Zero when there is nothing to bring home.
+    public int Settle()
+    {
+        if (_parts == null || _moving == 0 || _settling) return 0;
+        _settling = true;
+        if (_settleMs <= 0)
+        {
+            BeginAnimation(MotionAmountProperty, null);
+            MotionAmount = 0.0;
+            return 0;
+        }
+        DoubleAnimation home = new DoubleAnimation(0.0, TimeSpan.FromMilliseconds(_settleMs));
+        CubicEase e = new CubicEase();
+        e.EasingMode = EasingMode.EaseOut;
+        home.EasingFunction = e;
+        home.FillBehavior = FillBehavior.HoldEnd;
+        BeginAnimation(MotionAmountProperty, home);
+        return _settleMs;
     }
 }
 
@@ -433,6 +792,7 @@ public sealed class SlantSplashCore
     private string _shown = "";
     private int _shownLen = -1;
     private bool _done;
+    private SlantMotion _motion;
 
     public HostVisual Host { get { return _host; } }
     public double Progress { get { return _target01; } }
@@ -481,6 +841,45 @@ public sealed class SlantSplashCore
     {
         if (source != null && source.IsFrozen) _logoSource = source;
     }
+
+    // How the brand moves (SlantMotion, above). Asked for before the thread
+    // exists it is applied when the ring is built; asked for later it is sent
+    // over. Either way the parts are read on the drawing thread.
+    public void SetMotion(SlantMotion motion)
+    {
+        _motion = motion;
+        Dispatcher d = _dispatcher;
+        if (d == null) return;
+        d.BeginInvoke(DispatcherPriority.Normal, (Action)delegate ()
+        {
+            try { _ring.SetMotion(motion); } catch { }
+        });
+    }
+
+    // A value read on the drawing thread, for a caller on another one. The
+    // ring's properties belong to that thread and cannot be read from here.
+    private T OnRing<T>(Func<SlantRing, T> read, T fallback)
+    {
+        Dispatcher d = _dispatcher;
+        if (d == null || _ring == null) return fallback;
+        T v = fallback;
+        try { d.Invoke(DispatcherPriority.Send, (Action)delegate () { v = read(_ring); }); }
+        catch { return fallback; }
+        return v;
+    }
+
+    // How many parts the brand was read into, and how many of them move:
+    // zero for a raster, for a mark of one piece, and with no motion asked for.
+    public int MarkParts { get { return OnRing(r => r.PartCount, 0); } }
+    public int MarkMoving { get { return OnRing(r => r.MovingCount, 0); } }
+    public string MarkWays { get { return OnRing(r => r.Ways(), ""); } }
+    public double MotionClock { get { return OnRing(r => r.MotionClock, 0.0); } }
+    public double MotionAmount { get { return OnRing(r => r.MotionAmount, 0.0); } }
+    public double[] MarkOffsets() { return OnRing(r => r.Offsets(), new double[0]); }
+
+    // Bring the parts home and say how long it takes. Hide calls this first
+    // and starts the fade when it is over.
+    public int Settle() { return OnRing(r => r.Settle(), 0); }
 
     private static Color Parse(string s, Color fallback)
     {
@@ -555,6 +954,7 @@ public sealed class SlantSplashCore
         _ring = new SlantRing(_size, _thickness, _accent, _track, logo);
         _ring.HorizontalAlignment = HorizontalAlignment.Center;
         centre.Children.Add(_ring);
+        if (_motion != null) { try { _ring.SetMotion(_motion); } catch { } }
 
         FontFamily ff = new FontFamily(_fontFamily);
         SolidColorBrush ab = new SolidColorBrush(_accent);
@@ -833,10 +1233,6 @@ public sealed class SlantSplashCore
     // outside, exactly like one that took.
     public bool Waiting { get { return _busy; } }
 
-    // A wait with nothing to measure: no figure, and the ring turns instead of
-    // filling. It is what an application shows while it does one thing whose
-    // length nobody knows, and it is drawn by the same thread, so it keeps
-    // turning while that thing happens.
     // A wait with nothing to measure: no figure, and the ring turns instead of
     // filling. It is what an application shows while it does one thing whose
     // length nobody knows, and it is drawn by the same thread, so it keeps

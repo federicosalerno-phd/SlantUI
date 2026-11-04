@@ -3062,6 +3062,26 @@ function Show-SlantSplash {
                             stays, because that is the one thing such a wait
                             has to say. The first announced step turns it back
                             into a measure.
+        .PARAMETER Motion   How the brand moves while the screen is up:
+                            'none' (the default, a still mark), 'breathe' (each
+                            part out along its own line and back, in turns) or
+                            'pulse' (all of them in step). The parts are read
+                            off the drawing: its top-level shapes, each moving
+                            on the line from the hub (the shape sitting on the
+                            middle, which holds still) through its centroid. A
+                            raster has no parts and stands still. Hide brings
+                            the parts home before the fade.
+        .PARAMETER MotionOptions  The numbers of the preset, all optional:
+                            Period (seconds, 2.4), Offset and Amplitude
+                            (fractions of the mark's height, 0.0335 each, so
+                            the distance runs from 0 to 0.067 of it), Stagger
+                            (degrees between one part and the next, a full turn
+                            shared out for 'breathe'), Still (part numbers, in
+                            drawing order from 0, that never move), Centre (the
+                            part the lines start from, when the hub should not
+                            be found by itself), Arrive (ms for the parts to
+                            open when the screen comes up, 420) and Settle (ms
+                            for them to come home before it goes, 260).
 
         .EXAMPLE
             $splash = Show-SlantSplash -Chrome $chrome -Logo .\brand.svg -Text 'starting'
@@ -3072,6 +3092,12 @@ function Show-SlantSplash {
             # before there is an application to dress
             $splash = Show-SlantSplash -Window $w -Logo .\brand.png -Busy -Text 'starting'
             $splash.Hide(190)
+
+        .EXAMPLE
+            # a mark in parts that breathes while the application loads, with
+            # a slower cycle and the second part held still
+            $splash = Show-SlantSplash -Chrome $chrome -Logo .\brand.svg -Motion breathe `
+                                       -MotionOptions @{ Period = 3.2; Still = @(1) }
 
         .OUTPUTS  An object with SetProgress(fraction, text), SetText(text),
                   SetBusy(on), IsBusy(), Draw(fraction), Hide([ms]),
@@ -3088,7 +3114,9 @@ function Show-SlantSplash {
         [Parameter(ParameterSetName = 'Chrome')][double]$Blur = -1,
         [Parameter(ParameterSetName = 'Chrome')][switch]$Veil,
         [double]$Size = 132,
-        [switch]$Busy
+        [switch]$Busy,
+        [ValidateSet('none', 'breathe', 'pulse')][string]$Motion = 'none',
+        [hashtable]$MotionOptions = @{}
     )
     Initialize-SlantWpf
     if (-not (Initialize-SlantSplash)) { throw "SlantUI: the splash's drawing thread would not build" }
@@ -3172,6 +3200,33 @@ function Show-SlantSplash {
 
     if ($null -ne $arte) { try { $core.SetLogoSource($arte) } catch { } }
     if ($Busy) { try { $core.SetBusy($true) } catch { } }
+    # The movement is read and sent before the thread starts, like the waiting
+    # mode, so the first frame already has it. A build of the drawing thread
+    # older than SlantMotion is the last resort Initialize-SlantSplash can fall
+    # back to; there the type is missing and the mark stands still, as it did.
+    if ($Motion -ne 'none') {
+        try {
+            $moto = New-Object SlantMotion
+            $moto.Preset = $Motion
+            foreach ($k in @('Period', 'Offset', 'Amplitude', 'Stagger')) {
+                if ($MotionOptions.ContainsKey($k) -and $null -ne $MotionOptions[$k]) {
+                    $moto.$k = [double]$MotionOptions[$k]
+                }
+            }
+            foreach ($k in @('Centre', 'Arrive', 'Settle')) {
+                if ($MotionOptions.ContainsKey($k) -and $null -ne $MotionOptions[$k]) {
+                    $moto.$k = [int]$MotionOptions[$k]
+                }
+            }
+            if ($MotionOptions.ContainsKey('Still') -and $null -ne $MotionOptions['Still']) {
+                $ferme = @($MotionOptions['Still'] | ForEach-Object { [int]$_ })
+                $moto.Still = [int[]]$ferme
+            }
+            $core.SetMotion($moto)
+        } catch {
+            Write-SlantNote "splash: the mark will stand still ($($_.Exception.Message))"
+        }
+    }
 
     $ospite = New-Object SlantVisualHost($core.Host)
     if ($nuda) {
@@ -3405,6 +3460,25 @@ function Show-SlantSplash {
             } catch { }
         }.GetNewClosure()
         if ($durata -le 0) { & $parti; return }
+        # A brand that moves comes home first (Settle, on the drawing thread),
+        # and the fade starts when it is there: a mark that fades while its
+        # parts are still apart looks like it was dropped. The wait is a
+        # DispatcherTimer, whose priority is Background, the same one the
+        # handover below is queued at, and whose tick is an event and so runs
+        # whatever the runspace is doing.
+        $casa = 0
+        try { $casa = [int]$this.Core.Settle() } catch { $casa = 0 }
+        if ($casa -gt 0) {
+            $attesa = New-Object System.Windows.Threading.DispatcherTimer
+            $attesa.Interval = [TimeSpan]::FromMilliseconds($casa)
+            $attesa.add_Tick({
+                param($src, $e)
+                try { $src.Stop() } catch { }
+                & $parti
+            }.GetNewClosure())
+            $attesa.Start()
+            return
+        }
         # Background, which is smoothed out after layout and after drawing:
         # the last step of a load usually leaves work queued, and those few
         # frames are the ones this transition needs. Not ApplicationIdle,

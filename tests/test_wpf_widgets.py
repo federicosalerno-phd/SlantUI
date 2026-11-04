@@ -374,6 +374,212 @@ def test_a_window_holding_one_thing_is_wrapped_and_keeps_it(splash):
     assert splash["WrappedChildren"] == 2
 
 
+# ── the brand in parts ──────────────────────────────────────────────────────
+# A mark the probe draws itself, so nothing here depends on anybody's logo:
+# three triangles pointing out of a hub, with the hub second in drawing order,
+# so it is found by where it sits and not by where it comes in the file. The
+# triangles point left, right and down; their lines are read off the drawing.
+_MOTION_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <polygon points="50,50 10,30 10,70" fill="#7354F7"/>
+  <circle cx="50" cy="50" r="10" fill="#F3EEE2"/>
+  <polygon points="50,50 90,30 90,70" fill="#17BEB8"/>
+  <polygon points="50,50 30,90 70,90" fill="#FC5A6C"/>
+</svg>
+"""
+
+_MOTION_PROBE = r"""
+param([string]$Mark)
+$ErrorActionPreference = 'Stop'
+Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
+Import-Module '{module}' -Force
+
+$out = [ordered]@{{}}
+$xaml = @'
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Width="520" Height="380" WindowStartupLocation="Manual" Left="-20000" Top="-20000"
+        ShowInTaskbar="False" ShowActivated="False">
+  <Grid x:Name="Inside"/>
+</Window>
+'@
+$w = [System.Windows.Markup.XamlReader]::Load((New-Object System.Xml.XmlNodeReader ([xml]$xaml)))
+$chrome = Install-SlantWindow -Window $w -Bold 'Slant' -Name ' check'
+$cmd = Get-Command Show-SlantSplash
+$out.MotionSets = @($cmd.Parameters['Motion'].ParameterSets.Keys | Sort-Object)
+$out.MotionOptionsSets = @($cmd.Parameters['MotionOptions'].ParameterSets.Keys | Sort-Object)
+$out.Presets = @($cmd.Parameters['Motion'].Attributes |
+    Where-Object {{ $_ -is [System.Management.Automation.ValidateSetAttribute] }} |
+    ForEach-Object {{ $_.ValidValues }})
+
+function Close-Splash($sp) {{
+    try {{ $sp.Core.Shutdown() }} catch {{ }}
+    try {{ [void]$chrome.Body.Children.Remove($sp.Element) }} catch {{ }}
+    try {{ if ($sp.Under) {{ $sp.Under.Effect = $null }} }} catch {{ }}
+}}
+
+$w.add_ContentRendered({{
+    $t = New-Object System.Windows.Threading.DispatcherTimer
+    $t.Interval = [TimeSpan]::FromMilliseconds(150)
+    $t.add_Tick({{
+        param($s, $e)
+        $s.Stop()
+        try {{
+            # --- breathe, as it comes --------------------------------------
+            $a = Show-SlantSplash -Chrome $chrome -Logo $Mark -Text 'starting' -Motion breathe
+            # read straight away: the parts open from home, so the first frame
+            # is the mark whole
+            $out.AmountAtStart = $a.Core.MotionAmount
+            [System.Threading.Thread]::Sleep(700)
+            $out.Parts = $a.Core.MarkParts
+            $out.Moving = $a.Core.MarkMoving
+            $out.Ways = $a.Core.MarkWays
+            $out.AmountOpen = $a.Core.MotionAmount
+            # this thread held down for 400 ms: the clock is on the other one
+            $c1 = $a.Core.MotionClock
+            [System.Threading.Thread]::Sleep(400)
+            $c2 = $a.Core.MotionClock
+            $out.Offsets = @($a.Core.MarkOffsets())
+            $c3 = $a.Core.MotionClock
+            $out.Clock = @($c1, $c2, $c3)
+            $out.SettleMs = $a.Core.Settle()
+            $out.SettleAgain = $a.Core.Settle()
+            [System.Threading.Thread]::Sleep(450)
+            $out.Home = @($a.Core.MarkOffsets())
+            Close-Splash $a
+
+            # --- pulse, with the first triangle held still ------------------
+            $b = Show-SlantSplash -Chrome $chrome -Logo $Mark -Text 'starting' -Motion pulse `
+                                  -MotionOptions @{{ Still = @(0); Arrive = 0; Period = 1.5 }}
+            [System.Threading.Thread]::Sleep(250)
+            $out.PulseWays = $b.Core.MarkWays
+            $out.PulseOffsets = @($b.Core.MarkOffsets())
+            Close-Splash $b
+
+            # --- no motion asked for: the mark is one image, as before -----
+            $n = Show-SlantSplash -Chrome $chrome -Logo $Mark -Text 'starting'
+            [System.Threading.Thread]::Sleep(150)
+            $out.NoneParts = $n.Core.MarkParts
+            $out.NoneSettle = $n.Core.Settle()
+            Close-Splash $n
+
+            # --- and Hide waits for the parts to come home ------------------
+            $h = Show-SlantSplash -Chrome $chrome -Logo $Mark -Text 'starting' -Motion breathe `
+                                  -MotionOptions @{{ Arrive = 0 }}
+            [System.Threading.Thread]::Sleep(200)
+            $h.Hide(120)
+            # Timers, not Sleep: the screen is taken off on this thread, so a
+            # Sleep here would keep it on whatever Hide did. A fade of 120 ms
+            # with nothing to wait for is over well inside 220; with the parts
+            # coming home first it has not started yet.
+            $prima = New-Object System.Windows.Threading.DispatcherTimer
+            $prima.Interval = [TimeSpan]::FromMilliseconds(220)
+            $prima.add_Tick({{
+                param($s2, $e2)
+                $s2.Stop()
+                $out.HiddenStillThere = $chrome.Body.Children.Contains($h.Element)
+            }}.GetNewClosure())
+            $prima.Start()
+            $via = New-Object System.Windows.Threading.DispatcherTimer
+            $via.Interval = [TimeSpan]::FromMilliseconds(900)
+            $via.add_Tick({{
+                param($s3, $e3)
+                $s3.Stop()
+                $out.HiddenLeftBehind = @($chrome.Body.Children |
+                    Where-Object {{ $_ -is [SlantVisualHost] }}).Count
+                $w.Close()
+            }}.GetNewClosure())
+            $via.Start()
+        }} catch {{
+            $out.Error = "$($_.Exception.Message) @ $($_.InvocationInfo.ScriptLineNumber)"
+            $w.Close()
+        }}
+    }}.GetNewClosure())
+    $t.Start()
+}}.GetNewClosure())
+[void]$w.ShowDialog()
+$out | ConvertTo-Json -Depth 6 -Compress
+"""
+
+
+@pytest.fixture(scope="module")
+def motion(tmp_path_factory) -> dict:
+    folder = tmp_path_factory.mktemp("slantmotion")
+    mark = folder / "mark.svg"
+    mark.write_text(_MOTION_SVG, encoding="utf-8")
+    return _probe(folder, "motion", _MOTION_PROBE, ("-Mark", str(mark)))
+
+
+def test_the_motion_belongs_to_both_forms(motion):
+    assert motion["MotionSets"] == ["__AllParameterSets"]
+    assert motion["MotionOptionsSets"] == ["__AllParameterSets"]
+    assert sorted(motion["Presets"]) == ["breathe", "none", "pulse"]
+
+
+def test_the_parts_are_read_off_the_drawing(motion):
+    """Four shapes, three of them moving. The hub is second in the file and is
+    found by sitting on the middle of the mark; each triangle moves along the
+    line from the hub through its own centroid."""
+    assert motion["Parts"] == 4
+    assert motion["Moving"] == 3
+    assert motion["Ways"] == "-1.000,0.000;still;1.000,0.000;0.000,1.000"
+
+
+def test_the_mark_comes_up_whole_and_then_opens(motion):
+    assert motion["AmountAtStart"] < 0.5
+    assert motion["AmountOpen"] == pytest.approx(1.0)
+
+
+def test_the_mark_moves_while_this_thread_is_held_down(motion):
+    c1, c2, _ = motion["Clock"]
+    gone = (c2 - c1) % 2.4
+    assert 0.3 < gone < 0.7, motion["Clock"]
+
+
+def test_each_part_is_where_the_formula_puts_it(motion):
+    """d = height * (Offset + Amplitude * sin(2 pi t / 2.4 - k * 120 degrees)),
+    on a mark 100 tall, with the hub at zero. The clock is read on both sides
+    of the offsets, and the formula has to hold somewhere between the two."""
+    import math
+    _, c2, c3 = motion["Clock"]
+    got = motion["Offsets"]
+    assert got[1] == 0
+    breath = 100 * 8.0 / 238.92
+
+    def at(t):
+        return [breath * (1 + math.sin(2 * math.pi * t / 2.4 - k * 2 * math.pi / 3))
+                for k in range(3)]
+
+    lo, hi = at(c2), at(c3)
+    for g, a, b in zip([got[0], got[2], got[3]], lo, hi):
+        assert min(a, b) - 0.05 <= g <= max(a, b) + 0.05, (got, lo, hi)
+
+
+def test_the_parts_come_home_once_and_say_how_long_it_takes(motion):
+    assert motion["SettleMs"] == 260
+    assert motion["SettleAgain"] == 0
+    assert all(abs(v) < 1e-6 for v in motion["Home"]), motion["Home"]
+
+
+def test_pulse_moves_every_part_in_step_and_holds_the_ones_asked(motion):
+    assert motion["PulseWays"] == "still;still;1.000,0.000;0.000,1.000"
+    off = motion["PulseOffsets"]
+    assert off[0] == 0 and off[1] == 0
+    assert off[2] == pytest.approx(off[3], abs=1e-9)
+
+
+def test_no_motion_means_one_image_as_before(motion):
+    assert motion["NoneParts"] == 0
+    assert motion["NoneSettle"] == 0
+
+
+def test_hide_waits_for_the_parts_and_then_takes_the_screen_off(motion):
+    """220 ms after Hide the parts are still on their way home (260 ms), so
+    the fade has not begun and the screen is there; a 120 ms fade with nothing
+    to wait for would have been over by then. Once it has run, it is gone."""
+    assert motion["HiddenStillThere"] is True
+    assert motion["HiddenLeftBehind"] == 0
+
+
 # ── the dropdown ────────────────────────────────────────────────────────────
 _PICKER_PROBE = r"""
 param()
