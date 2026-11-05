@@ -50,12 +50,14 @@
          width, so no language moves the rail. The phase of the open step is
          lit (app.js, go()). -->
     <div class="tabbar">
-      <span class="tab-phase on" data-from="0" data-to="1">Set up</span>
-      <div class="tab num active" data-step="0" title="Start"><div class="tn">1</div></div>
-      <div class="tab num" data-step="1" title="Controls"><div class="tn">2</div></div>
-      <span class="tab-phase" data-from="2" data-to="3">Use</span>
-      <div class="tab num" data-step="2" title="Run"><div class="tn">3</div></div>
-      <div class="tab num" data-step="3" title="Results"><div class="tn">4</div></div>
+      <!-- a phase is one block (.tab-group): its word and its steps on one
+           fill, and the block of the open step lights up in place -->
+      <div class="tab-group on"><span class="tab-phase on" data-from="0" data-to="1">Set up</span>
+        <div class="tab num active" data-step="0" title="Start"><div class="tn">1</div></div>
+        <div class="tab num" data-step="1" title="Controls"><div class="tn">2</div></div></div>
+      <div class="tab-group"><span class="tab-phase" data-from="2" data-to="3">Use</span>
+        <div class="tab num" data-step="2" title="Run"><div class="tn">3</div></div>
+        <div class="tab num" data-step="3" title="Results"><div class="tn">4</div></div></div>
     </div>
 
     <div class="tb-gap"></div>
@@ -285,6 +287,32 @@ meshing: 1 of 3
             so the taper starts where the name ends whatever the name is.
           </p>
 
+          <div class="sec-lbl">One thing to do</div>
+          <!-- A block is three slots, one step tall each; its number comes
+               from the order it was declared in. The ? beside a control opens
+               the sheet that says what it is for (initSheets in app.js). -->
+          <div class="block">
+            <div class="slot">
+              <div class="sec-lbl"><span class="blk-n">1</span><span>Cutting plane</span></div>
+            </div>
+            <div class="slot">
+              <div class="field" title="How many times each cut is tried">
+                <span class="field-n">Repetitions</span>
+                <input type="number" class="input" value="2" min="1" step="1"/>
+              </div>
+            </div>
+            <div class="slot">
+              <div class="slrow">
+                <span class="sl-l">Rotation</span>
+                <button class="more" type="button" data-more="rotation" aria-label="What this does">?</button>
+              </div>
+            </div>
+          </div>
+          <p class="note">
+            A sign can stand for a name read in every cell:
+            <span class="ilbl" title="Zoom"><svg data-icon="zoom-in"></svg>150 %</span>
+          </p>
+
           <div class="sec-lbl">Corner</div>
           <div class="mlist slim">
             <div class="mitem sel" data-corner="round">
@@ -410,6 +438,15 @@ meshing: 1 of 3
           </div>
           <div class="progress-track"><div class="progress-fill progress-unknown"></div></div>
 
+          <div class="sec-lbl">How things stand</div>
+          <!-- the same cells as on the start page, as one quiet line: the dots
+               say their state by their shape too -->
+          <div class="stcells line">
+            <button class="stcell" type="button" data-go="0"><span class="sd ok"></span><span class="stcell-l">File</span><span class="stcell-v">open</span></button>
+            <button class="stcell" type="button" data-go="1"><span class="sd warn"></span><span class="stcell-l">Band</span><span class="stcell-v">to check</span></button>
+            <button class="stcell" type="button" id="drawOpen"><span class="sd"></span><span class="stcell-l">Slices</span><span class="stcell-v">draw</span></button>
+          </div>
+
           <div class="sec-lbl">Last run</div>
           <div class="pi-row"><span class="pi-l">Ended</span><span id="piEnded">never</span></div>
           <div class="pi-row"><span class="pi-l">Ticks</span><span class="num" id="piTicks">0</span></div>
@@ -526,6 +563,44 @@ meshing: 1 of 3
     </div>
     <div class="progress-track"><div class="progress-fill" id="jobFill"></div></div>
     <div class="progress-stage" id="jobStage">Starting</div>
+  </div>
+</div>
+
+<!-- The sheet, once in the page: the ? beside a control opens it next to that
+     control (initSheets in app.js says what it carries). The figure stays
+     above the words and outside the scroll; empty, it takes no room. -->
+<div class="sheet sheet-at" id="sheet" role="note" aria-labelledby="sheetTitle">
+  <div class="sheet-hd">
+    <div class="sheet-title" id="sheetTitle"></div>
+    <button class="ct" type="button" data-sheet-close aria-label="Close">
+      <svg viewBox="0 0 24 24"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
+    </button>
+  </div>
+  <div class="sheet-fig"></div>
+  <div class="sheet-body"></div>
+</div>
+
+<!-- The other placement: docked down the side of the work area, the frame a
+     page puts an editor in. "Slices" in the status line of step 3 opens it. -->
+<div class="sheet sheet-side" id="sheetSide" role="dialog" aria-labelledby="sheetSideTitle">
+  <div class="sheet-hd">
+    <div class="sheet-title" id="sheetSideTitle">Draw on the slices</div>
+    <button class="ct" type="button" id="sheetSideClose" aria-label="Close">
+      <svg viewBox="0 0 24 24"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
+    </button>
+  </div>
+  <div class="sheet-body">
+    <div class="sec-lbl">Slice</div>
+    <div class="slrow">
+      <span class="sl-l">Depth</span>
+      <input type="range" min="0" max="100" value="46"/>
+      <span class="sl-v">46</span>
+    </div>
+    <div class="sec-lbl">Tool</div>
+    <div class="row">
+      <button class="btn btn-2 btn-wide" type="button">Brush</button>
+      <button class="btn btn-2 btn-wide" type="button">Grow</button>
+    </div>
   </div>
 </div>
 

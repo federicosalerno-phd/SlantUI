@@ -58,6 +58,7 @@ SCRIPT_ONLY = {
     "dzover",                                      # a file is over the card
     "maximized",                                   # the window state, on body
     "tbar-credit",                                 # titlebar.js writes it
+    "mhit", "mitem-pos", "placeholder",            # app.js builds the carousel's rows (scanItem)
     "tbar-logo-btn",                               # setBrandAction() makes it
     "round",                                       # and marks it so for a round mark (data-round)
     "busy", "ok", "warn", "err", "on", "done",     # states of a pill, a tab, a toggle

@@ -57,6 +57,9 @@ PAGE = """<!doctype html>
   Bridge.on('windowMaximized', function (m) { window.__events.push(m); });
   Bridge.init();
   initTitlebar();
+  // the words on the maximise button are the page's, in its language: the
+  // library writes no English of its own (setWindowHints, titlebar.js)
+  setWindowHints({ maximise: 'Maximise', restore: 'Restore' });
 </script>
 </body>
 </html>

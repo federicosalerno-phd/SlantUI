@@ -62,7 +62,12 @@ function go(i) {
   });
   // the phase the open step belongs to is lit
   document.querySelectorAll('.tab-phase').forEach(function (p) {
-    p.classList.toggle('on', i >= Number(p.dataset.from) && i <= Number(p.dataset.to));
+    const lit = i >= Number(p.dataset.from) && i <= Number(p.dataset.to);
+    p.classList.toggle('on', lit);
+    // and the block the phase heads, which takes the fill
+    if (p.parentElement && p.parentElement.classList.contains('tab-group')) {
+      p.parentElement.classList.toggle('on', lit);
+    }
   });
   document.querySelectorAll('.rp-page').forEach(function (p) {
     p.classList.toggle('show', Number(p.dataset.step) === i);
@@ -487,6 +492,31 @@ function wireScans() {
   };
 }
 
+/* ── the sheets ───────────────────────────────────────────────────────────── */
+/* The ? beside a control opens the one sheet of the page next to it; the page
+   says what it carries for each control, by the control's data-more. The
+   other sheet is docked down the side, and "Slices" in step 3 puts it up. */
+const SHEETS = {
+  rotation: {
+    title: 'Rotation',
+    html: '<div class="sec-lbl">What it does</div>' +
+          '<p>Turns the cutting plane about its own centre. Everything cut after it is ' +
+          'cut in the plane you leave here.</p>' +
+          '<div class="sec-lbl">Keys</div>' +
+          '<p><span class="chip">R</span> turn, then grab the ring</p>',
+    fig: '<svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v4h-4"/>' +
+         '<circle cx="12" cy="12" r="1.6"/></svg>'
+  }
+};
+
+function wireSheets() {
+  initSheets(function (trigger) {
+    return SHEETS[trigger.getAttribute('data-more')] || null;
+  });
+  $('drawOpen').onclick = function () { showSheet($('sheetSide')); };
+  $('sheetSideClose').onclick = function () { hideSheet($('sheetSide')); };
+}
+
 /* ── start up ─────────────────────────────────────────────────────────────── */
 function boot() {
   Bridge.init();          // the channel, with everything queued until it is up
@@ -507,6 +537,7 @@ function boot() {
   wireJob();
   wireDropZone();
   wireScans();
+  wireSheets();
 
   $('palette').onchange = function () { setPalette($('palette').value); };
   // A picker: its rows are data, its value is a code, and it says so with a
