@@ -165,6 +165,7 @@ $w.add_ContentRendered({{
                         $out.Composed = $splash.Core.Composed
                         $out.Drawn = $splash.Core.Drawn
                         $out.Announced = $splash.Core.Progress
+                        $out.Pair = @($splash.Core.DrawnPair)
                         $c2 = $splash.Core.RingCentre
                         $out.CentreLate = @([math]::Round($c2.X, 2), [math]::Round($c2.Y, 2))
                         $splash.Hide(120)
@@ -349,6 +350,42 @@ def test_the_fill_never_stands_still(splash):
                           f"{samples[j][1]:.5f}")
     assert not stalls, ("the arc stood still over these windows:\n  "
                         + "\n  ".join(stalls))
+
+
+def test_the_fill_never_races(splash):
+    """The pace is the expected length of the load, and the steps only nudge
+    it. An arc that chased each step raced to it and then crawled: no window
+    of 120 ms may cover more than two and a half times the median stretch."""
+    samples = [(float(t), float(v)) for t, v in splash["Samples"]]
+    gains = []
+    for i, (t0, v0) in enumerate(samples):
+        j = next((k for k in range(i + 1, len(samples)) if samples[k][0] - t0 >= 120), None)
+        if j is None:
+            break
+        gains.append((samples[j][1] - v0) / (samples[j][0] - t0))
+    assert len(gains) > 20
+    median = sorted(gains)[len(gains) // 2]
+    assert median > 0
+    assert max(gains) <= 2.5 * median, (max(gains), median)
+
+
+def test_the_bar_is_the_ring_drawn_straight(splash):
+    """One way of loading: the bar under the line fills with the ring, the
+    same number in the same frame, and not a shuttle in a style of its own."""
+    ring, bar = splash["Pair"]
+    assert ring > 0
+    assert bar == ring
+
+
+def test_nothing_widens_out_of_the_ring_or_the_mark():
+    """No thin circle let go at the end, and no ripple out of the hub of the
+    mark (2026-11-05: "take away that thin circle that widens")."""
+    from slantui.wpf import path
+    text = path("SlantUI.Splash.cs").read_text(encoding="utf-8")
+    assert "BeginAnimation(SlantRing.BurstProperty" not in text
+    assert "double b = Burst;" not in text
+    flow = text.split("private void DrawFlow(DrawingContext dc)", 1)[1].split("public int Settle()", 1)[0]
+    assert "_rippleColor" not in flow
 
 
 def test_the_arc_is_still_behind_the_last_step_and_climbing(splash):

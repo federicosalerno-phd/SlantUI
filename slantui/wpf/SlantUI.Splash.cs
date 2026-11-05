@@ -41,17 +41,18 @@ using System.Windows.Threading;
 //     nothing on that circle moves unless the work moves. The figure under it
 //     is the same number: it is written by the arc's own animation, frame by
 //     frame, so the two can never disagree.
-//   * The shuttle under the line is the pulse. A thin bar with no scale to it,
-//     whose two lozenges grow out of one edge, cross, and are drawn out of the
-//     other: it says "still going" and cannot be read as a quantity. It fades
-//     the moment the work reaches the end, and the ring lets one ripple out to
-//     say so.
+//   * The bar under the line fills with the ring, the same fraction drawn
+//     straight (SlantBar). Since 2026-11-05 a screen that measures shows one
+//     way of loading and not two: there was a shuttle under it, two lozenges
+//     crossing a rail, which said "still going" in a second style. The shuttle
+//     is left for the wait with nothing to measure (SetBusy), where it is the
+//     only thing to say.
 //
-// The arc also creeps. When a step is announced the arc walks to it and then
-// drifts on, slower and slower, towards a third of what is left: a load with
-// nothing to report for four seconds should not look like a load that has
-// stopped. It never walks backwards, so a step announcing less than the creep
-// has already drawn is taken as a line of text and no more.
+// The arc keeps a pace, not a destination: it goes round in the time the load
+// is expected to take (SetExpected), and the announced steps only nudge it,
+// half again faster when it is behind them, half as fast when it is ahead. It
+// never stops before the end and never races: a load whose steps are uneven in
+// time made an arc that chased each step race to it and then stand still.
 
 // How the brand moves while the screen is up. Nothing moves unless an
 // application asks for it: a preset is a name and a handful of numbers, and
@@ -62,13 +63,12 @@ using System.Windows.Threading;
 //     the other, so the mark seems to breathe in turns;
 //   * "pulse": the same movement with every part in step;
 //   * "none": the mark stands still, which is what it has always done.
-//   * "flow": a choreography, not a breath. The parts come in from outside,
-//     turning and growing, each a little after the one before, and land with
-//     a small overshoot; the hub pops in after them, and a soft glow lights up
+//   * "flow": a choreography, not a breath. The parts come in from close by,
+//     turning a little and growing, each a little after the one before, and
+//     land softly; the hub comes in after them, and a soft glow lights up
 //     behind. Then a cycle: a wave goes round the mark and each part in turn
-//     lifts out, grows a touch and catches the light; a ripple leaves the hub
-//     once a cycle, a sheen crosses the mark on the diagonal, and the whole
-//     mark floats. Settle brings it all to rest before the fade. It was asked
+//     lifts out, grows a touch and catches the light; a faint sheen crosses
+//     the mark on the diagonal, and the whole mark floats. Settle brings it all to rest before the fade. It was asked
 //     for on 2026-11-05 ("static, boring, slow, it stutters"): the breath was
 //     smooth, measured at one change per frame at 60 Hz, but it moved a few
 //     pixels in three and a half seconds, which reads as standing still.
@@ -349,21 +349,8 @@ public class SlantRing : FrameworkElement
             dc.DrawEllipse(_head, null, h, _thickness * 0.46, _thickness * 0.46);
         }
 
-        // The one flourish on the whole screen, and it lasts half a second: at
-        // the end the ring lets a thin circle go outwards and fade.
-        double b = Burst;
-        if (b > 0.001 && b < 0.999)
-        {
-            double k = 1.0 - b;
-            byte alpha = (byte)Math.Round(150.0 * k * k);
-            SolidColorBrush bb = new SolidColorBrush(Color.FromArgb(alpha, _accent.R, _accent.G, _accent.B));
-            bb.Freeze();
-            Pen bp = new Pen(bb, Math.Max(0.5, _thickness * k));
-            bp.Freeze();
-            double br = r + r * 0.26 * b;
-            dc.DrawEllipse(null, bp, c, br, br);
-        }
-
+        // (Burst is kept as a property for the applications that set it, and
+        // draws nothing: the thin circle the ring let go at the end is gone.)
         DrawLogo(dc, c);
     }
 
@@ -765,10 +752,11 @@ public class SlantRing : FrameworkElement
         {
             double start = 0.06 + p.Turn * 0.11;
             double k = Clamp01((now - start) / 0.66);
-            double e = OutBack(k, 1.55);
-            d = (1 - e) * 0.40 * _height;
-            s = 0.5 + 0.5 * e;
-            rot = (1 - e) * (p.Turn % 2 == 0 ? -32 : 32);
+            // a soft landing: a hint of overshoot, a small turn, from close by
+            double e = OutBack(k, 1.15);
+            d = (1 - e) * 0.26 * _height;
+            s = 0.6 + 0.4 * e;
+            rot = (1 - e) * (p.Turn % 2 == 0 ? -14 : 14);
             op = SmoothStep(k * 2.4);
             // the moment of landing catches the light once
             light = 0.45 * Bump(k - 0.55, 0.45);
@@ -784,7 +772,7 @@ public class SlantRing : FrameworkElement
         else if (i == _hub)
         {
             double k = Clamp01((now - 0.36) / 0.56);
-            double e = OutBack(k, 2.4);
+            double e = OutBack(k, 1.5);
             s = Math.Max(0.0, e);
             op = SmoothStep(k * 3.0);
             if (loop > 0)
@@ -817,23 +805,9 @@ public class SlantRing : FrameworkElement
         double fy = 0.012 * H * Math.Sin(2 * Math.PI * now / (_period * 1.6)) * env;
         dc.PushTransform(new TranslateTransform(0, fy));
 
-        // a ripple leaves the hub once a cycle
-        if (loop > 0 && env > 0.01)
-        {
-            double ph = Frac(loop / _period);
-            if (ph < 0.62)
-            {
-                double k = ph / 0.62;
-                double rr = (0.09 + 0.50 * OutCubic(k)) * H;
-                double fade = (1 - k) * (1 - k);
-                SolidColorBrush rb = new SolidColorBrush(Color.FromArgb((byte)Math.Round(150 * fade * env),
-                    _rippleColor.R, _rippleColor.G, _rippleColor.B));
-                rb.Freeze();
-                Pen rp = new Pen(rb, Math.Max(0.6, 0.022 * H * (1 - 0.6 * k)));
-                rp.Freeze();
-                dc.DrawEllipse(null, rp, mc, rr, rr);
-            }
-        }
+        // (the ripple that left the hub once a cycle is gone, 2026-11-05: a
+        // thin circle widening over the mark, every two and a half seconds,
+        // was the busiest thing on a screen that should be calm)
 
         // the parts: the faces first, the hub last, so it sits on top as in
         // the drawing; each with its own pose and its own light
@@ -873,7 +847,7 @@ public class SlantRing : FrameworkElement
             if (k > 0 && k < 1)
             {
                 double pos = -0.25 + 1.5 * SmoothStep(k);
-                byte a = (byte)Math.Round(120 * env * Math.Sin(Math.PI * k));
+                byte a = (byte)Math.Round(80 * env * Math.Sin(Math.PI * k));
                 LinearGradientBrush sb = new LinearGradientBrush();
                 sb.MappingMode = BrushMappingMode.Absolute;
                 sb.StartPoint = new Point(_box.X, _box.Y);
@@ -1012,6 +986,68 @@ public class SlantPulse : FrameworkElement
     }
 }
 
+// The bar under the line, in the measuring mode: the same fraction as the
+// ring, drawn straight. It is set from the ring's own ProgressChanged, on the
+// same thread and in the same frame, so the two can never say different
+// numbers. A screen that turned a ring for a while and then filled one, with a
+// shuttle running underneath, had two ways of saying "loading" and two styles
+// for them (2026-11-05: "it makes no sense to have two kinds of loading").
+public class SlantBar : FrameworkElement
+{
+    public static readonly DependencyProperty ProgressProperty =
+        DependencyProperty.Register("Progress", typeof(double), typeof(SlantBar),
+            new FrameworkPropertyMetadata(0.0, FrameworkPropertyMetadataOptions.AffectsRender));
+
+    public double Progress
+    {
+        get { return (double)GetValue(ProgressProperty); }
+        set { SetValue(ProgressProperty, value); }
+    }
+
+    private readonly Pen _rail;
+    private readonly Pen _fill;
+    private readonly double _w, _h;
+
+    public SlantBar(double width, double height, Color accent, Color track)
+    {
+        _w = width; _h = height;
+        Width = width; Height = height;
+        SolidColorBrush rb = new SolidColorBrush(track);
+        rb.Opacity = 0.30;
+        rb.Freeze();
+        _rail = Line(rb, Math.Max(1.0, height * 0.5));
+        SolidColorBrush fb = new SolidColorBrush(accent);
+        fb.Opacity = 0.92;
+        fb.Freeze();
+        _fill = Line(fb, height);
+    }
+
+    private static Pen Line(Brush b, double w)
+    {
+        Pen p = new Pen(b, w);
+        p.StartLineCap = PenLineCap.Round;
+        p.EndLineCap = PenLineCap.Round;
+        p.Freeze();
+        return p;
+    }
+
+    protected override Size MeasureOverride(Size available)
+    {
+        return new Size(_w, _h);
+    }
+
+    protected override void OnRender(DrawingContext dc)
+    {
+        double y = _h / 2.0;
+        double inset = _h / 2.0;
+        double span = _w - 2 * inset;
+        dc.DrawLine(_rail, new Point(inset, y), new Point(_w - inset, y));
+        double p = Progress;
+        if (p > 1.0) p = 1.0;
+        if (p > 0.002) dc.DrawLine(_fill, new Point(inset, y), new Point(inset + span * p, y));
+    }
+}
+
 // A step with no corner at either end, 3t^2 - 2t^3: the curve the Qt half's
 // splash.qml calls smooth(), so the two halves hand over on the same curve
 // and not on two that look alike.
@@ -1043,6 +1079,10 @@ public sealed class SlantSplashCore
     private StackPanel _centre;
     private SlantRing _ring;
     private SlantPulse _pulse;
+    private SlantBar _bar;
+    // How long the whole fill is expected to take, in seconds: the pace the
+    // arc keeps when nothing tells it otherwise (SetExpected)
+    private double _expected = 8.0;
     private TextBlock _percentText;
     private TextBlock _lineText;
     private Border _ground;
@@ -1082,6 +1122,21 @@ public sealed class SlantSplashCore
             try { d.Invoke(DispatcherPriority.Send, (Action)delegate () { v = _ring.Progress; }); }
             catch { return _target01; }
             return v;
+        }
+    }
+
+    // The ring and the bar, read in one go on the drawing thread: they are
+    // the same number drawn twice, and a test can say so.
+    public double[] DrawnPair
+    {
+        get
+        {
+            double a = -1, b = -1;
+            Dispatcher d = _dispatcher;
+            if (d == null || _ring == null || _bar == null) return new double[] { a, b };
+            try { d.Invoke(DispatcherPriority.Send, (Action)delegate () { a = _ring.Progress; b = _bar.Progress; }); }
+            catch { }
+            return new double[] { a, b };
         }
     }
 
@@ -1274,16 +1329,26 @@ public sealed class SlantSplashCore
         _lineText.Text = firstLine == null ? "" : firstLine;
         centre.Children.Add(_lineText);
 
+        // the bar and the shuttle share one slot: the bar while the ring
+        // measures, the shuttle in a wait with nothing to measure. Swapping
+        // them moves nothing, because the slot keeps its size
+        Grid slot = new Grid();
+        slot.HorizontalAlignment = HorizontalAlignment.Center;
+        slot.Margin = new Thickness(0, Math.Round(15 * grow), 0, 0);
+        _bar = new SlantBar(Math.Round(_size * 1.30), 3.0, _accent, _track);
         _pulse = new SlantPulse(Math.Round(_size * 1.30), 3.0, _accent, _track);
-        _pulse.HorizontalAlignment = HorizontalAlignment.Center;
-        _pulse.Margin = new Thickness(0, Math.Round(15 * grow), 0, 0);
-        centre.Children.Add(_pulse);
+        _pulse.Visibility = Visibility.Hidden;
+        slot.Children.Add(_bar);
+        slot.Children.Add(_pulse);
+        centre.Children.Add(slot);
 
-        // the figure is written by the arc's own animation, frame by frame
+        // the figure and the bar are written by the arc's own movement, frame
+        // by frame
         _ring.ProgressChanged = delegate (double v)
         {
             try
             {
+                _bar.Progress = v;
                 string t = ((int)Math.Floor(v * 100 + 0.5)).ToString(CultureInfo.InvariantCulture) + "%";
                 if (t == _shown) return;
                 _shown = t;
@@ -1298,12 +1363,6 @@ public sealed class SlantSplashCore
         };
 
         Layout();
-
-        // the pulse runs for as long as the splash is up, on the thread where
-        // running means sixty frames a second whatever the application does
-        DoubleAnimation phase = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(1750));
-        phase.RepeatBehavior = RepeatBehavior.Forever;
-        _pulse.BeginAnimation(SlantPulse.PhaseProperty, phase);
 
         // A caller can ask for the waiting mode before the thread exists,
         // which is the normal way round: SetBusy is called and then Start.
@@ -1443,33 +1502,43 @@ public sealed class SlantSplashCore
             if (dt <= 0) return;
             if (dt > 0.25) dt = 0.25;          // a frozen thread must not teleport the arc
 
+            // The pace is the time, not the steps (2026-11-05: "fill a little
+            // at a time, continuously, not stuck at some points and running at
+            // others"). Chasing each announced step made the arc race to it and
+            // then crawl or stop: the steps of a load are not evenly spread in
+            // time. So the arc goes round at the pace of the expected length of
+            // the load (SetExpected, which an application can take from its
+            // last start), and the steps only nudge it: behind what has been
+            // announced it goes up to half as fast again, ahead of it down to
+            // half, and the speed is eased, so a nudge is never seen as a jolt.
+            // It never stops before the end: short of it, it slows into a soft
+            // wall at 98.5 per cent, and only the last step closes the circle.
             double pos = _ring.Progress;
-            double ceiling = _goal >= 1.0 ? 1.0 : _goal + (1.0 - _goal) * 0.32;
+            double basePace = 1.0 / Math.Max(1.5, _expected);
             double want;
-            if (pos < _goal - 0.0005)
+            double wall = _goal >= 1.0 ? 1.0 : 0.985;
+            if (_goal >= 1.0)
             {
-                // what is left, crossed in about a second and a half, but never
-                // slower than eight per cent a second. The last stretch is
-                // quicker: the splash is taken away shortly after the work ends,
-                // and an arc still climbing when it goes looks like something
-                // was skipped.
-                double floor = _goal >= 1.0 ? 0.55 : 0.06;
-                want = Math.Max(floor, (_goal - pos) * 0.68);
-            }
-            else if (pos < ceiling)
-            {
-                want = 0.011;                  // the drift: alive, and no promise
+                // the end is announced: what is left goes in about half a second,
+                // never slower than the pace it had
+                want = Math.Max(basePace, (1.0 - pos) / 0.5);
             }
             else
             {
-                want = 0.0;
+                double lead = pos - _goal;
+                double k = 1.0 - lead * 4.0;
+                if (k < 0.5) k = 0.5;
+                if (k > 1.5) k = 1.5;
+                want = basePace * k;
+                double room = wall - pos;
+                if (room < 0.15) want *= Math.Max(0.05, room / 0.15);
             }
 
             // the speed is what gets eased, so there are no corners in the
-            // movement even when the goal jumps
-            _speed += (want - _speed) * Math.Min(1.0, dt * 6.0);
+            // movement even when the pace changes
+            _speed += (want - _speed) * Math.Min(1.0, dt * 2.5);
             double next = pos + _speed * dt;
-            if (next > ceiling) { next = ceiling; _speed = want; }
+            if (next > wall) next = wall;
             if (next > 1.0) next = 1.0;
             if (next != pos) _ring.Progress = next;
 
@@ -1478,36 +1547,32 @@ public sealed class SlantSplashCore
                 Halt();
                 Finish();
             }
-            else if (want == 0.0 && Math.Abs(_speed) < 0.0005)
-            {
-                // nothing left to draw until the next step arrives
-                Halt();
-            }
         }
         catch { }
     }
 
-    // The end: the pulse has nothing left to say, so it goes, and the ring
-    // lets one ripple out. Both are over well before the splash is taken away.
+    // The end: the circle and the bar are full, and that is the whole of it.
+    // The thin circle the ring used to let go outwards here is gone
+    // (2026-11-05, "take away that thin circle that widens"): a full ring
+    // already says it, and the fade that follows is movement enough.
     private void Finish()
     {
         if (_done) return;
         _done = true;
-        try
-        {
-            DoubleAnimation fade = new DoubleAnimation(1.0, 0.0, TimeSpan.FromMilliseconds(260));
-            fade.FillBehavior = FillBehavior.HoldEnd;
-            _pulse.BeginAnimation(UIElement.OpacityProperty, fade);
-
-            DoubleAnimation ripple = new DoubleAnimation(0.0, 1.0, TimeSpan.FromMilliseconds(620));
-            CubicEase e = new CubicEase();
-            e.EasingMode = EasingMode.EaseOut;
-            ripple.EasingFunction = e;
-            ripple.FillBehavior = FillBehavior.HoldEnd;
-            _ring.BeginAnimation(SlantRing.BurstProperty, ripple);
-        }
-        catch { }
     }
+
+    // How long the whole fill is expected to take. An application that knows
+    // how long it took last time says so, and the arc keeps that pace; a step
+    // announced early or late nudges it, never more than half again or half.
+    public void SetExpected(double ms)
+    {
+        if (double.IsNaN(ms) || ms <= 0) return;
+        double s = Math.Max(1.5, Math.Min(120.0, ms / 1000.0));
+        Dispatcher d = _dispatcher;
+        if (d == null) { _expected = s; return; }
+        d.BeginInvoke(DispatcherPriority.Normal, (Action)delegate () { _expected = s; });
+    }
+    public double Expected { get { return _expected; } }
 
     // True once the arc has drawn the whole circle. The application waits for
     // this instead of guessing a delay: the wait at the end should be as short
@@ -1554,16 +1619,24 @@ public sealed class SlantSplashCore
                 // when the first step turned it into a measure (seen on
                 // 2026-11-05). The ring must never move.
                 _percentText.Visibility = on ? Visibility.Hidden : Visibility.Visible;
+                // the shuttle says "still going" in a wait with no measure;
+                // measuring, the bar fills with the ring. One slot for both
+                _pulse.Visibility = on ? Visibility.Visible : Visibility.Hidden;
+                _bar.Visibility = on ? Visibility.Hidden : Visibility.Visible;
                 if (on)
                 {
                     Halt();
                     DoubleAnimation turn = new DoubleAnimation(0, 360, TimeSpan.FromMilliseconds(1500));
                     turn.RepeatBehavior = RepeatBehavior.Forever;
                     _ring.BeginAnimation(SlantRing.SpinProperty, turn);
+                    DoubleAnimation phase = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(1750));
+                    phase.RepeatBehavior = RepeatBehavior.Forever;
+                    _pulse.BeginAnimation(SlantPulse.PhaseProperty, phase);
                 }
                 else
                 {
                     _ring.BeginAnimation(SlantRing.SpinProperty, null);
+                    _pulse.BeginAnimation(SlantPulse.PhaseProperty, null);
                     Run();
                 }
                 Layout();

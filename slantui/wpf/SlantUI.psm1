@@ -3534,6 +3534,12 @@ function Show-SlantSplash {
                             stays, because that is the one thing such a wait
                             has to say. The first announced step turns it back
                             into a measure.
+        .PARAMETER ExpectedMs  How long the whole fill is expected to take. The
+                            arc keeps that pace, and the announced steps only
+                            nudge it (half again faster behind them, half as
+                            fast ahead), so it never stops and never races. An
+                            application can pass how long its last start took.
+                            Without it, eight seconds.
         .PARAMETER Motion   How the brand moves while the screen is up:
                             'none' (the default, a still mark), 'breathe' (each
                             part out along its own line and back, in turns) or
@@ -3589,6 +3595,7 @@ function Show-SlantSplash {
         [Parameter(ParameterSetName = 'Chrome')][switch]$Veil,
         [double]$Size = 132,
         [switch]$Busy,
+        [double]$ExpectedMs = 0,
         [ValidateSet('none', 'breathe', 'pulse', 'flow')][string]$Motion = 'none',
         [hashtable]$MotionOptions = @{}
     )
@@ -3686,6 +3693,7 @@ function Show-SlantSplash {
 
     if ($null -ne $arte) { try { $core.SetLogoSource($arte) } catch { } }
     if ($Busy) { try { $core.SetBusy($true) } catch { } }
+    if ($ExpectedMs -gt 0) { try { $core.SetExpected($ExpectedMs) } catch { } }
     # The movement is read and sent before the thread starts, like the waiting
     # mode, so the first frame already has it. A build of the drawing thread
     # older than SlantMotion is the last resort Initialize-SlantSplash can fall
@@ -3801,6 +3809,12 @@ function Show-SlantSplash {
     $splash | Add-Member -MemberType ScriptMethod -Name Draw -Value {
         param([double]$quanto)
         $this.SetProgress($quanto, "")
+    }
+
+    # the pace, said again later: a wait that learns how long it will take
+    $splash | Add-Member -MemberType ScriptMethod -Name SetExpected -Value {
+        param([double]$ms)
+        try { $this.Core.SetExpected($ms) } catch { }
     }
 
     # the two modes can be swapped later too: a wait that at some point knows
