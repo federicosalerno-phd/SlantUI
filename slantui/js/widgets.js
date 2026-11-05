@@ -1157,45 +1157,119 @@ function fitOneLine(el, text, maxPx, minPx) {
    own measureText rounds those to whole pixels, so the word is drawn, four
    times over, on a canvas of its own, and the columns that carry ink are read
    back. The answer goes on the word as data-ink-l and data-ink-r (what is empty
-   before the first and after the last inked column, in CSS px), once per text
-   and font; and the stylesheet lets that much hang out of the group, the same
-   way the empty part of the sign's box does.
+   before the first and after the last inked column, in CSS px), once per text,
+   font, scale and colours; and the stylesheet lets that much hang out of the
+   group, the same way the empty part of the sign's box does.
+
+   The word is drawn the way the window draws it: at the display's own scale,
+   in the button's own colour, over the button's own ground, and its edge is
+   where a column's coverage crosses one half. The engine darkens the edges of
+   text by an amount that depends on the size in device pixels and on the two
+   colours, so a word drawn four times larger in black on nothing has thinner
+   ink than the one on screen. Measured in the gallery at 150 %: 0.4 to 0.8 px
+   CSS a side, which put every button with a sign 0.3 px of the display off its
+   middle, and Next a whole pixel. Drawn this way the canvas and the window
+   agree within 0.05 px.
 
    A word changes: the language, a panel written later, a label set from code.
    So the library watches the document for text that changes inside a button
-   with a sign and measures it again, a frame later, at most once a frame. A
-   page does nothing. */
+   with a sign and measures it again, a frame later, at most once a frame; and
+   it measures again when the palette or the display's scale changes, because
+   the ink does. A page does nothing. */
 const _inkWords = {};
 let _inkCanvas = null;
 
-function _wordInk(text, font, size) {
-  const key = font + '|' + text;
+/* A computed colour as [r, g, b, a] on 0..255, or null when it is written in a
+   form this does not read. The engine hands back rgb() and rgba(), and
+   color(srgb ...) for a colour that was mixed. */
+function _rgbOf(css) {
+  const s = String(css || '');
+  let m = /^rgba?\(([^)]*)\)$/.exec(s);
+  if (m) {
+    const v = m[1].split(/[\s,\/]+/).filter(Boolean).map(parseFloat);
+    if (v.length < 3 || v.some(isNaN)) return null;
+    return [v[0], v[1], v[2], v.length > 3 ? v[3] : 1];
+  }
+  m = /^color\(srgb ([^)]*)\)$/.exec(s);
+  if (m) {
+    const v = m[1].split(/[\s\/]+/).filter(Boolean).map(parseFloat);
+    if (v.length < 3 || v.some(isNaN)) return null;
+    return [v[0] * 255, v[1] * 255, v[2] * 255, v.length > 3 ? v[3] : 1];
+  }
+  return null;
+}
+
+/* What is under an element, as an opaque [r, g, b]: its own background and its
+   ancestors', laid over each other until one covers. null when nothing opaque
+   is found, or a colour cannot be read. */
+function _groundOf(el) {
+  const layers = [];
+  for (let e = el; e && e.nodeType === 1; e = e.parentElement) {
+    const c = _rgbOf(getComputedStyle(e).backgroundColor);
+    if (!c) return null;
+    if (c[3] > 0) layers.push(c);
+    if (c[3] >= 0.999) break;
+  }
+  if (!layers.length || layers[layers.length - 1][3] < 0.999) return null;
+  let g = layers.pop();
+  while (layers.length) {
+    const c = layers.pop();
+    g = [g[0] + (c[0] - g[0]) * c[3], g[1] + (c[1] - g[1]) * c[3], g[2] + (c[2] - g[2]) * c[3], 1];
+  }
+  return [Math.round(g[0]), Math.round(g[1]), Math.round(g[2])];
+}
+
+function _wordInk(text, font, size, scale, fg, bg) {
+  const shown = !!(fg && bg);
+  const key = font + '|' + scale + '|' + (shown ? fg.join(',') + '/' + bg.join(',') : '') + '|' + text;
   if (_inkWords[key]) return _inkWords[key];
   if (!_inkCanvas) _inkCanvas = document.createElement('canvas');
   let g = _inkCanvas.getContext('2d', { willReadFrequently: true });
   if (!g) return null;
   g.font = font;
   const adv = g.measureText(text).width;
-  const S = 4, pad = Math.ceil(size);
+  const S = scale, pad = Math.ceil(size);
   const W = Math.ceil((adv + 2 * pad) * S), H = Math.ceil(size * 3 * S);
   if (!W || !H) return null;
   _inkCanvas.width = W;
   _inkCanvas.height = H;
   g = _inkCanvas.getContext('2d', { willReadFrequently: true });
+  if (shown) {
+    g.fillStyle = 'rgb(' + bg.join(',') + ')';
+    g.fillRect(0, 0, W, H);
+  }
   g.setTransform(S, 0, 0, S, 0, 0);
   g.font = font;
   g.textBaseline = 'middle';
+  /* on nothing, the context's own starting colour: only the alpha is read */
+  if (shown) g.fillStyle = 'rgb(' + fg.join(',') + ')';
   g.fillText(text, pad, size * 1.5);
   const a = g.getImageData(0, 0, W, H).data;
+  /* how much of each column the word covers at most: the share of the way from
+     the ground to the word's colour, or the alpha where there is no ground */
+  const d = shown ? [fg[0] - bg[0], fg[1] - bg[1], fg[2] - bg[2]] : null;
+  const dd = shown ? (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]) : 1;
+  const col = new Float64Array(W);
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const i = (y * W + x) * 4;
+      const c = shown
+        ? ((a[i] - bg[0]) * d[0] + (a[i + 1] - bg[1]) * d[1] + (a[i + 2] - bg[2]) * d[2]) / dd
+        : a[i + 3] / 255;
+      if (c > col[x]) col[x] = c < 1 ? c : 1;
+    }
+  }
   let lo = -1, hi = -1;
-  for (let x = 0; x < W && lo < 0; x++) {
-    for (let y = 0; y < H; y++) if (a[(y * W + x) * 4 + 3] >= 128) { lo = x; break; }
-  }
-  for (let x = W - 1; x >= 0 && hi < 0; x--) {
-    for (let y = 0; y < H; y++) if (a[(y * W + x) * 4 + 3] >= 128) { hi = x; break; }
-  }
+  for (let x = 0; x < W; x++) if (col[x] >= 0.5) { lo = x; break; }
   if (lo < 0) return null;
-  const r = { l: lo / S - pad, r: pad + adv - (hi + 1) / S };
+  for (let x = W - 1; x >= 0; x--) if (col[x] >= 0.5) { hi = x; break; }
+  /* the edge sits where the coverage crosses one half, between the middles of
+     two columns: a column's coverage belongs to its middle, x + 0.5, and read
+     at its left edge it would put every edge half a pixel outward */
+  const before = lo > 0 ? col[lo - 1] : 0, after = hi + 1 < W ? col[hi + 1] : 0;
+  const L = col[lo] > before ? lo + 0.5 - (col[lo] - 0.5) / (col[lo] - before) : lo;
+  const R = col[hi] > after ? hi + 0.5 + (col[hi] - 0.5) / (col[hi] - after) : hi + 1;
+  const r = { l: L / S - pad, r: pad + adv - R / S };
   _inkWords[key] = r;
   return r;
 }
@@ -1213,7 +1287,15 @@ function fitButtonWords(root) {
     if (!text) { w.removeAttribute('data-ink-l'); w.removeAttribute('data-ink-r'); continue; }
     const cs = getComputedStyle(w);
     const size = parseFloat(cs.fontSize) || 13;
-    const ink = _wordInk(text, cs.fontStyle + ' ' + cs.fontWeight + ' ' + cs.fontSize + ' ' + cs.fontFamily, size);
+    const scale = Math.max(1, (typeof window !== 'undefined' && window.devicePixelRatio) || 1);
+    let fg = _rgbOf(cs.color), bg = _groundOf(b);
+    /* a word as faint as its ground has no edge to find by colour: then the
+       alpha of a word drawn on nothing, at the same scale */
+    const dr = fg && bg ? fg[0] - bg[0] : 0, dg = fg && bg ? fg[1] - bg[1] : 0, db = fg && bg ? fg[2] - bg[2] : 0;
+    if (!fg || !bg || dr * dr + dg * dg + db * db < 400) fg = bg = null;
+    else fg = [Math.round(fg[0]), Math.round(fg[1]), Math.round(fg[2])];
+    const ink = _wordInk(text, cs.fontStyle + ' ' + cs.fontWeight + ' ' + cs.fontSize + ' ' + cs.fontFamily,
+                         size, scale, fg, bg);
     if (!ink) continue;
     w.setAttribute('data-ink-l', ink.l.toFixed(2));
     w.setAttribute('data-ink-r', ink.r.toFixed(2));
@@ -1242,6 +1324,21 @@ function _askWords() {
         }
       }
     }).observe(document.documentElement, { subtree: true, childList: true, characterData: true });
+    /* The palette: its colours fade in, so the words are measured once the
+       fade has had its time, and once more in case it was longer. */
+    new MutationObserver(function () {
+      setTimeout(_askWords, 260);
+      setTimeout(_askWords, 700);
+    }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-palette'] });
+    /* The display's scale: the window moved to another screen, or was zoomed. */
+    if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
+      const onScale = function () {
+        _askWords();
+        const q = window.matchMedia('(resolution: ' + (window.devicePixelRatio || 1) + 'dppx)');
+        if (typeof q.addEventListener === 'function') q.addEventListener('change', onScale, { once: true });
+      };
+      onScale();
+    }
     _askWords();
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(_askWords);
   };

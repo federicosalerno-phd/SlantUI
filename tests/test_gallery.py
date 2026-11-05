@@ -415,8 +415,9 @@ BUTTONS = r"""(function(name){
     var cs = getComputedStyle(b);
     out.push({text: w.textContent.trim(), sign: svg.getAttribute('data-segno'),
               btn: box(b), svg: box(svg), word: box(w), fg: cs.color, bg: cs.backgroundColor,
-              ink: svg.hasAttribute('data-ink-w')
-                     ? Math.max(+svg.getAttribute('data-ink-w'), +svg.getAttribute('data-ink-h')) : 1,
+              inkW: svg.hasAttribute('data-ink-w') ? +svg.getAttribute('data-ink-w') : 1,
+              inkH: svg.hasAttribute('data-ink-h') ? +svg.getAttribute('data-ink-h') : 1,
+              fill: (svg.getAttribute('data-ink-fill') || '').split(' ').filter(Boolean),
               stroke: parseFloat(getComputedStyle(svg).strokeWidth),
               measured: svg.hasAttribute('data-ink-w'), wordMeasured: w.hasAttribute('data-ink-l')});
   });
@@ -431,7 +432,7 @@ def _rgb(css):
 def _ink(image, box, fg, bg, k, skip=None):
     """The ink of the button's own colour inside `box` (CSS px), in device
     pixels: [left, top, right, bottom], each edge where the coverage crosses
-    one half, interpolated between the two pixels around it. `skip` is a box
+    one half, interpolated between the middles of the two pixels around it. `skip` is a box
     whose columns are not looked at."""
     d = [fg[i] - bg[i] for i in range(3)]
     dd = sum(x * x for x in d) or 1.0
@@ -455,11 +456,15 @@ def _ink(image, box, fg, bg, k, skip=None):
         if not inked:
             return None
         lo, hi = inked[0], inked[-1]
-        # the edge sits where the coverage crosses one half
+        # The edge sits where the coverage crosses one half, between the middles
+        # of two pixels: a pixel's coverage belongs to its middle, i + 0.5. Read
+        # at the pixel's left edge, as it was, every ink came out half a pixel
+        # wider on each side, and a sign half a pixel nearer its button's edge
+        # than the word on the other side.
         a, b = cov.get(lo - 1, 0.0), cov[lo]
-        left = lo - (b - 0.5) / (b - a) if b > a else lo
+        left = lo + 0.5 - (b - 0.5) / (b - a) if b > a else lo
         a, b = cov[hi], cov.get(hi + 1, 0.0)
-        right = hi + 1 + (a - 0.5) / (a - b) if a > b else hi + 1
+        right = hi + 0.5 + (a - 0.5) / (a - b) if a > b else hi + 1
         return left, right
     h, v = edges(cols), edges(rows)
     return [h[0], v[0], h[1], v[1]] if h and v else None
@@ -515,9 +520,15 @@ def test_a_button_centres_its_sign_and_its_word_on_their_ink(capture, win):
             group = ((min(sign[0], word[0]) + max(sign[2], word[2])) / 2) - (bx0 + bx1) / 2
             down = (sign[1] + sign[3]) / 2 - cy
             caps = (caps0 + caps1) / 2 - cy
-            tall = (b["ink"] * (b["svg"][3] - b["svg"][1]) + b["stroke"]) / (b["word"][3] - b["word"][1])
+            # the painted ink: the drawing, plus half a stroke on each side that
+            # ends in a stroke (a side that ends in a fill paints its outline)
+            half = b["stroke"] / 2
+            painted_w = b["inkW"] * (b["svg"][2] - b["svg"][0]) + half * sum(s not in b["fill"] for s in "lr")
+            painted_h = b["inkH"] * (b["svg"][3] - b["svg"][1]) + half * sum(s not in b["fill"] for s in "tb")
+            tall = max(painted_w, painted_h) / (b["word"][3] - b["word"][1])
             print("  %-20s %-14s group %+.2f  sign %+.2f  capitals %+.2f  tall %.3f  (snap %+.2f %+.2f, device px)"
-                  % (b["text"][:20], b["sign"], group, down, caps, tall, snap_x, snap_y))
+                  "  fill %s" % (b["text"][:20], b["sign"], group, down, caps, tall, snap_x, snap_y,
+                                 " ".join(b["fill"]) or "-"))
             if abs(group) > INK_HALF_PX:
                 wrong.append("%s (%s): the group of ink %+.2f px off the middle" % (b["text"], b["sign"], group))
             if abs(down) > INK_HALF_PX:

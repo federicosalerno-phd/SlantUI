@@ -277,18 +277,79 @@ function _ink(key, inside, viewBox) {
   const vb = String(viewBox || ICON_GRID).split(/[\s,]+/).map(Number);
   if (vb.length !== 4 || vb.some(isNaN)) return null;
   r.setAttribute('viewBox', String(viewBox || ICON_GRID));
-  r.innerHTML = inside;
-  let b;
+  r.innerHTML = '<g>' + inside + '</g>';
+  let b, f = '';
   try { b = r.getBBox(); } catch (_) { r.innerHTML = ''; return null; }
+  if (b && (b.width || b.height)) f = _inkFill(r, vb);
   r.innerHTML = '';
-  if (!b || (!b.width && !b.height)) { _inkShift[key] = { t: '', w: 0, h: 0 }; return _inkShift[key]; }
+  if (!b || (!b.width && !b.height)) { _inkShift[key] = { t: '', w: 0, h: 0, f: '' }; return _inkShift[key]; }
   const dx = (vb[0] + vb[2] / 2) - (b.x + b.width / 2);
   const dy = (vb[1] + vb[3] / 2) - (b.y + b.height / 2);
   /* under a hundredth of a unit is not an offset, it is measurement noise */
   const t = (Math.abs(dx) < 0.01 && Math.abs(dy) < 0.01) ? ''
           : (Math.round(dx * 1000) / 1000) + ' ' + (Math.round(dy * 1000) / 1000);
-  _inkShift[key] = { t: t, w: b.width / vb[2], h: b.height / vb[3] };
+  _inkShift[key] = { t: t, w: b.width / vb[2], h: b.height / vb[3], f: f };
   return _inkShift[key];
+}
+
+/* WHICH SIDES OF THE INK END IN A FILL.
+
+   A stroke paints half its width outside the drawing, on every side, and a
+   button allows for that half (components.css). A part that is filled and not
+   stroked paints nothing outside its outline: the head of an arrow, a sign
+   still set in a character. Where such a part is what reaches a side of the
+   ink, that side is the outline itself, and the half must not be allowed for
+   there. Measured in the gallery before this: the head of Next was given the
+   half on both sides and sat a pixel of the display off the middle of its
+   button, and the head on top of Reset carried the sign half a pixel low.
+
+   What is compared is the paint and not the drawing: a stroked part reaches
+   half a stroke further than its outline, so a head that pokes out a little
+   past an arc does not make that side a fill, the arc's stroke still goes
+   further (the left of Reset). The half is the one a 13 px sign is drawn
+   with, 0.9 units of the 24 grid, scaled for a sign on another grid.
+
+   The ruler holds the drawing in one <g>, so a part's box is brought into the
+   drawing's own units through the two matrices, whatever groups and moves the
+   drawing has inside. The answer is a list of the sides ('l r t b'), '' when
+   a stroke reaches every one. */
+function _inkFill(r, vb) {
+  const host = r.firstChild;
+  const parts = r.querySelectorAll('path,line,polyline,polygon,rect,circle,ellipse,text');
+  const h = 0.9 * vb[2] / 24;
+  /* how far the fills and the strokes go, on each side */
+  const fill = { l: Infinity, r: -Infinity, t: Infinity, b: -Infinity };
+  const line = { l: Infinity, r: -Infinity, t: Infinity, b: -Infinity };
+  let base = null;
+  try { base = host && host.getCTM && host.getCTM() ? host.getCTM().inverse() : null; } catch (_) { base = null; }
+  for (let i = 0; i < parts.length; i++) {
+    const p = parts[i];
+    let q;
+    try { q = p.getBBox(); } catch (_) { continue; }
+    if (!q) continue;
+    let x0 = q.x, y0 = q.y, x1 = q.x + q.width, y1 = q.y + q.height;
+    let m = null;
+    try { m = base && p.getCTM && p.getCTM() ? base.multiply(p.getCTM()) : null; } catch (_) { m = null; }
+    if (m) {
+      const xs = [], ys = [];
+      [[x0, y0], [x1, y0], [x0, y1], [x1, y1]].forEach(function (c) {
+        xs.push(m.a * c[0] + m.c * c[1] + m.e);
+        ys.push(m.b * c[0] + m.d * c[1] + m.f);
+      });
+      x0 = Math.min.apply(null, xs); x1 = Math.max.apply(null, xs);
+      y0 = Math.min.apply(null, ys); y1 = Math.max.apply(null, ys);
+    }
+    const s = p.closest ? p.closest('[stroke]') : null;
+    const e = (s && s.getAttribute('stroke') === 'none') ? fill : line;
+    e.l = Math.min(e.l, x0); e.r = Math.max(e.r, x1);
+    e.t = Math.min(e.t, y0); e.b = Math.max(e.b, y1);
+  }
+  const out = [];
+  if (fill.l < line.l - h) out.push('l');
+  if (fill.r > line.r + h) out.push('r');
+  if (fill.t < line.t - h) out.push('t');
+  if (fill.b > line.b + h) out.push('b');
+  return out.join(' ');
 }
 
 function iconInkShift(key, inside, viewBox) {
@@ -313,13 +374,16 @@ function iconCentred(key, inside, viewBox) {
    before this, the ink was 74 to 119 % of the capitals depending on the
    drawing, and a group of sign and word sat up to 6 px off the middle of its
    button. An application writes the same two on its own signs with this. '' when
-   the ink cannot be measured yet. */
+   the ink cannot be measured yet. With them goes data-ink-fill, the sides
+   where the ink ends in a fill and not in a stroke (_inkFill), when there are
+   any. */
 function iconInkAttrs(key, inside, viewBox) {
   const k = _ink(key, inside, viewBox);
   /* a straight line has no height (or no width): it still has a size, its
      length, and the button sizes it by its larger side */
   if (!k || (!k.w && !k.h)) return '';
-  return ' data-ink-w="' + k.w.toFixed(4) + '" data-ink-h="' + k.h.toFixed(4) + '"';
+  return ' data-ink-w="' + k.w.toFixed(4) + '" data-ink-h="' + k.h.toFixed(4) + '"'
+    + (k.f ? ' data-ink-fill="' + k.f + '"' : '');
 }
 
 function icon(name, attrs) {

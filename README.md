@@ -595,11 +595,14 @@ line it is given.
 
 In a button a sign and its word are placed by their ink, not by their boxes.
 `icon()` writes on the sign how much of its box the ink fills (`data-ink-w`,
-`data-ink-h`), the word goes in a `.btn-label`, and the button sizes the sign
-so that its ink is as tall as the word's capitals, trims the word to its
-capitals, and lets the empty sides of both hang out of the group:
-`fitButtonWords()` measures the word's own, and keeps measuring as words
-change. The group then sits in the middle of the button to half a pixel. An
+`data-ink-h`) and which sides of it end in a fill rather than a stroke
+(`data-ink-fill`, the head of an arrow), the word goes in a `.btn-label`, and
+the button sizes the sign so that its painted ink is as tall as the word's
+capitals, trims the word to its capitals, and lets the empty sides of both
+hang out of the group: `fitButtonWords()` measures the word's own, drawn at
+the display's scale in the button's colours, and keeps measuring as words,
+palette and scale change. The group then sits in the middle of the button to
+half a pixel. An
 application with signs of its own writes the same measure on them with
 `iconInkAttrs()`.
 

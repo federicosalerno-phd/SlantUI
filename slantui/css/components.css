@@ -73,14 +73,24 @@
    empty part of its box hangs out on either side (negative margins), less half
    a stroke, because the painted ink is half a stroke wider than the drawing on
    every side: the gap is from the ink to the word and the button centres the
-   ink. A sign still set in a character is filled and has no stroke. The word
+   ink. Where a side of the ink is the outline of a part that is filled and
+   not stroked (the head of an arrow), there is no half to allow for, and the
+   sign says so with data-ink-fill: that side gets no half, and a sign whose
+   top and bottom differ is moved by half the difference, so its painted ink
+   and not its drawing is in the middle. A sign still set in a character is
+   filled and has no stroke anywhere. The word
    still cannot paint outside its button: it clips across, and below its
    capitals the button's own clip is the edge. Where the engine has no
-   text-box, no cap unit or no typed attr(), the rules above stand. The three
+   text-box, no cap unit or no typed attr(), the rules above stand. The
    properties are registered with a type, and their starting values are the
-   fallback: a sign that carries no measure is taken as filling its box. */
+   fallback: a sign that carries no measure is taken as filling its box, with
+   a stroke on every side. */
 @property --ink-w{syntax:'<number>';inherits:false;initial-value:1}
 @property --ink-h{syntax:'<number>';inherits:false;initial-value:1}
+@property --fill-l{syntax:'<number>';inherits:false;initial-value:0}
+@property --fill-r{syntax:'<number>';inherits:false;initial-value:0}
+@property --fill-t{syntax:'<number>';inherits:false;initial-value:0}
+@property --fill-b{syntax:'<number>';inherits:false;initial-value:0}
 @property --sign{syntax:'<length>';inherits:false;initial-value:13px}
 @property --half{syntax:'<length>';inherits:false;initial-value:0px}
 @supports (text-box: trim-both cap alphabetic) and (width: 1cap)
@@ -89,17 +99,26 @@
   .btn:has(> .btn-label) svg{
     --ink-w:attr(data-ink-w type(<number>), 1);
     --ink-h:attr(data-ink-h type(<number>), 1);
-    --sign:calc((1cap - 1.8px * 13 / 24) / max(var(--ink-w), var(--ink-h)));
     --half:calc(1.8px * 13 / 48);
+    /* the larger painted side as tall as the capitals: each side's ink plus
+       the half strokes it has, and the size that fits both */
+    --sign:min((1cap - (2 - var(--fill-l) - var(--fill-r)) * var(--half)) / max(var(--ink-w), 0.001),
+               (1cap - (2 - var(--fill-t) - var(--fill-b)) * var(--half)) / max(var(--ink-h), 0.001));
     width:var(--sign);height:var(--sign);overflow:visible;
     stroke-width:calc(1.8px * 13 / 24);
-    margin-left:calc((var(--ink-w) - 1) / 2 * var(--sign) + var(--half));
-    margin-right:calc(7px + (var(--ink-w) - 1) / 2 * var(--sign) + var(--half));
+    margin-left:calc((var(--ink-w) - 1) / 2 * var(--sign) + (1 - var(--fill-l)) * var(--half));
+    margin-right:calc(7px + (var(--ink-w) - 1) / 2 * var(--sign) + (1 - var(--fill-r)) * var(--half));
+    margin-top:calc((var(--fill-b) - var(--fill-t)) * var(--half) / 2);
+    margin-bottom:calc((var(--fill-t) - var(--fill-b)) * var(--half) / 2);
   }
   .btn:has(> .btn-label) svg.r{
-    margin-left:calc(7px + (var(--ink-w) - 1) / 2 * var(--sign) + var(--half));
-    margin-right:calc((var(--ink-w) - 1) / 2 * var(--sign) + var(--half));
+    margin-left:calc(7px + (var(--ink-w) - 1) / 2 * var(--sign) + (1 - var(--fill-l)) * var(--half));
+    margin-right:calc((var(--ink-w) - 1) / 2 * var(--sign) + (1 - var(--fill-r)) * var(--half));
   }
+  .btn:has(> .btn-label) svg[data-ink-fill~="l"]{--fill-l:1}
+  .btn:has(> .btn-label) svg[data-ink-fill~="r"]{--fill-r:1}
+  .btn:has(> .btn-label) svg[data-ink-fill~="t"]{--fill-t:1}
+  .btn:has(> .btn-label) svg[data-ink-fill~="b"]{--fill-b:1}
   .btn:has(> .btn-label) svg[data-carattere]{--half:0px}
   .btn:has(> .btn-label) svg :is(path,line,polyline,polygon,rect,circle,ellipse){
     vector-effect:non-scaling-stroke;
