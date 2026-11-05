@@ -533,6 +533,11 @@ $w.add_ContentRendered({{
             [System.Threading.Thread]::Sleep(400)
             $fb = $fl.Core.MotionClock
             $out.FlowClock = @($fa, $fb)
+            $out.FlowSteps = @($fl.Core.MarkFlowSteps(0.4, 8.0, 0.001))
+            $fr1 = $fl.Core.FlowTime
+            $fl.Core.MotionFromNow()
+            [System.Threading.Thread]::Sleep(120)
+            $out.FlowRestart = @($fr1, $fl.Core.FlowTime)
             $out.FlowSettle = $fl.Core.Settle()
             Close-Splash $fl
 
@@ -605,8 +610,25 @@ def test_flow_reads_the_same_parts_and_keeps_its_own_clock(motion):
     assert motion["FlowMoving"] == 3
     assert motion["FlowWays"] == motion["Ways"]
     a, b = motion["FlowClock"]
-    assert 0.3 < (b - a) % 2.6 < 0.7, motion["FlowClock"]
+    assert 0.3 < (b - a) % 1.8 < 0.7, motion["FlowClock"]
     assert motion["FlowSettle"] > 0
+
+
+def test_flow_never_jumps_and_starts_over_when_asked(motion):
+    """Past the first rush of the entrance, no part moves more in a
+    millisecond than the lift does at its fastest (2026-11-05: where the cycle
+    took over, the last part jumped two hundredths of the mark's height in one
+    frame, a hundred times the lift's pace). And MotionFromNow puts the
+    entrance back at its start, for a window that was covered while the first
+    of it went by."""
+    d, s, rot, op, _ = motion["FlowSteps"]
+    assert d < 0.0005, motion["FlowSteps"]
+    assert s < 0.0015, motion["FlowSteps"]
+    assert rot < 0.02, motion["FlowSteps"]
+    assert op == 0, motion["FlowSteps"]
+    before, after = motion["FlowRestart"]
+    assert before > 0.5, motion["FlowRestart"]
+    assert 0 < after < 0.4, motion["FlowRestart"]
 
 
 def test_the_parts_are_read_off_the_drawing(motion):

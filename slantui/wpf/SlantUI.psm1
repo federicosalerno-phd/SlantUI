@@ -3542,8 +3542,12 @@ function Show-SlantSplash {
                             Without it, eight seconds.
         .PARAMETER Motion   How the brand moves while the screen is up:
                             'none' (the default, a still mark), 'breathe' (each
-                            part out along its own line and back, in turns) or
-                            'pulse' (all of them in step). The parts are read
+                            part out along its own line and back, in turns),
+                            'pulse' (all of them in step) or 'flow' (the parts
+                            fly in and land in six tenths of a second, then a
+                            wave lifts them in turn every 1.8 seconds; a window
+                            shown covered calls .Core.MotionFromNow() when it is
+                            uncovered, so the entrance is seen whole). The parts are read
                             off the drawing: its top-level shapes, each moving
                             on the line from the hub (the shape sitting on the
                             middle, which holds still) through its centroid. A

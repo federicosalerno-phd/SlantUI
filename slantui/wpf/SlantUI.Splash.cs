@@ -65,14 +65,27 @@ using System.Windows.Threading;
 //   * "none": the mark stands still, which is what it has always done.
 //   * "flow": a choreography, not a breath. The parts come in from close by,
 //     turning a little and growing, each a little after the one before, and
-//     land softly; the hub comes in after them, and a soft glow lights up
-//     behind. Then a cycle: a wave goes round the mark and each part in turn
-//     lifts out and grows a touch, and the whole mark floats. Nothing on it is
-//     drawn through a layer: no light, no sheen, the glow's opacity in its
-//     brush, so each frame costs what the shapes cost. Settle brings it all to rest before the fade. It was asked
-//     for on 2026-11-05 ("static, boring, slow, it stutters"): the breath was
-//     smooth, measured at one change per frame at 60 Hz, but it moved a few
-//     pixels in three and a half seconds, which reads as standing still.
+//     land softly; the hub grows in under them, and a soft glow lights up
+//     behind. The whole entrance takes six tenths of a second. Then a cycle of
+//     1.8 seconds: a wave goes round the mark and each part in turn lifts out
+//     and grows a touch, always one or two of them on the move, and the whole
+//     mark floats. Nothing on it is drawn through a layer once it has come in:
+//     no light, no sheen, the glow one of a set of brushes made once, so each
+//     frame costs what the shapes cost. Settle brings it all to rest before
+//     the fade. It was asked for on 2026-11-05 ("static, boring, slow, it
+//     stutters"): the breath was smooth, measured at one change per frame at
+//     60 Hz, but it moved a few pixels in three and a half seconds, which reads
+//     as standing still; and later the same day "faster, more pleasant, fluid":
+//     the first flow took a second to come in and 2.6 to go round, and the
+//     last part jumped a quarter of its lift in one frame where the cycle took
+//     over from the entrance.
+//
+// The time of "flow" is an animation, not a stopwatch (FlowTime): its value is
+// the frame's own time, the same for every shape drawn in that frame, while a
+// stopwatch read inside OnRender is whenever OnRender happens to run, a few
+// milliseconds early or late from one frame to the next, and the movement
+// judders by that much. A window shown covered until it has drawn calls
+// RestartFlow when it is uncovered, so the entrance is seen from its start.
 //
 // A part is one top-level shape of the drawing; a group holding a single
 // thing is opened up until there is more than one thing inside. Its line runs
@@ -171,6 +184,18 @@ public class SlantRing : FrameworkElement
     public static readonly DependencyProperty MotionAmountProperty =
         DependencyProperty.Register("MotionAmount", typeof(double), typeof(SlantRing),
             new FrameworkPropertyMetadata(1.0, FrameworkPropertyMetadataOptions.AffectsRender));
+
+    // "flow" only: seconds since the entrance began, animated on the drawing
+    // thread, so every frame reads the frame's own time
+    public static readonly DependencyProperty FlowTimeProperty =
+        DependencyProperty.Register("FlowTime", typeof(double), typeof(SlantRing),
+            new FrameworkPropertyMetadata(0.0, FrameworkPropertyMetadataOptions.AffectsRender));
+
+    public double FlowTime
+    {
+        get { return (double)GetValue(FlowTimeProperty); }
+        set { SetValue(FlowTimeProperty, value); }
+    }
 
     public double MotionClock
     {
@@ -411,7 +436,6 @@ public class SlantRing : FrameworkElement
     private sealed class Part
     {
         public Drawing Art;
-        public Drawing Lit;         // the same shapes in white, for the light ("flow")
         public Point Centroid;
         public Vector Way;          // a unit vector, in the mark's own units
         public int Turn = -1;       // its place among the parts that move; -1 holds still
@@ -427,15 +451,31 @@ public class SlantRing : FrameworkElement
     private int _settleMs;
     private bool _settling;
     private bool _smooth;
-    // "flow": its own clock (the entrance is timed from the start, the cycle
-    // after it), the hub, a white copy of each part for the light, and the
-    // brushes of the glow and the ripple, made once
+    // "flow": the hub, and the glow at every strength it is drawn at, made
+    // once (a brush made in a frame is a resource the render thread builds in
+    // that frame, and a radial one is a texture)
     private bool _flow;
     private int _hub = -1;
-    private System.Diagnostics.Stopwatch _flowClock;
-    private Brush _glow;
-    private Color _rippleColor = Colors.White;
-    private const double FlowIntro = 0.95;
+    private Brush[] _glows;
+
+    // The entrance, in seconds from the first frame: each face starts a gap
+    // after the one before and lands in FaceLand, from FaceFrom of the mark's
+    // height away; the hub grows in under them. The cycle takes over when the
+    // last of them is home. Then each face spends Lift of the cycle lifted, out
+    // by Reach of the height and grown by Grow.
+    private const double FlowFaceGap = 0.07, FlowFaceLand = 0.46, FlowFaceFrom = 0.20;
+    private const double FlowHubStart = 0.16, FlowHubLand = 0.42;
+    private const double FlowLift = 0.55, FlowReach = 0.07, FlowGrow = 0.05;
+    private const double FlowPeriod = 1.8;
+
+    private double FlowIntro
+    {
+        get
+        {
+            double faces = Math.Max(0, _moving - 1) * FlowFaceGap + FlowFaceLand;
+            return Math.Max(faces, FlowHubStart + FlowHubLand);
+        }
+    }
 
     public int PartCount { get { return _parts == null ? 0 : _parts.Length; } }
     public int MovingCount { get { return _parts == null ? 0 : _moving; } }
@@ -649,27 +689,29 @@ public class SlantRing : FrameworkElement
         if (_flow)
         {
             _hub = hub;
-            if (double.IsNaN(m.Period) || m.Period <= 0.05) _period = 2.6;
-            for (int i = 0; i < parts.Length; i++)
+            if (double.IsNaN(m.Period) || m.Period <= 0.05) _period = FlowPeriod;
+            // 65 strengths: the glow changes by a sixty-fourth at most from
+            // one brush to the next, which no eye picks out
+            _glows = new Brush[65];
+            for (int j = 0; j < _glows.Length; j++)
             {
-                try { parts[i].Lit = Whiten(parts[i].Art); } catch { parts[i].Lit = null; }
+                RadialGradientBrush g = new RadialGradientBrush();
+                g.GradientStops.Add(new GradientStop(Color.FromArgb(150, _accent.R, _accent.G, _accent.B), 0.0));
+                g.GradientStops.Add(new GradientStop(Color.FromArgb(48, _accent.R, _accent.G, _accent.B), 0.45));
+                g.GradientStops.Add(new GradientStop(Color.FromArgb(0, _accent.R, _accent.G, _accent.B), 1.0));
+                g.Opacity = j / (double)(_glows.Length - 1);
+                g.Freeze();
+                _glows[j] = g;
             }
-            Color hubColor = _hub >= 0 ? FillOf(parts[_hub].Art, Colors.White) : Colors.White;
-            _rippleColor = hubColor;
-            RadialGradientBrush g = new RadialGradientBrush();
-            g.GradientStops.Add(new GradientStop(Color.FromArgb(150, _accent.R, _accent.G, _accent.B), 0.0));
-            g.GradientStops.Add(new GradientStop(Color.FromArgb(48, _accent.R, _accent.G, _accent.B), 0.45));
-            g.GradientStops.Add(new GradientStop(Color.FromArgb(0, _accent.R, _accent.G, _accent.B), 1.0));
-            g.Freeze();
-            _glow = g;
-            _flowClock = System.Diagnostics.Stopwatch.StartNew();
-            // the clock that makes the frames: one cycle of its own, forever,
-            // so OnRender is asked for on every frame of the compositor
+            // MotionClock goes on turning one cycle at a time, for whoever
+            // reads it; the drawing reads FlowTime, which also asks for a
+            // frame on every frame of the compositor
             DoubleAnimation tick = new DoubleAnimation(0.0, _period, TimeSpan.FromSeconds(_period));
             tick.RepeatBehavior = RepeatBehavior.Forever;
             BeginAnimation(MotionClockProperty, tick);
             BeginAnimation(MotionAmountProperty, null);
             MotionAmount = 1.0;
+            RestartFlow();
             return;
         }
 
@@ -707,146 +749,130 @@ public class SlantRing : FrameworkElement
         return 0.5 - 0.5 * Math.Cos(2 * Math.PI * ph / width);
     }
 
-    // the same shapes, filled white: drawn over a part at some opacity it
-    // lights the part up without changing its outline
-    private static Drawing Whiten(Drawing d)
-    {
-        Drawing c = d.CloneCurrentValue();
-        Paint(c);
-        if (c.CanFreeze) c.Freeze();
-        return c;
-    }
-    private static void Paint(Drawing d)
-    {
-        GeometryDrawing gd = d as GeometryDrawing;
-        if (gd != null)
-        {
-            if (gd.Brush != null) gd.Brush = Brushes.White;
-            if (gd.Pen != null) { Pen p = gd.Pen.CloneCurrentValue(); p.Brush = Brushes.White; gd.Pen = p; }
-            return;
-        }
-        DrawingGroup g = d as DrawingGroup;
-        if (g != null) foreach (Drawing ch in g.Children) Paint(ch);
-    }
-    private static Color FillOf(Drawing d, Color fallback)
-    {
-        GeometryDrawing gd = d as GeometryDrawing;
-        if (gd != null)
-        {
-            SolidColorBrush b = gd.Brush as SolidColorBrush;
-            return b != null ? b.Color : fallback;
-        }
-        DrawingGroup g = d as DrawingGroup;
-        if (g != null) foreach (Drawing ch in g.Children) { Color c = FillOf(ch, fallback); if (c != fallback) return c; }
-        return fallback;
-    }
-
-    // Where part i is, at time 'now' (seconds from the start) with the cycle
-    // turned up by 'env': a distance along its line, a scale, a turn in
-    // degrees about its centroid, an opacity and how much light it catches.
+    // Where part i is, at time 'now' (seconds from the start of the entrance)
+    // with the cycle turned up by 'env': a distance along its line, a scale,
+    // a turn in degrees about its centroid and an opacity.
     private void FlowPose(Part p, int i, double now, double env,
-                          out double d, out double s, out double rot, out double op, out double light)
+                          out double d, out double s, out double rot, out double op)
     {
-        d = 0; s = 1; rot = 0; op = 1; light = 0;
+        d = 0; s = 1; rot = 0; op = 1;
         double loop = now - FlowIntro;
         if (p.Turn >= 0)
         {
-            double start = 0.06 + p.Turn * 0.11;
-            double k = Clamp01((now - start) / 0.66);
+            double k = Clamp01((now - p.Turn * FlowFaceGap) / FlowFaceLand);
             // a soft landing: a hint of overshoot, a small turn, from close by
-            double e = OutBack(k, 1.15);
-            d = (1 - e) * 0.26 * _height;
-            s = 0.6 + 0.4 * e;
-            rot = (1 - e) * (p.Turn % 2 == 0 ? -14 : 14);
-            op = SmoothStep(k * 2.4);
-            // the moment of landing catches the light once
-            light = 0.45 * Bump(k - 0.55, 0.45);
-            if (loop > 0)
+            double e = OutBack(k, 1.2);
+            d = (1 - e) * FlowFaceFrom * _height;
+            s = 0.7 + 0.3 * e;
+            rot = (1 - e) * (p.Turn % 2 == 0 ? -10 : 10);
+            op = SmoothStep(k * 3.0);
+            // The wave. Each face's first lift starts a turn after the one
+            // before it, from rest, so the cycle takes over from the entrance
+            // without moving anything: a phase wrapped from the first frame
+            // put the last face a quarter of the way up in a single frame.
+            double ph = loop / _period - p.Turn / (double)Math.Max(1, _moving);
+            if (ph > 0)
             {
-                double ph = Frac(loop / _period - p.Turn / (double)Math.Max(1, _moving));
-                double b = Bump(ph, 0.40) * env;
-                d += 0.085 * _height * b;
-                s *= 1 + 0.06 * b;
-                light += 0.22 * b;
+                double b = Bump(Frac(ph), FlowLift) * env;
+                d += FlowReach * _height * b;
+                s *= 1 + FlowGrow * b;
             }
         }
         else if (i == _hub)
         {
-            double k = Clamp01((now - 0.36) / 0.56);
-            double e = OutBack(k, 1.5);
-            s = Math.Max(0.0, e);
-            op = SmoothStep(k * 3.0);
-            if (loop > 0)
-            {
-                double ph = Frac(loop / _period);
-                s *= 1 + 0.12 * env * Bump(ph, 0.22);
-            }
+            // it grows out of nothing, so it needs no fade, and no layer
+            double k = Clamp01((now - FlowHubStart) / FlowHubLand);
+            s = Math.Max(0.0, OutBack(k, 1.4));
+            if (loop > 0) s *= 1 + 0.05 * env * Bump(Frac(loop / _period), 0.30);
         }
     }
 
     private void DrawFlow(DrawingContext dc)
     {
-        double now = _flowClock == null ? 0 : _flowClock.Elapsed.TotalSeconds;
+        double now = FlowTime;
         double env = MotionAmount;
         double H = _height;
-        double loop = now - FlowIntro;
         Point mc = _hub >= 0 ? _parts[_hub].Centroid : new Point(_box.X + _box.Width / 2.0, _box.Y + _box.Height / 2.0);
 
         // the glow behind: it comes up with the entrance and breathes with
         // the cycle, and goes down with the rest when the screen settles
-        double glow = SmoothStep(now / 0.9) * (0.55 + 0.25 * Math.Sin(2 * Math.PI * now / _period)) * (0.35 + 0.65 * env);
-        if (_glow != null && glow > 0.004)
+        double glow = SmoothStep(now / 0.5) * (0.55 + 0.20 * Math.Sin(2 * Math.PI * now / _period)) * (0.35 + 0.65 * env);
+        if (_glows != null)
         {
-            // the opacity goes into a copy of the brush, not into a layer: a
-            // PushOpacity is drawn through a surface of its own on every frame
-            Brush gb = _glow.CloneCurrentValue();
-            gb.Opacity = Math.Min(1.0, glow);
-            gb.Freeze();
-            dc.DrawEllipse(gb, null, mc, 0.66 * H, 0.66 * H);
+            int g = (int)Math.Round(Clamp01(glow) * (_glows.Length - 1));
+            if (g > 0) dc.DrawEllipse(_glows[g], null, mc, 0.66 * H, 0.66 * H);
         }
 
-        // the whole mark floats, a little
-        double fy = 0.012 * H * Math.Sin(2 * Math.PI * now / (_period * 1.6)) * env;
+        // the whole mark floats, a little, once every two cycles
+        double fy = 0.010 * H * Math.Sin(Math.PI * now / _period) * env;
         dc.PushTransform(new TranslateTransform(0, fy));
 
-        // (the ripple that left the hub once a cycle is gone, 2026-11-05: a
-        // thin circle widening over the mark, every two and a half seconds,
-        // was the busiest thing on a screen that should be calm)
-
         // the parts: the faces first, the hub last, so it sits on top as in
-        // the drawing; each with its own pose and its own light
-        Matrix[] poses = new Matrix[_parts.Length];
-        double[] lights = new double[_parts.Length];
+        // the drawing, each with its own pose. The only layer is the fade of
+        // a face in the first sixth of a second of its entrance.
         for (int i = 0; i < _parts.Length; i++)
         {
             Part p = _parts[i];
-            double d, s, rot, op, light;
-            FlowPose(p, i, now, env, out d, out s, out rot, out op, out light);
+            double d, s, rot, op;
+            FlowPose(p, i, now, env, out d, out s, out rot, out op);
+            if (op <= 0.003 || s <= 0.003) continue;
             Matrix m = Matrix.Identity;
             m.Translate(-p.Centroid.X, -p.Centroid.Y);
             m.Scale(s, s);
             m.Rotate(rot);
             m.Translate(p.Centroid.X + p.Way.X * d, p.Centroid.Y + p.Way.Y * d);
-            poses[i] = m;
-            lights[i] = light;
-            if (op <= 0.003 || s <= 0.003) { poses[i] = new Matrix(0, 0, 0, 0, 0, 0); continue; }
             dc.PushTransform(new MatrixTransform(m));
             bool fadeIn = op < 0.999;
             if (fadeIn) dc.PushOpacity(op);
             if (_hasInner) dc.PushTransform(_innerTransform);
             dc.DrawDrawing(p.Art);
-            // (no light over the part any more: a white copy at a varying
-            // opacity was a layer of its own on every frame, 2026-11-05)
             if (_hasInner) dc.Pop();
             if (fadeIn) dc.Pop();
             dc.Pop();
         }
-
-        // (the sheen that crossed the mark on the diagonal is gone: it was an
-        // opacity mask, drawn through an intermediate surface on every frame
-        // of its half of the cycle, and the frames it cost were the ones that
-        // went missing when the machine was busy, 2026-11-05)
         dc.Pop();
+    }
+
+    // The entrance from its start, now. A window shown covered until it has
+    // drawn (DWMWA_CLOAK) is uncovered a few hundred milliseconds after the
+    // motion was set, and those milliseconds of the entrance went by under the
+    // cover: the mark came up already half way in. Whoever uncovers the window
+    // calls this at that moment (SlantSplashCore.MotionFromNow).
+    public void RestartFlow()
+    {
+        if (!_flow || _parts == null) return;
+        DoubleAnimation t = new DoubleAnimation(0.0, 86400.0, TimeSpan.FromSeconds(86400.0));
+        BeginAnimation(FlowTimeProperty, t);
+    }
+
+    // For a test: the largest change of each part's pose from one sample to
+    // the next, from 'from' to 'to' seconds into the movement, sampled every
+    // 'step' seconds, with the cycle fully on. Distance in fractions of the mark's
+    // height, scale, turn in degrees, opacity; and the time of the largest
+    // distance step. A jump anywhere shows up as one step far larger than
+    // its neighbours.
+    public double[] FlowSteps(double from, double to, double step)
+    {
+        double[] r = new double[5];
+        if (!_flow || _parts == null || step <= 0 || _height <= 0) return r;
+        int n = _parts.Length;
+        double[] pd = new double[n], ps = new double[n], pr = new double[n], po = new double[n];
+        for (int i = 0; i < n; i++) FlowPose(_parts[i], i, from, 1.0, out pd[i], out ps[i], out pr[i], out po[i]);
+        for (double t = from + step; t <= to + 1e-9; t += step)
+        {
+            for (int i = 0; i < n; i++)
+            {
+                double d, s, rot, op;
+                FlowPose(_parts[i], i, t, 1.0, out d, out s, out rot, out op);
+                double dd = Math.Abs(d - pd[i]) / _height;
+                if (dd > r[0]) { r[0] = dd; r[4] = t; }
+                r[1] = Math.Max(r[1], Math.Abs(s - ps[i]));
+                r[2] = Math.Max(r[2], Math.Abs(rot - pr[i]));
+                r[3] = Math.Max(r[3], Math.Abs(op - po[i]));
+                pd[i] = d; ps[i] = s; pr[i] = rot; po[i] = op;
+            }
+        }
+        return r;
     }
 
     // The parts come home, from wherever they are, on a curve that leaves
@@ -1192,6 +1218,21 @@ public sealed class SlantSplashCore
     public double MotionClock { get { return OnRing(r => r.MotionClock, 0.0); } }
     public double MotionAmount { get { return OnRing(r => r.MotionAmount, 0.0); } }
     public double[] MarkOffsets() { return OnRing(r => r.Offsets(), new double[0]); }
+    public double FlowTime { get { return OnRing(r => r.FlowTime, 0.0); } }
+    public double[] MarkFlowSteps(double from, double to, double step) { return OnRing(r => r.FlowSteps(from, to, step), new double[0]); }
+
+    // The brand's entrance from its start, now ("flow"): for a window shown
+    // covered while it drew, called at the moment it is uncovered. Queued
+    // behind SetMotion, at the same priority, so it can never run first.
+    public void MotionFromNow()
+    {
+        Dispatcher d = _dispatcher;
+        if (d == null) return;
+        d.BeginInvoke(DispatcherPriority.Normal, (Action)delegate ()
+        {
+            try { if (_ring != null) _ring.RestartFlow(); } catch { }
+        });
+    }
 
     // Bring the parts home and say how long it takes. Hide calls this first
     // and starts the fade when it is over.
