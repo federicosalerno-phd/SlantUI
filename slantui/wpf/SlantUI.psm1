@@ -3546,8 +3546,9 @@ function Show-SlantSplash {
                             'pulse' (all of them in step) or 'flow' (the parts
                             fly in and land in six tenths of a second, then a
                             wave lifts them in turn every 1.8 seconds; a window
-                            shown covered calls .Core.MotionFromNow() when it is
-                            uncovered, so the entrance is seen whole). The parts are read
+                            shown covered passes Wait and calls
+                            .Core.MotionFromNow() when it is uncovered, so the
+                            entrance is seen whole and nothing before it). The parts are read
                             off the drawing: its top-level shapes, each moving
                             on the line from the hub (the shape sitting on the
                             middle, which holds still) through its centroid. A
@@ -3565,7 +3566,9 @@ function Show-SlantSplash {
                             open when the screen comes up, 420), Settle (ms
                             for them to come home before it goes, 260) and
                             Curve ('sine', or 'smooth', which rests a moment
-                            at either end of the movement, like a breath).
+                            at either end of the movement, like a breath), and
+                            for 'flow' Wait ($true: nothing of the mark until
+                            .Core.MotionFromNow(), two seconds at most).
 
         .EXAMPLE
             $splash = Show-SlantSplash -Chrome $chrome -Logo .\brand.svg -Text 'starting'
@@ -3722,6 +3725,9 @@ function Show-SlantSplash {
             }
             if ($MotionOptions.ContainsKey('Curve') -and $null -ne $MotionOptions['Curve']) {
                 $moto.Curve = "$($MotionOptions['Curve'])"
+            }
+            if ($MotionOptions.ContainsKey('Wait') -and $null -ne $MotionOptions['Wait']) {
+                $moto.Wait = [bool]$MotionOptions['Wait']
             }
             $core.SetMotion($moto)
         } catch {

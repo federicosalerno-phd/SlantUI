@@ -541,6 +541,16 @@ $w.add_ContentRendered({{
             $out.FlowSettle = $fl.Core.Settle()
             Close-Splash $fl
 
+            # --- flow held until the window is uncovered (Wait) --------------
+            $fw = Show-SlantSplash -Chrome $chrome -Logo $Mark -Text 'starting' -Motion flow `
+                                   -MotionOptions @{{ Wait = $true }}
+            [System.Threading.Thread]::Sleep(300)
+            $out.WaitHeld = @($fw.Core.FlowHeld, $fw.Core.FlowTime)
+            $fw.Core.MotionFromNow()
+            [System.Threading.Thread]::Sleep(150)
+            $out.WaitGone = @($fw.Core.FlowHeld, $fw.Core.FlowTime)
+            Close-Splash $fw
+
             # --- no motion asked for: the mark is one image, as before -----
             $n = Show-SlantSplash -Chrome $chrome -Logo $Mark -Text 'starting'
             [System.Threading.Thread]::Sleep(150)
@@ -629,6 +639,17 @@ def test_flow_never_jumps_and_starts_over_when_asked(motion):
     before, after = motion["FlowRestart"]
     assert before > 0.5, motion["FlowRestart"]
     assert 0 < after < 0.4, motion["FlowRestart"]
+
+
+def test_a_held_flow_draws_nothing_until_asked(motion):
+    """Wait holds the entrance at its first frame, where nothing of the mark
+    is drawn, until MotionFromNow (2026-11-05: restarted after the cover, the
+    entrance had already run under it, and the first frames on screen showed
+    the mark whole before it vanished and came in again)."""
+    held, t = motion["WaitHeld"]
+    assert held is True and t == 0, motion["WaitHeld"]
+    held, t = motion["WaitGone"]
+    assert held is False and 0 < t < 0.4, motion["WaitGone"]
 
 
 def test_the_parts_are_read_off_the_drawing(motion):

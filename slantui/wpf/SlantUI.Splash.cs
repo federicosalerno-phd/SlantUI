@@ -84,8 +84,10 @@ using System.Windows.Threading;
 // the frame's own time, the same for every shape drawn in that frame, while a
 // stopwatch read inside OnRender is whenever OnRender happens to run, a few
 // milliseconds early or late from one frame to the next, and the movement
-// judders by that much. A window shown covered until it has drawn calls
-// RestartFlow when it is uncovered, so the entrance is seen from its start.
+// judders by that much. A window shown covered until it has drawn asks for
+// Wait, which holds the entrance at its first frame (nothing of the mark yet),
+// and calls MotionFromNow when it is uncovered, so the entrance is seen from
+// its start and nothing is seen before it.
 //
 // A part is one top-level shape of the drawing; a group holding a single
 // thing is opened up until there is more than one thing inside. Its line runs
@@ -122,6 +124,7 @@ public sealed class SlantMotion
     public int Arrive = -1;                 // ms for the parts to open when the screen comes up
     public int Settle = -1;                 // ms for them to come home before it goes
     public string Curve = "sine";           // "sine", or "smooth": a rest at either end
+    public bool Wait;                       // "flow": hold the first frame until MotionFromNow
 
     // the movement as it was drawn: eight units either side of eight, on a
     // mark 238.92 units tall
@@ -711,7 +714,7 @@ public class SlantRing : FrameworkElement
             BeginAnimation(MotionClockProperty, tick);
             BeginAnimation(MotionAmountProperty, null);
             MotionAmount = 1.0;
-            RestartFlow();
+            if (m.Wait) HoldFlow(); else RestartFlow();
             return;
         }
 
@@ -840,10 +843,34 @@ public class SlantRing : FrameworkElement
     // calls this at that moment (SlantSplashCore.MotionFromNow).
     public void RestartFlow()
     {
+        if (_flowWait != null) { _flowWait.Stop(); _flowWait = null; }
         if (!_flow || _parts == null) return;
         DoubleAnimation t = new DoubleAnimation(0.0, 86400.0, TimeSpan.FromSeconds(86400.0));
         BeginAnimation(FlowTimeProperty, t);
     }
+
+    // The entrance held at its first frame, where nothing of the mark is
+    // drawn yet (SlantMotion.Wait). Restarting it when the window is uncovered
+    // was not enough: the entrance had run under the cover, so the first
+    // frames on screen showed the mark whole, and then it vanished and came in
+    // again (measured 2026-11-05: three frames, 45 ms). Held, the first frame
+    // on screen is the ring with nothing in it, and MotionFromNow lets the
+    // entrance go. If no call comes, it goes by itself after FlowWaitMax.
+    private const double FlowWaitMax = 2.0;
+    private DispatcherTimer _flowWait;
+
+    private void HoldFlow()
+    {
+        BeginAnimation(FlowTimeProperty, null);
+        FlowTime = 0.0;
+        if (_flowWait != null) _flowWait.Stop();
+        _flowWait = new DispatcherTimer(DispatcherPriority.Normal, Dispatcher);
+        _flowWait.Interval = TimeSpan.FromSeconds(FlowWaitMax);
+        _flowWait.Tick += delegate { RestartFlow(); };
+        _flowWait.Start();
+    }
+
+    public bool FlowHeld { get { return _flowWait != null; } }
 
     // For a test: the largest change of each part's pose from one sample to
     // the next, from 'from' to 'to' seconds into the movement, sampled every
@@ -1224,8 +1251,15 @@ public sealed class SlantSplashCore
     // The brand's entrance from its start, now ("flow"): for a window shown
     // covered while it drew, called at the moment it is uncovered. Queued
     // behind SetMotion, at the same priority, so it can never run first.
+    // Asked for before the drawing thread has built the ring, the call is
+    // remembered and the ring starts its entrance as soon as it has one: a
+    // held entrance (SlantMotion.Wait) must not wait for the timer because the
+    // window was uncovered a moment too early.
+    private volatile bool _fromNow;
+
     public void MotionFromNow()
     {
+        _fromNow = true;
         Dispatcher d = _dispatcher;
         if (d == null) return;
         d.BeginInvoke(DispatcherPriority.Normal, (Action)delegate ()
@@ -1233,6 +1267,8 @@ public sealed class SlantSplashCore
             try { if (_ring != null) _ring.RestartFlow(); } catch { }
         });
     }
+
+    public bool FlowHeld { get { return OnRing(r => r.FlowHeld, false); } }
 
     // Bring the parts home and say how long it takes. Hide calls this first
     // and starts the fade when it is over.
@@ -1317,6 +1353,7 @@ public sealed class SlantSplashCore
         _ring.HorizontalAlignment = HorizontalAlignment.Center;
         centre.Children.Add(_ring);
         if (_motion != null) { try { _ring.SetMotion(_motion); } catch { } }
+        if (_fromNow) { try { _ring.RestartFlow(); } catch { } }
 
         FontFamily ff = new FontFamily(_fontFamily);
         SolidColorBrush ab = new SolidColorBrush(_accent);
