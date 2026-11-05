@@ -67,8 +67,9 @@ using System.Windows.Threading;
 //     turning a little and growing, each a little after the one before, and
 //     land softly; the hub comes in after them, and a soft glow lights up
 //     behind. Then a cycle: a wave goes round the mark and each part in turn
-//     lifts out, grows a touch and catches the light; a faint sheen crosses
-//     the mark on the diagonal, and the whole mark floats. Settle brings it all to rest before the fade. It was asked
+//     lifts out and grows a touch, and the whole mark floats. Nothing on it is
+//     drawn through a layer: no light, no sheen, the glow's opacity in its
+//     brush, so each frame costs what the shapes cost. Settle brings it all to rest before the fade. It was asked
 //     for on 2026-11-05 ("static, boring, slow, it stutters"): the breath was
 //     smooth, measured at one change per frame at 60 Hz, but it moved a few
 //     pixels in three and a half seconds, which reads as standing still.
@@ -796,9 +797,12 @@ public class SlantRing : FrameworkElement
         double glow = SmoothStep(now / 0.9) * (0.55 + 0.25 * Math.Sin(2 * Math.PI * now / _period)) * (0.35 + 0.65 * env);
         if (_glow != null && glow > 0.004)
         {
-            dc.PushOpacity(glow);
-            dc.DrawEllipse(_glow, null, mc, 0.66 * H, 0.66 * H);
-            dc.Pop();
+            // the opacity goes into a copy of the brush, not into a layer: a
+            // PushOpacity is drawn through a surface of its own on every frame
+            Brush gb = _glow.CloneCurrentValue();
+            gb.Opacity = Math.Min(1.0, glow);
+            gb.Freeze();
+            dc.DrawEllipse(gb, null, mc, 0.66 * H, 0.66 * H);
         }
 
         // the whole mark floats, a little
@@ -831,45 +835,17 @@ public class SlantRing : FrameworkElement
             if (fadeIn) dc.PushOpacity(op);
             if (_hasInner) dc.PushTransform(_innerTransform);
             dc.DrawDrawing(p.Art);
-            if (light > 0.004 && p.Lit != null) { dc.PushOpacity(Math.Min(1.0, light)); dc.DrawDrawing(p.Lit); dc.Pop(); }
+            // (no light over the part any more: a white copy at a varying
+            // opacity was a layer of its own on every frame, 2026-11-05)
             if (_hasInner) dc.Pop();
             if (fadeIn) dc.Pop();
             dc.Pop();
         }
 
-        // the sheen: a soft white band crosses the mark on the diagonal, in
-        // the second half of each cycle, drawn through the white copies so it
-        // stays inside the shapes
-        if (loop > 0 && env > 0.01)
-        {
-            double ph = Frac(loop / _period);
-            double k = (ph - 0.40) / 0.50;
-            if (k > 0 && k < 1)
-            {
-                double pos = -0.25 + 1.5 * SmoothStep(k);
-                byte a = (byte)Math.Round(80 * env * Math.Sin(Math.PI * k));
-                LinearGradientBrush sb = new LinearGradientBrush();
-                sb.MappingMode = BrushMappingMode.Absolute;
-                sb.StartPoint = new Point(_box.X, _box.Y);
-                sb.EndPoint = new Point(_box.X + _box.Width, _box.Y + _box.Height);
-                sb.GradientStops.Add(new GradientStop(Color.FromArgb(0, 255, 255, 255), pos - 0.16));
-                sb.GradientStops.Add(new GradientStop(Color.FromArgb(a, 255, 255, 255), pos));
-                sb.GradientStops.Add(new GradientStop(Color.FromArgb(0, 255, 255, 255), pos + 0.16));
-                sb.Freeze();
-                dc.PushOpacityMask(sb);
-                for (int i = 0; i < _parts.Length; i++)
-                {
-                    Part p = _parts[i];
-                    if (p.Lit == null || poses[i].M11 == 0 && poses[i].M12 == 0) continue;
-                    dc.PushTransform(new MatrixTransform(poses[i]));
-                    if (_hasInner) dc.PushTransform(_innerTransform);
-                    dc.DrawDrawing(p.Lit);
-                    if (_hasInner) dc.Pop();
-                    dc.Pop();
-                }
-                dc.Pop();
-            }
-        }
+        // (the sheen that crossed the mark on the diagonal is gone: it was an
+        // opacity mask, drawn through an intermediate surface on every frame
+        // of its half of the cycle, and the frames it cost were the ones that
+        // went missing when the machine was busy, 2026-11-05)
         dc.Pop();
     }
 

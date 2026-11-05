@@ -3867,12 +3867,13 @@ function Show-SlantSplash {
         $parti = {
             try {
                 if ($null -ne $me.Under -and $me.Empty) {
-                    # the page comes back for the reveal, blurred, drawn once
-                    # into a bitmap: while it comes into focus it does not
-                    # change, and the blur then works on one texture instead
-                    # of on the whole tree every frame
-                    try { $me.Under.CacheMode = New-Object System.Windows.Media.BitmapCache } catch { }
-                    if ($null -ne $me.Blur) { $me.Under.Effect = $me.Blur }
+                    # The page comes back for the reveal sharp, and the empty
+                    # window thins out over it. It used to come back blurred
+                    # and come into focus, and a blur over a whole page is a
+                    # shader over every pixel of every frame: on a 4K screen
+                    # the reveal ran at thirty frames a second (measured on
+                    # 2026-11-05, a gap of 33 ms between every two frames).
+                    # The veil, where the page is in sight all along, keeps it.
                     $me.Under.Visibility = 'Visible'
                 }
                 if ($null -ne $me.Under) { $me.Under.UpdateLayout() }
@@ -3884,7 +3885,7 @@ function Show-SlantSplash {
                     # fade is left. They are guarded one at a time, because a
                     # throw here would carry off the FadeOut below with it and
                     # the screen would never leave at all.
-                    if ($null -ne $me.Blur) {
+                    if ($null -ne $me.Blur -and -not $me.Empty) {
                         if ($lunga) {
                             # The page comes into focus on the curve the Qt
                             # half's page does (layout.css): from a twentieth of
