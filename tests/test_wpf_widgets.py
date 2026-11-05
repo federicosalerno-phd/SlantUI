@@ -128,11 +128,16 @@ $w.add_ContentRendered({{
             $out.TurnA = $a
             $out.TurnB = $b
             $out.BusyStillOn = $splash.IsBusy()
+            # where the ring is while it waits, in the screen's coordinates
+            $c0 = $splash.Core.RingCentre
+            $out.CentreBusy = @([math]::Round($c0.X, 2), [math]::Round($c0.Y, 2))
 
             # --- an announced step ends the wait by itself -------------------
             $splash.SetProgress(0.15, 'reading')
             [System.Threading.Thread]::Sleep(120)
             $out.BusyAfterStep = $splash.IsBusy()
+            $c1 = $splash.Core.RingCentre
+            $out.CentreStep = @([math]::Round($c1.X, 2), [math]::Round($c1.Y, 2))
 
             # --- and the fill never stands still -----------------------------
             # Drawn is sampled every 25 ms across a run of steps with a long
@@ -160,6 +165,8 @@ $w.add_ContentRendered({{
                         $out.Composed = $splash.Core.Composed
                         $out.Drawn = $splash.Core.Drawn
                         $out.Announced = $splash.Core.Progress
+                        $c2 = $splash.Core.RingCentre
+                        $out.CentreLate = @([math]::Round($c2.X, 2), [math]::Round($c2.Y, 2))
                         $splash.Hide(120)
                         $via = New-Object System.Windows.Threading.DispatcherTimer
                         $via.Interval = [TimeSpan]::FromMilliseconds(500)
@@ -301,6 +308,20 @@ def test_the_ring_turns_while_this_thread_is_held_down(splash):
     of it are of two different frames. They were once the same picture."""
     assert splash["TurnA"], "no photograph came back at all"
     assert splash["TurnA"] != splash["TurnB"]
+
+
+def test_the_ring_stays_put_from_waiting_to_measuring(splash):
+    """Waiting, the ring turns with no number under it; measuring, the number
+    is there. The number used to be Collapsed while waiting, so the block under
+    the ring was one line shorter and the ring, centred with it, climbed by half
+    that line at the first announced step (about 17 pixels, 2026-11-05: "the
+    ring must never move"). It is Hidden now, and the centre is the same to a
+    tenth of a pixel in both modes and after three more steps."""
+    busy, step, late = splash["CentreBusy"], splash["CentreStep"], splash["CentreLate"]
+    for x in busy + step + late:
+        assert x == x, (busy, step, late)          # not NaN: the ring was laid out
+    for got in (step, late):
+        assert abs(got[0] - busy[0]) < 0.1 and abs(got[1] - busy[1]) < 0.1, (busy, step, late)
 
 
 def test_the_movement_comes_from_the_compositor(splash):
@@ -465,6 +486,19 @@ $w.add_ContentRendered({{
             $out.SmoothClock = @($sa, $sb)
             Close-Splash $sm
 
+            # --- flow, the choreography -------------------------------------
+            $fl = Show-SlantSplash -Chrome $chrome -Logo $Mark -Text 'starting' -Motion flow
+            [System.Threading.Thread]::Sleep(250)
+            $out.FlowParts = $fl.Core.MarkParts
+            $out.FlowMoving = $fl.Core.MarkMoving
+            $out.FlowWays = $fl.Core.MarkWays
+            $fa = $fl.Core.MotionClock
+            [System.Threading.Thread]::Sleep(400)
+            $fb = $fl.Core.MotionClock
+            $out.FlowClock = @($fa, $fb)
+            $out.FlowSettle = $fl.Core.Settle()
+            Close-Splash $fl
+
             # --- no motion asked for: the mark is one image, as before -----
             $n = Show-SlantSplash -Chrome $chrome -Logo $Mark -Text 'starting'
             [System.Threading.Thread]::Sleep(150)
@@ -522,7 +556,20 @@ def motion(tmp_path_factory) -> dict:
 def test_the_motion_belongs_to_both_forms(motion):
     assert motion["MotionSets"] == ["__AllParameterSets"]
     assert motion["MotionOptionsSets"] == ["__AllParameterSets"]
-    assert sorted(motion["Presets"]) == ["breathe", "none", "pulse"]
+    assert sorted(motion["Presets"]) == ["breathe", "flow", "none", "pulse"]
+
+
+def test_flow_reads_the_same_parts_and_keeps_its_own_clock(motion):
+    """The choreography moves the same parts on the same lines as the breath,
+    from the drawing's own shapes; its frames come from the drawing thread, so
+    the clock goes on while this one sleeps; and it comes home before a fade
+    like the others."""
+    assert motion["FlowParts"] == 4
+    assert motion["FlowMoving"] == 3
+    assert motion["FlowWays"] == motion["Ways"]
+    a, b = motion["FlowClock"]
+    assert 0.3 < (b - a) % 2.6 < 0.7, motion["FlowClock"]
+    assert motion["FlowSettle"] > 0
 
 
 def test_the_parts_are_read_off_the_drawing(motion):

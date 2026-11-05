@@ -209,9 +209,9 @@ def test_the_title_bar_writes_the_credit_itself():
 
 def test_the_window_procedure_answers_the_four_messages():
     """WM_NCCALCSIZE is what takes the frame out of the layout, WM_NCHITTEST
-    is what gives the resize edges back, WM_SYSCOMMAND is how Win+Up reaches
-    a window that maximises itself, and WM_NCDESTROY is where the subclass
-    comes off. Losing any of them is a window that looks right and behaves
+    is what gives the resize edges back, WM_SYSCOMMAND is where a maximise on
+    a window without the button is refused, and WM_NCDESTROY is where the
+    subclass comes off. Losing any of them is a window that looks right and behaves
     wrongly, which is the hardest kind to notice."""
     text = path(MODULE).read_text(encoding="utf-8")
     for name, value in (("WM_NCCALCSIZE", "0x0083"), ("WM_NCHITTEST", "0x0084"),
@@ -221,13 +221,31 @@ def test_the_window_procedure_answers_the_four_messages():
         assert f"msg == {name}" in text, name
 
 
-def test_the_window_is_never_zoomed_by_the_module():
-    """Maximised is a state the object keeps. A window that carries the frame
-    styles is placed by Windows past the edge of the screen when it zooms, so
-    nothing here may ask for that state."""
+def test_maximised_is_the_system_s_own_state():
+    """Since 2026-11-05 a maximised window is a zoomed window, with the
+    compositor's animation in and out of it. The library once kept maximised as
+    a state of its own and animated it by hand, and what the moving frame
+    uncovered was black or the desktop. The one thing that made a real zoom
+    unusable, a frame placed past the edges of the screen with the page under
+    it, is answered in WM_NCCALCSIZE: a zoomed window is given the work area
+    of its screen as its client area."""
     text = path(MODULE).read_text(encoding="utf-8")
-    assert "WindowState = 'Maximized'" not in text
-    assert "$w.WindowState = 'Normal'" in text          # the absorbed zoom
+    maximise = text.split("-Name Maximize -Value {", 1)[1].split("\n    }", 1)[0]
+    assert "$this.Window.WindowState = 'Maximized'" in maximise
+    assert "Animate(" not in maximise
+    calc = text.split("if (msg == WM_NCCALCSIZE && w != IntPtr.Zero)", 1)[1].split("return IntPtr.Zero;", 1)[0]
+    assert "if (IsZoomed(h))" in calc
+    assert "Marshal.StructureToPtr(mi.rcWork, l, false);" in calc
+
+
+def test_win_up_and_win_down_are_left_to_windows():
+    """The keys used to be taken and turned into the library's own animation.
+    Now the system acts on them, and the one command still taken is a maximise
+    on a window that has no maximise button."""
+    text = path(MODULE).read_text(encoding="utf-8")
+    command = text.split("-Name SystemCommand -Value {", 1)[1].split("\n    }", 1)[0]
+    assert "Restore()" not in command and "Maximize()" not in command
+    assert "if ($Command -eq 0xF030 -and $null -eq $this.Buttons['max']) { return $true }" in command
 
 
 def test_the_subclass_delegate_is_kept_and_then_taken_off():
@@ -247,7 +265,8 @@ def test_the_hit_test_names_every_edge():
     hit = text.split("static int HitTest(", 1)[1].split("\n        }", 1)[0]
     for code in ("10", "11", "12", "13", "14", "15", "16", "17"):
         assert f"return {code};" in hit, code
-    assert "if (s == null || !s.Resize || s.Max) return 1;" in hit
+    # and none while maximised, whichever way it got there
+    assert "if (s == null || !s.Resize || s.Max || IsZoomed(h)) return 1;" in hit
 
 
 def test_the_buttons_take_the_two_durations_the_stylesheet_uses():
@@ -328,26 +347,44 @@ $w.add_Loaded({{
                 [SlantUI.Chrome]::Hit($h, $xa + 400, $yz - 2),
                 [SlantUI.Chrome]::Hit($h, $xa + 400, $ya + 300),
                 [SlantUI.Chrome]::Hit($h, $xa + 400, $ya + 20))
+            # Maximised is a real state of Windows. The window sits off the
+            # screen, and maximised it lands on a real monitor, so it is
+            # cloaked for the length of it: the compositor keeps it, lays it
+            # out and answers every question about it, and shows nothing.
             $chrome.StateMs = 0
-            $work = Get-SlantWorkArea $w
             $before = $chrome.NormalBounds()
-            $chrome.Maximize()
-            $w.UpdateLayout()
-            $out.Work = @($work.X, $work.Y, $work.Width, $work.Height)
-            $out.Maximised = @($w.Left, $w.Top, $w.Width, $w.Height)
-            $out.Zoomed = [SlantUI.Chrome]::IsZoomed($h)
-            $out.MaxFlag = $chrome.IsMaximized()
-            $out.MaxState = "$($w.WindowState)"
-            $out.EdgeWhileMax = [SlantUI.Chrome]::Hit($h, [int]$work.X + 1, [int]$work.Y + 1)
-            $out.MaxTip = "$($chrome.Buttons['max'].ToolTip)"
-            $out.TookWinDown = $chrome.SystemCommand(0xF120)
-            $w.UpdateLayout()
-            $out.Restored = @($w.Width, $w.Height)
-            $out.Wanted = @($before.Width, $before.Height)
-            $w.WindowState = 'Maximized'
-            $w.UpdateLayout()
-            $out.AfterZoom = @([SlantUI.Chrome]::IsZoomed($h), $chrome.IsMaximized(), "$($w.WindowState)")
-            $chrome.Restore()
+            [SlantUI.Chrome]::Cloak($h, $true)
+            try {{
+                $chrome.Maximize()
+                $w.UpdateLayout()
+                $work = [SlantUI.Chrome]::WorkArea($h)
+                $cl = [SlantUI.Chrome]::ClientOnScreen($h)
+                $dip = Get-SlantWorkArea $w
+                $out.Work = @($work.Left, $work.Top, $work.Right, $work.Bottom)
+                $out.MaxClient = @($cl.Left, $cl.Top, $cl.Right, $cl.Bottom)
+                $out.MaxPage = @($chrome.Body.ActualWidth, $chrome.Body.ActualHeight)
+                $out.WorkDip = @($dip.Width, $dip.Height)
+                $out.Zoomed = [SlantUI.Chrome]::IsZoomed($h)
+                $out.MaxFlag = $chrome.IsMaximized()
+                $out.MaxState = "$($w.WindowState)"
+                $out.EdgeWhileMax = @([SlantUI.Chrome]::Hit($h, $work.Left + 1, $work.Top + 1),
+                                      [SlantUI.Chrome]::Hit($h, $work.Right - 2, $work.Bottom - 2))
+                $out.MaxTip = "$($chrome.Buttons['max'].ToolTip)"
+                # Win+Down, the message itself, the way Windows sends it
+                [SlantUI.Chrome]::SysCommand($h, 0xF120)
+                $w.UpdateLayout()
+                $out.AfterWinDown = @("$($w.WindowState)", [SlantUI.Chrome]::IsZoomed($h),
+                                      $chrome.IsMaximized(), "$($chrome.Buttons['max'].ToolTip)")
+                $out.Restored = @($w.Left, $w.Top, $w.ActualWidth, $w.ActualHeight)
+                $out.Wanted = @($before.X, $before.Y, $before.Width, $before.Height)
+                # and Win+Up
+                [SlantUI.Chrome]::SysCommand($h, 0xF030)
+                $w.UpdateLayout()
+                $out.AfterWinUp = @("$($w.WindowState)", [SlantUI.Chrome]::IsZoomed($h), $chrome.IsMaximized())
+                $chrome.Restore()
+                $w.UpdateLayout()
+                $out.AfterRestore = "$($w.WindowState)"
+            }} finally {{ [SlantUI.Chrome]::Cloak($h, $false) }}
 
             # Place: the window put exactly there, in one call.
             $chrome.StateMs = 0
@@ -358,18 +395,20 @@ $w.add_Loaded({{
             $out.PlaceWanted = @($vuole.X, $vuole.Y, $vuole.Width, $vuole.Height)
             $out.SizingAtRest = [SlantUI.Chrome]::IsSizing($h)
 
-            # The animated maximise, which cannot finish inside this tick: it
-            # needs frames, and frames only arrive if the thread goes back to
-            # composing. It starts here and is watched by a second timer, which
-            # closes the window once it is done.
+            # A move by hand, which is what Animate is for now that maximise is
+            # the system's. It cannot finish inside this tick: it needs frames,
+            # and frames only arrive if the thread goes back to composing. It
+            # starts here and is watched by a second timer, which closes the
+            # window once it is done.
             $chrome.StateMs = 240
             $segni = New-Object System.Collections.ArrayList
             $chrome.OnSizing = {{ param($attivo) [void]$segni.Add([bool]$attivo) }}.GetNewClosure()
             $conta = @{{ N = 0 }}
             $tela = [System.EventHandler] {{ param($s, $e) $conta.N++ }}.GetNewClosure()
             [System.Windows.Media.CompositionTarget]::add_Rendering($tela)
+            $meta = New-Object System.Windows.Rect 200, 160, 1000, 680
             $inizio = [DateTime]::UtcNow
-            $chrome.Maximize()
+            $chrome.Animate($meta, $null)
 
             $t2 = New-Object System.Windows.Threading.DispatcherTimer
             $t2.Interval = [TimeSpan]::FromMilliseconds(30)
@@ -379,11 +418,11 @@ $w.add_Loaded({{
                     if ($null -ne $chrome.Anim -and -not $scaduto) {{ return }}
                     $args[0].Stop()
                     [System.Windows.Media.CompositionTarget]::remove_Rendering($tela)
-                    $lavoro = Get-SlantWorkArea $w
                     $out.AnimMs = [int]([DateTime]::UtcNow - $inizio).TotalMilliseconds
                     $out.AnimFrames = $conta.N
                     $out.AnimLanded = @($w.Left, $w.Top, $w.Width, $w.Height)
-                    $out.AnimWanted = @($lavoro.X, $lavoro.Y, $lavoro.Width, $lavoro.Height)
+                    $out.AnimWanted = @($meta.X, $meta.Y, $meta.Width, $meta.Height)
+                    $out.AnimState = "$($w.WindowState)"
                     $out.AnimTimedOut = $scaduto
                     $out.SizingSeq = @($segni)
                     $out.SizingAfter = [SlantUI.Chrome]::IsSizing($chrome.Handle)
@@ -468,27 +507,30 @@ def test_the_eight_edges_answer_and_nothing_else_does(window):
     assert window["Hits"][9] == 1                  # the band, which drags
 
 
-def test_maximised_is_the_work_area_and_never_a_zoom(window):
-    for got, want in zip(window["Maximised"], window["Work"]):
-        assert abs(got - want) < 1
-    assert window["Zoomed"] is False
+def test_maximised_is_a_real_zoom_whose_client_is_the_work_area(window):
+    """The frame is past the edges of the screen, as on every maximised
+    window, and the client area is the work area to the pixel: the page is
+    exactly what is in sight, with nothing under the taskbar and nothing cut."""
+    assert window["MaxState"] == "Maximized"
+    assert window["Zoomed"] is True
     assert window["MaxFlag"] is True
-    assert window["MaxState"] == "Normal"
-    assert window["EdgeWhileMax"] == 1             # no edges while maximised
+    assert window["MaxClient"] == window["Work"], (window["MaxClient"], window["Work"])
+    for got, want in zip(window["MaxPage"], window["WorkDip"]):
+        assert abs(got - want) < 1, (window["MaxPage"], window["WorkDip"])
+    assert window["EdgeWhileMax"] == [1, 1]        # no edges while maximised
     assert window["MaxTip"] == "Restore"
 
 
-def test_a_system_command_restores_the_size_the_window_had(window):
-    assert window["TookWinDown"] is True
+def test_win_down_restores_the_size_and_the_place_the_window_had(window):
+    state, zoomed, flag, tip = window["AfterWinDown"]
+    assert (state, zoomed, flag, tip) == ("Normal", False, False, "Maximise")
     for got, want in zip(window["Restored"], window["Wanted"]):
-        assert abs(got - want) < 2
+        assert abs(got - want) < 2, (window["Restored"], window["Wanted"])
 
 
-def test_a_zoom_windows_did_by_itself_is_undone(window):
-    zoomed, flag, state = window["AfterZoom"]
-    assert zoomed is False
-    assert flag is True
-    assert state == "Normal"
+def test_win_up_maximises_through_the_system(window):
+    assert window["AfterWinUp"] == ["Maximized", True, True]
+    assert window["AfterRestore"] == "Normal"
 
 
 def test_one_call_puts_the_window_exactly_there(window):
@@ -501,11 +543,13 @@ def test_one_call_puts_the_window_exactly_there(window):
     assert window["SizingAtRest"] is False
 
 
-def test_an_animated_state_change_runs_on_the_frame_clock(window):
-    """It lands on the work area, it takes about as long as it was asked to,
+def test_a_move_by_hand_runs_on_the_frame_clock(window):
+    """It lands where it was sent, it takes about as long as it was asked to,
     and it drew a frame for roughly every frame the compositor sent. A
-    handful is what a DispatcherTimer used to manage in the same time."""
+    handful is what a DispatcherTimer used to manage in the same time. It is
+    a move of a normal window, and the window stays one."""
     assert window["AnimTimedOut"] is False
+    assert window["AnimState"] == "Normal"
     for got, want in zip(window["AnimLanded"], window["AnimWanted"]):
         assert abs(got - want) < 1, (window["AnimLanded"], window["AnimWanted"])
     assert 200 <= window["AnimMs"] <= 1500, window["AnimMs"]

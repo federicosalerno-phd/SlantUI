@@ -366,9 +366,13 @@ namespace SlantUI
         static extern IntPtr MonitorFromRect(ref RECT r, int flags);
         [DllImport("user32.dll")]
         static extern bool ReleaseCapture();
+        [DllImport("user32.dll")]
+        static extern bool ClientToScreen(IntPtr h, ref POINT p);
 
         [StructLayout(LayoutKind.Sequential)]
         public struct RECT { public int Left, Top, Right, Bottom; }
+        [StructLayout(LayoutKind.Sequential)]
+        public struct POINT { public int X, Y; }
         [StructLayout(LayoutKind.Sequential)]
         struct MONITORINFO { public int cbSize; public RECT rcMonitor; public RECT rcWork; public int dwFlags; }
 
@@ -582,6 +586,27 @@ namespace SlantUI
         }
         public static RECT Window(IntPtr h) { RECT r; GetWindowRect(h, out r); return r; }
         public static RECT Client(IntPtr h) { RECT r; GetClientRect(h, out r); return r; }
+        // The client area where it is on the screen. On a maximised window
+        // that is the work area of its screen, to the pixel, and nothing else.
+        public static RECT ClientOnScreen(IntPtr h)
+        {
+            RECT c; GetClientRect(h, out c);
+            POINT a = new POINT();
+            ClientToScreen(h, ref a);
+            RECT r = new RECT();
+            r.Left = a.X; r.Top = a.Y;
+            r.Right = a.X + (c.Right - c.Left); r.Bottom = a.Y + (c.Bottom - c.Top);
+            return r;
+        }
+        // A system command sent the way Windows sends one: Win+Up is a
+        // maximise, Win+Down on a maximised window a restore, and the taskbar
+        // menu either. It goes through the window procedure, the subclass and
+        // the application's own answer included, so a test of it is a test of
+        // what the keys do.
+        public static void SysCommand(IntPtr h, int command)
+        {
+            SendMessage(h, (int)WM_SYSCOMMAND, (IntPtr)command, IntPtr.Zero);
+        }
         public static RECT WorkArea(IntPtr h)
         {
             MONITORINFO mi = new MONITORINFO();
