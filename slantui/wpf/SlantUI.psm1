@@ -3938,39 +3938,13 @@ function Show-SlantSplash {
                             }
                         } catch { }
                     }
-                    # And the page arrives: it comes in from half a per cent
-                    # larger and settles on its own size, while it comes into
-                    # focus. It is not a zoom, it is six pixels in a thousand:
-                    # it feels like a focus being found, which is exactly what
-                    # is happening.
-                    if ($null -ne $me.Under) {
-                        $prima = $me.Under.RenderTransform
-                        $origine = $me.Under.RenderTransformOrigin
-                        $posa = New-Object System.Windows.Media.ScaleTransform(1.006, 1.006)
-                        $me.Under.RenderTransformOrigin = New-Object System.Windows.Point(0.5, 0.5)
-                        $me.Under.RenderTransform = $posa
-                        foreach ($pr in @([System.Windows.Media.ScaleTransform]::ScaleXProperty,
-                                          [System.Windows.Media.ScaleTransform]::ScaleYProperty)) {
-                            $giu = New-Object System.Windows.Media.Animation.DoubleAnimation(
-                                1.006, 1.0, [TimeSpan]::FromMilliseconds($durata * $(if ($lunga) { 0.9 } else { 1.0 })))
-                            $giu.EasingFunction = $ease
-                            $posa.BeginAnimation($pr, $giu)
-                        }
-                        # the transform comes off as soon as it is done:
-                        # leaving it there would mean leaving the application
-                        # inside a transform it never asked for
-                        $finita = New-Object System.Windows.Threading.DispatcherTimer
-                        $finita.Interval = [TimeSpan]::FromMilliseconds($durata + 60)
-                        $finita.add_Tick({
-                            param($src, $e)
-                            try {
-                                $src.Stop()
-                                $me.Under.RenderTransform = $prima
-                                $me.Under.RenderTransformOrigin = $origine
-                            } catch { }
-                        }.GetNewClosure())
-                        $finita.Start()
-                    }
+                    # The page does not move while it is uncovered. It used to
+                    # come in from half a per cent larger and settle, and that
+                    # made the whole window dirty on every frame: the page was
+                    # redrawn on the render thread the splash shares, and on a
+                    # 4K screen the fade went to 36-39 frames a second with
+                    # holes up to 183 ms. Without it, measured on the screen:
+                    # 3 holes, none longer than one frame.
                 }
                 $me.Core.FadeOut([Math]::Max(1, $durata), [Action] {
                     try {
