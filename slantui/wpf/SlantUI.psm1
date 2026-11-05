@@ -352,6 +352,20 @@ namespace SlantUI
         public static extern bool IsZoomed(IntPtr h);
         [DllImport("dwmapi.dll")]
         static extern int DwmSetWindowAttribute(IntPtr h, int attr, ref int value, int size);
+        [DllImport("dwmapi.dll")]
+        static extern int DwmFlush();
+        [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+        static extern int SetCurrentProcessExplicitAppUserModelID(string id);
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        static extern IntPtr LoadImage(IntPtr inst, string name, uint type, int cx, int cy, uint flags);
+        [DllImport("user32.dll")]
+        static extern IntPtr SendMessage(IntPtr h, int msg, IntPtr w, IntPtr l);
+        [DllImport("user32.dll")]
+        static extern int GetSystemMetrics(int index);
+        [DllImport("user32.dll")]
+        static extern IntPtr MonitorFromRect(ref RECT r, int flags);
+        [DllImport("user32.dll")]
+        static extern bool ReleaseCapture();
 
         [StructLayout(LayoutKind.Sequential)]
         public struct RECT { public int Left, Top, Right, Bottom; }
@@ -514,6 +528,46 @@ namespace SlantUI
             DwmSetWindowAttribute(h, 3, ref v, 4);           // DWMWA_TRANSITIONS_FORCEDISABLED
         }
 
+        // A window the compositor keeps but does not show. A window shown
+        // cloaked is laid out, rendered and composed like any other, and
+        // uncloaked it appears with its first frame already drawn: no black
+        // or white surface for the frame or two before WPF has painted, which
+        // is what a window shown the ordinary way flashes.
+        public static void Cloak(IntPtr h, bool on)
+        {
+            int v = on ? 1 : 0;
+            DwmSetWindowAttribute(h, 13, ref v, 4);          // DWMWA_CLOAK
+        }
+        // Wait for the compositor to put out the next frame.
+        public static void Flush() { DwmFlush(); }
+        // The process's own identity on the taskbar: its windows group under
+        // it and take its icon, not the host's. It has to be said before the
+        // first window is created.
+        public static void SetAppId(string id) { SetCurrentProcessExplicitAppUserModelID(id); }
+        // The system's own drag, as if the caption had been pressed: from a
+        // maximised window it restores under the cursor, snaps to the edges,
+        // and does all of it the way every other window does.
+        public static void DragByCaption(IntPtr h)
+        {
+            ReleaseCapture();
+            SendMessage(h, 0x00A1, (IntPtr)2, IntPtr.Zero);              // WM_NCLBUTTONDOWN, HTCAPTION
+        }
+        // The window's icons from an .ico, each at the size Windows asks for:
+        // the small one for the band of the taskbar thumbnail and Alt+Tab's
+        // list, the big one for the taskbar. Left to WPF, the window takes
+        // the first entry of the file and the taskbar shrinks it itself.
+        public static void SetIcon(IntPtr h, string ico)
+        {
+            int[] which = { 0, 1 };
+            int[] size = { GetSystemMetrics(49), GetSystemMetrics(11) };   // SM_CXSMICON, SM_CXICON
+            for (int i = 0; i < 2; i++)
+            {
+                if (size[i] <= 0) continue;
+                IntPtr hi = LoadImage(IntPtr.Zero, ico, 1, size[i], size[i], 0x0010);   // IMAGE_ICON, LR_LOADFROMFILE
+                if (hi != IntPtr.Zero) SendMessage(h, 0x0080, (IntPtr)which[i], hi);    // WM_SETICON
+            }
+        }
+
         public static long Style(IntPtr h)
         {
             return GetWindowLongPtr(h, GWL_STYLE).ToInt64() & 0xFFFFFFFFL;
@@ -552,7 +606,7 @@ namespace SlantUI
         static int HitTest(IntPtr h, IntPtr l)
         {
             Win s = Of(h);
-            if (s == null || !s.Resize || s.Max) return 1;           // HTCLIENT
+            if (s == null || !s.Resize || s.Max || IsZoomed(h)) return 1;   // HTCLIENT
             long p = l.ToInt64();
             int x = (int)(short)(p & 0xFFFF);
             int y = (int)(short)((p >> 16) & 0xFFFF);
@@ -588,7 +642,32 @@ namespace SlantUI
             // The client area is the whole window, which is what takes the
             // caption and the borders out of the layout while their styles,
             // and with them the animations and the shadow, stay on.
-            if (msg == WM_NCCALCSIZE && w != IntPtr.Zero) return IntPtr.Zero;
+            //
+            // A maximised window is the exception, and the reason the library
+            // once kept maximised as a state of its own. Windows puts a zoomed
+            // window with its frame past the edges of the screen, eleven
+            // pixels a side at 150 per cent, and a client area as large as the
+            // window then loses those pixels of page. So a zoomed window is
+            // given the work area of its screen as its client area, which is
+            // exactly what is in sight: nothing is cut, and the window is a
+            // real maximised window, with the system's own animation in and
+            // out of it. The hand-made animation it replaces moved the frame
+            // a step a frame while the page stayed behind at the old size,
+            // and what was uncovered was black or the desktop (measured on
+            // 2026-11-05: up to 64 per cent of a frame, 10 frames in 12).
+            if (msg == WM_NCCALCSIZE && w != IntPtr.Zero)
+            {
+                if (IsZoomed(h))
+                {
+                    RECT r = (RECT)Marshal.PtrToStructure(l, typeof(RECT));
+                    MONITORINFO mi = new MONITORINFO();
+                    mi.cbSize = Marshal.SizeOf(typeof(MONITORINFO));
+                    IntPtr m = MonitorFromRect(ref r, 2);              // MONITOR_DEFAULTTONEAREST
+                    if (m != IntPtr.Zero && GetMonitorInfoW(m, ref mi))
+                        Marshal.StructureToPtr(mi.rcWork, l, false);
+                }
+                return IntPtr.Zero;
+            }
             // Say the caption is still active, so nothing repaints one.
             if (msg == WM_NCACTIVATE) return DefSubclassProc(h, msg, w, (IntPtr)(-1));
             if (msg == WM_NCHITTEST) return (IntPtr)HitTest(h, l);
@@ -618,11 +697,38 @@ namespace SlantUI
 '@
 
 function Initialize-SlantChrome {
-    <#  .SYNOPSIS  Compile the window procedure, once for the process.  #>
+    <#  .SYNOPSIS  Load the window procedure, compiled once per machine.
+
+        Add-Type with the source in memory runs the C# compiler on every
+        start of the process, and on a window that wants to be on screen the
+        moment its icon is clicked that is most of a second before anything
+        can be drawn (measured on 2026-11-05: 0,8-0,9 s of a six second
+        start). The DLL is built once, in the user's local data and not next
+        to the module, for the same reason as the splash's (a synced drive
+        locks a loaded DLL), and its name carries a hash of the source: a
+        changed source builds a new one on a path nobody has opened.  #>
     if ($script:SlantChromeReady) { return }
     Initialize-SlantWpf
     if (-not ('SlantUI.Chrome' -as [type])) {
-        Add-Type -TypeDefinition $script:SlantChromeSource
+        $loaded = $false
+        try {
+            $dir = Join-Path $env:LOCALAPPDATA 'SlantUI'
+            if (-not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+            $sha = [System.Security.Cryptography.SHA1]::Create()
+            $bytes = [System.Text.Encoding]::UTF8.GetBytes($script:SlantChromeSource)
+            $hash = (($sha.ComputeHash($bytes) | Select-Object -First 6 | ForEach-Object { $_.ToString('x2') }) -join '')
+            $dll = Join-Path $dir "SlantUI.Chrome.$hash.dll"
+            if (-not (Test-Path -LiteralPath $dll)) {
+                Add-Type -TypeDefinition $script:SlantChromeSource -OutputAssembly $dll -ErrorAction Stop
+                foreach ($v in @(Get-ChildItem -LiteralPath $dir -Filter 'SlantUI.Chrome.*.dll' -ErrorAction SilentlyContinue |
+                                 Where-Object { $_.FullName -ne $dll })) {
+                    try { Remove-Item -LiteralPath $v.FullName -Force -ErrorAction Stop } catch { }
+                }
+            }
+            [void][Reflection.Assembly]::LoadFrom($dll)
+            $loaded = ('SlantUI.Chrome' -as [type]) -ne $null
+        } catch { $loaded = $false }
+        if (-not $loaded) { Add-Type -TypeDefinition $script:SlantChromeSource }
     }
     $script:SlantChromeReady = $true
 }
@@ -1777,7 +1883,7 @@ function Install-SlantWindow {
         Set-SlantWindowFrame -Handle $handle -Border $this.Border -Corner $this.Corner `
             -Resizable $this.Resizable
         Set-SlantWindowScheme -Handle $handle -Palette $this.Palette
-        [SlantUI.Chrome]::SetMaximized($handle, $this.Maximized)
+        [SlantUI.Chrome]::SetMaximized($handle, ($this.Maximized -or $this.Window.WindowState -eq 'Maximized'))
         $me = $this
         [SlantUI.Chrome]::OnSysCommand($handle, [Func[IntPtr, int, bool]] {
             param([IntPtr]$hwnd, [int]$command)
@@ -1837,7 +1943,9 @@ function Install-SlantWindow {
     }
 
     # ── maximised, which is a state and never a zoom ─────────────────────
-    $chrome | Add-Member -MemberType ScriptMethod -Name IsMaximized -Value { $this.Maximized }
+    $chrome | Add-Member -MemberType ScriptMethod -Name IsMaximized -Value {
+        $this.Maximized -or ($this.Window.WindowState -eq 'Maximized')
+    }
 
     $chrome | Add-Member -MemberType ScriptMethod -Name Remember -Value {
         <#  The size the window goes back to. Read off the window while it is
@@ -1861,7 +1969,13 @@ function Install-SlantWindow {
     }
 
     $chrome | Add-Member -MemberType ScriptMethod -Name NormalBounds -Value {
-        <#  Where a restore would put the window, whatever state it is in.  #>
+        <#  Where a restore would put the window, whatever state it is in. A
+            maximised window keeps it in RestoreBounds, which Windows fills.  #>
+        $w = $this.Window
+        if ($w.WindowState -ne 'Normal') {
+            $rb = $w.RestoreBounds
+            if (-not $rb.IsEmpty -and $rb.Width -ge 80 -and $rb.Height -ge 60) { return $rb }
+        }
         $r = $this.NormalRect
         if ($r.Width -ge 80 -and $r.Height -ge 60) { return $r }
         $work = Get-SlantWorkArea $this.Window
@@ -2045,24 +2159,26 @@ function Install-SlantWindow {
         [System.Windows.Media.CompositionTarget]::add_Rendering($handler)
     }
 
+    # Maximise and restore are the system's: a real WindowState, animated by
+    # the compositor from a picture of the window, so nothing the page has
+    # not drawn yet is ever in sight. Animate stays for an application that
+    # wants to move the window somewhere by hand.
     $chrome | Add-Member -MemberType ScriptMethod -Name Maximize -Value {
-        if ($this.Maximized -or $null -ne $this.Anim) { return }
         if ($this.Window.WindowState -ne 'Normal') { return }
+        if ($null -ne $this.Anim) { $this.StopAnim() }
         $this.Remember()
-        $me = $this
-        $this.Animate((Get-SlantWorkArea $this.Window), { $me.SetMaximized($true) }.GetNewClosure())
+        $this.Window.WindowState = 'Maximized'
     }
 
     $chrome | Add-Member -MemberType ScriptMethod -Name Restore -Value {
-        if (-not $this.Maximized -or $null -ne $this.Anim) { return }
-        $target = $this.NormalBounds()
-        $this.SetMaximized($false)
-        $this.Animate($target, $null)
+        if ($this.Window.WindowState -ne 'Maximized') { return }
+        $this.Window.WindowState = 'Normal'
     }
 
     $chrome | Add-Member -MemberType ScriptMethod -Name ToggleMaximize -Value {
-        if ($null -eq $this.Buttons['max'] -and -not $this.Maximized) { return }
-        if ($this.Maximized) { $this.Restore() } else { $this.Maximize() }
+        $on = ($this.Window.WindowState -eq 'Maximized')
+        if ($null -eq $this.Buttons['max'] -and -not $on) { return }
+        if ($on) { $this.Restore() } else { $this.Maximize() }
     }
 
     $chrome | Add-Member -MemberType ScriptMethod -Name Minimize -Value {
@@ -2089,47 +2205,20 @@ function Install-SlantWindow {
     }
 
     $chrome | Add-Member -MemberType ScriptMethod -Name AbsorbZoom -Value {
-        <#  Windows zoomed the window without asking. A zoomed window sits
-            with its frame past the screen and cannot be moved from there, so
-            the zoom is undone at once, with the system transition off so
-            nothing plays twice, and the window is put on the work area as
-            the normal window it is everywhere else.  #>
-        if ($null -ne $this.Anim) { $this.StopAnim() }
-        $w = $this.Window
-        if ($this.Handle -ne [IntPtr]::Zero) {
-            Set-SlantWindowTransitions -Handle $this.Handle -Enabled $false
-        }
-        $this.Busy = $true
-        try {
-            $w.WindowState = 'Normal'
-            $work = Get-SlantWorkArea $w
-            $w.Left = $work.X; $w.Top = $work.Y; $w.Width = $work.Width; $w.Height = $work.Height
-        } finally { $this.Busy = $false }
-        if ($this.Handle -ne [IntPtr]::Zero) {
-            Set-SlantWindowTransitions -Handle $this.Handle -Enabled $true
-        }
-        $this.SetMaximized($true)
+        <#  Kept for the applications that called it: a zoom is no longer
+            undone, it is what maximised is.  #>
+        $this.SetMaximized($this.Window.WindowState -eq 'Maximized')
     }
 
     $chrome | Add-Member -MemberType ScriptMethod -Name SystemCommand -Value {
-        <#  Win+Up, Win+Down and the taskbar menu. True means the window has
-            taken it and Windows is not to act. Restoring from the taskbar
-            stays the system's.  #>
+        <#  Win+Up, Win+Down and the taskbar menu: Windows acts on them
+            itself now, with its own animation. The one thing taken here is a
+            maximise on a window that has no maximise button.  #>
         param([int]$Command)
-        if ($this.Window.WindowState -eq 'Minimized') { return $false }
-        if ($Command -eq 0xF030) {
-            if ($null -eq $this.Buttons['max']) { return $false }
-            $this.Maximize()
-            return $true
-        }
-        if ($Command -eq 0xF120 -and $this.Maximized) {
-            $this.Restore()
-            return $true
-        }
+        if ($Command -eq 0xF030 -and $null -eq $this.Buttons['max']) { return $true }
         return $false
     }
 
-    # ── wiring ───────────────────────────────────────────────────────────
     $chrome.Attach()
     $Window.add_SourceInitialized({ $chrome.Attach() }.GetNewClosure())
     $Window.add_Loaded({ $chrome.Attach(); $chrome.Shape() }.GetNewClosure())
@@ -2140,7 +2229,9 @@ function Install-SlantWindow {
     $Window.add_LocationChanged({ $chrome.Track() }.GetNewClosure())
     $Window.add_SizeChanged({ $chrome.Track() }.GetNewClosure())
     $Window.add_StateChanged({
-        if ($chrome.Window.WindowState -eq 'Maximized') { $chrome.AbsorbZoom() }
+        $st = $chrome.Window.WindowState
+        if ($st -eq 'Minimized') { return }
+        $chrome.SetMaximized($st -eq 'Maximized')
     }.GetNewClosure())
     $Window.add_Closed({
         if ($chrome.Handle -ne [IntPtr]::Zero) { [SlantUI.Chrome]::Forget($chrome.Handle) }
@@ -2157,13 +2248,14 @@ function Install-SlantWindow {
                 return
             }
             if ($null -ne $chrome.Anim) { return }
-            if ($chrome.Maximized) {
-                $wide = $chrome.Element.ActualWidth
-                $fraction = 0.5
-                if ($wide -gt 0) { $fraction = $click.GetPosition($chrome.Element).X / $wide }
-                $chrome.RestoreUnderCursor($fraction)
+            # From a maximised window the system's own drag: it restores under
+            # the cursor and snaps, as every window does. DragMove only moves a
+            # normal window.
+            if ($chrome.Window.WindowState -eq 'Maximized' -and $chrome.Handle -ne [IntPtr]::Zero) {
+                [SlantUI.Chrome]::DragByCaption($chrome.Handle)
+            } else {
+                $chrome.Window.DragMove()
             }
-            $chrome.Window.DragMove()
         } catch { }
     }.GetNewClosure())
 
@@ -3472,7 +3564,7 @@ function Show-SlantSplash {
         [Parameter(ParameterSetName = 'Chrome')][switch]$Veil,
         [double]$Size = 132,
         [switch]$Busy,
-        [ValidateSet('none', 'breathe', 'pulse')][string]$Motion = 'none',
+        [ValidateSet('none', 'breathe', 'pulse', 'flow')][string]$Motion = 'none',
         [hashtable]$MotionOptions = @{}
     )
     Initialize-SlantWpf
@@ -3519,7 +3611,18 @@ function Show-SlantSplash {
         $sfoca.Radius = 0
         $sfoca.KernelType = 'Gaussian'
         $sfoca.RenderingBias = 'Performance'
-        if ($null -ne $sotto) { $sotto.Effect = $sfoca }
+        # Under an empty window the page is not seen at all, so it is not
+        # drawn at all: hidden, it keeps its layout and costs the compositor
+        # nothing. Blurred under an opaque surface it was drawn and blurred
+        # whole on every frame of the ring, on the one render thread the ring
+        # shares with it, and on a page being built that was the ring missing
+        # frames for a second and more (measured on 2026-11-05: gaps of 1,2 and
+        # 1,8 s while the application filled its page). It comes back, blurred,
+        # when Hide begins the reveal. Under a veil the page is in sight, and
+        # there it is blurred from the start.
+        if ($null -ne $sotto) {
+            if ($vuota) { $sotto.Visibility = 'Hidden' } else { $sotto.Effect = $sfoca }
+        }
     }
 
     # The brand. It is read here, once, and handed over frozen: a frozen
@@ -3724,6 +3827,15 @@ function Show-SlantSplash {
         $lunga = ($this.Empty -and $durata -gt 0)
         $parti = {
             try {
+                if ($null -ne $me.Under -and $me.Empty) {
+                    # the page comes back for the reveal, blurred, drawn once
+                    # into a bitmap: while it comes into focus it does not
+                    # change, and the blur then works on one texture instead
+                    # of on the whole tree every frame
+                    try { $me.Under.CacheMode = New-Object System.Windows.Media.BitmapCache } catch { }
+                    if ($null -ne $me.Blur) { $me.Under.Effect = $me.Blur }
+                    $me.Under.Visibility = 'Visible'
+                }
                 if ($null -ne $me.Under) { $me.Under.UpdateLayout() }
                 if ($durata -gt 0) {
                     $ease = New-Object System.Windows.Media.Animation.CubicEase
@@ -3813,7 +3925,7 @@ function Show-SlantSplash {
                 $me.Core.FadeOut([Math]::Max(1, $durata), [Action] {
                     try {
                         [void]$me.Shell.Children.Remove($me.Element)
-                        if ($null -ne $me.Under) { $me.Under.Effect = $null }
+                        if ($null -ne $me.Under) { $me.Under.Effect = $null; $me.Under.CacheMode = $null }
                     } catch { }
                     # and the bar gets its own brush back, the one the band
                     # was built with, not a copy that happens to match it
