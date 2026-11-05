@@ -282,23 +282,23 @@ a ring, a line of text, and a thin bar under that. The band stays sharp and
 its buttons stay live, so the window can still be moved or closed while it
 loads.
 
-The screen says two things and says them in two places, because they are two
-different things. The ring is the measure: one arc from twelve o'clock, which
-moves when the work moves and at no other time, and the figure under it is
-written by that arc's own animation, frame by frame, so the two can never
-disagree. The bar is the pulse: two lozenges crossing it, with no scale and no
-beginning, saying only that something is still going on. They used to share
-one circle, a measuring arc with a short arc turning over it, and a circle
-carrying two readings at once reads as neither.
+A load that can be measured shows one way of loading and not two. The ring is
+the measure: one arc from twelve o'clock, and the figure under it is written by
+that arc's own animation, frame by frame, so the two can never disagree. The
+bar under the line fills with it, the same fraction drawn straight. Until 5
+November 2026 the bar was a pulse, two lozenges crossing it, which said "still
+going" in a second style under a ring that already said it; the pulse is left
+for the wait with nothing to measure (`-Busy`), where it is the only thing to
+say.
 
-The arc has a speed and not a destination. One step per composed frame moves
-it towards the goal, and what is eased is the speed and not the position, so
-it never reaches zero while there is work left and a step is not a leap
-followed by a stop. Between one announced step and the next it drifts on,
-slower and slower, towards a third of what is left, because a load with
-nothing to report for four seconds should not look like a load that has
-stopped. It never walks backwards, so a step announcing less than the drift
-has already covered is taken as a line of text and no more.
+The arc keeps a pace and not a destination. It goes round in the time the
+load is expected to take (`-ExpectedMs`, which an application can take from
+how long its last start took), and the announced steps only nudge it: half
+again faster when it is behind them, half as fast when it is ahead. Near the
+end it slows against a soft wall, so it never stops before the end, and a load
+whose steps are uneven in time no longer makes an arc that races to each step
+and then stands still. It never walks backwards, so a step announcing less
+than the arc has already covered is taken as a line of text and no more.
 
 None of it is drawn on the application's thread. WPF beats its animations on
 the Dispatcher and not on the composition thread, so a window that loads on

@@ -3360,13 +3360,13 @@ function New-SlantPicker {
 # on a thread of its own, through a HostVisual, and SlantUI.Splash.cs is
 # where that is explained and done.
 #
-# The screen says two things, and it says them in two places, because they
-# are two different things. The ring is the measure: one arc from twelve
-# o'clock, which moves when the work moves and at no other time. The thin bar
-# under the line is the pulse: two lozenges crossing it, with no scale and no
-# beginning, saying only that something is still going on. They used to share
-# one circle, a measuring arc with a short arc turning over it, and a circle
-# carrying two readings at once reads as neither.
+# The ring is the measure: one arc from twelve o'clock, and the thin bar under
+# the line fills with it, the same fraction drawn straight (SlantBar), so a
+# load that can be measured shows one way of loading and not two. The arc keeps
+# the pace of the time the load is expected to take (-ExpectedMs) and the
+# announced steps only nudge it. A wait with nothing to measure (-Busy) turns
+# the ring, and its bar becomes the pulse: two lozenges crossing it, with no
+# scale and no beginning, saying only that something is still going on.
 #
 #     $splash = Show-SlantSplash -Chrome $chrome -Logo $svg -Text 'starting'
 #     $splash.SetProgress(0.4, 'reading the folders')

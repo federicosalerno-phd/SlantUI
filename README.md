@@ -874,12 +874,16 @@ $splash.Hide()
 The window itself, empty, in the palette's own surface, with the brand in the
 middle of a ring; `Hide()` then hands it over to the page in the same long
 movement the Qt half makes, and `-Veil` keeps the page in sight instead, for a
-wait in the middle of work. The ring measures and nothing else: one arc, which moves
-when the work moves. A thin bar under the line carries the other half of what
-a load has to say, that it is still going, and it has no scale precisely so
-that it cannot be read as a quantity. Between one announced step and the next
-the arc drifts on, slower and slower, because a load with nothing to report
-for four seconds should not look like a load that has stopped.
+wait in the middle of work. The ring measures: one arc from twelve o'clock,
+with the figure under it written by the arc's own animation. The thin bar
+under the line fills with it, the same fraction drawn straight, so a load that
+can be measured shows one way of loading and not two. The arc keeps a pace and
+not a destination: it goes round in the time the load is expected to take
+(`-ExpectedMs`, which an application can take from how long its last start
+took), the announced steps only nudge it, half again faster when it is behind
+them and half as fast when it is ahead, and near the end it slows against a
+soft wall. So it never stops before the end and never races to a step and
+then stands still.
 
 None of that is drawn on the application's thread. WPF beats its animations
 on the Dispatcher, not on the composition thread, so a window that loads on
@@ -889,9 +893,10 @@ through a `HostVisual` on a thread of its own, which is what
 
 A wait nobody can measure is the same screen in another mode. `-Busy` drops
 the figure, because a figure with nothing behind it is a lie, and turns the
-ring instead of filling it. The bar stays, because that is the one thing such
-a wait has to say. The first announced step turns the ring back into a measure
-by itself.
+ring instead of filling it; the bar under it becomes the pulse, two lozenges
+crossing it with no scale and no beginning, because "still going" is the one
+thing such a wait has to say. The first announced step turns the ring and the
+bar back into a measure by itself.
 
 `-Window` is the second form, for the seconds before there is an application
 to dress: it covers a bare `System.Windows.Window` and nothing else, no band
