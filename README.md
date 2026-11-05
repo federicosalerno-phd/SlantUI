@@ -595,7 +595,7 @@ line it is given.
 
 In a button a sign and its word are placed by their ink, not by their boxes.
 `icon()` writes on the sign how much of its box the ink fills (`data-ink-w`,
-`data-ink-h`) and which sides of it end in a fill rather than a stroke
+`data-ink-h`) and which sides of it end in a fill and not in a stroke
 (`data-ink-fill`, the head of an arrow), the word goes in a `.btn-label`, and
 the button sizes the sign so that its painted ink is as tall as the word's
 capitals, trims the word to its capitals, and lets the empty sides of both
