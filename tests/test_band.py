@@ -566,7 +566,11 @@ def test_the_window_band_is_the_page_band(band, app, tmp_path):
         win.band.refresh()
         wait(300)
         before = win.grabWindow()
-        W = after.width()
+        # the points are in CSS pixels and the grab is in device pixels: the
+        # width read off the grab was the device one, and above 100 per cent
+        # the three points near the right edge fell off the picture, where
+        # both grabs read nothing and agreed
+        W = after.width() / s
         worst = 0
         for x, y in [(3, 40), (W // 2 + 200, 5), (W - 200, 12), (W - 200, 20), (W - 200, 36),
                      (lay.x1 - 12, 42), (lay.x1 + 45, 10)]:
@@ -628,10 +632,11 @@ def test_the_page_band_keeps_its_cleartype_through_the_reveal(band, app, tmp_pat
         assert not win.band_up, "the page never said its band was drawn"
         _wait(400)
         lay = win.band.layout()
-        s = lay.scale
         shoot()
+        # the grab is in device pixels from the window's corner, as the
+        # layout's boxes are (test_the_window_comes_up_already_sharp)
         x0, y0, x1, y1 = _text_boxes(lay)["name"]
-        box = (int(x0 / s), int(y0 / s), int(x1 / s) + 1, int(y1 / s))   # on the screen
+        box = (x0, y0, x1, y1)
         before = _fringes(shots[-1], *box)
         if before < 1000:
             pytest.skip("this screen draws text without ClearType, so there are no fringes to keep")
@@ -698,9 +703,14 @@ def test_the_window_comes_up_already_sharp(band, app, tmp_path):
         timer.stop()
         settled = shots[-1]
         lay = win.band.layout()
+        # The grab starts where the window does and comes back in device
+        # pixels, which is what the layout's boxes are in: the box goes in as
+        # it is. Divided by the scale, as it was, above 100 per cent it moved
+        # up and left onto the mark, whose edge the window and the page
+        # antialias a few shades apart, and the hand-over from one to the other
+        # read as an animated opening (14 levels at 175 per cent).
         x0, y0, x1, y1 = _text_boxes(lay)["name"]
-        s = lay.scale
-        box = (int(x0 / s), int(y0 / s), min(600, int(x1 / s) + 1), int(y1 / s))
+        box = (x0, y0, min(settled.width(), x1), min(settled.height(), y1))
         # a frame the window is in covers the name's box with something that
         # is not the backdrop: its shadow arriving first, or the backdrop
         # losing the focus, changes it by a few tens of levels and is not it

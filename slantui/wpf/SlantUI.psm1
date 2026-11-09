@@ -2503,6 +2503,15 @@ function Test-SlantVisualAncestor($nodo, $radice) {
 # side) or sits inside it whole (a mark, on its coin). The ellipse has a size
 # that is an even number of pixels less than the coin, so its offset is a
 # whole number at every scale and there is nothing for layout rounding to move.
+#
+# Nor is there anything for it to resize, because the disc does no layout
+# rounding at all. The frame of a dropdown rounds its layout, and that is
+# inherited: at 125 per cent the 18 of a row's coin is 22.5 device pixels, the
+# rounding made it 22, and the coin came out 17.6 wide with its centre a fifth
+# of a pixel up and to the left of where a coin of 18 has it; at 175 per cent
+# 18.29 and the other way. The flag stayed concentric with the coin, but the
+# circle was not the size the row asked for, and the row's disc no longer
+# matched the pill's, which is not rounded.
 function New-SlantDisc {
     param(
         [Parameter(Mandatory = $true)]$Source,
@@ -2517,6 +2526,8 @@ function New-SlantDisc {
     $g.VerticalAlignment = 'Center'
     $g.HorizontalAlignment = 'Center'
     $g.SnapsToDevicePixels = $false
+    # the coin and the drawing inherit it from here
+    $g.UseLayoutRounding = $false
     if ($Coin) {
         $moneta = New-Object System.Windows.Shapes.Ellipse
         $moneta.Width = $Size; $moneta.Height = $Size

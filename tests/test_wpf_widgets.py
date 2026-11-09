@@ -1167,6 +1167,25 @@ function Find-Coin($root, [double]$size) {
     return $null
 }
 
+# The tree laid out as on a screen at $k. Layout rounding goes to the device
+# pixels of the screen the tree is on, and the frame of the dropdown rounds:
+# on a machine at 125 per cent its rows were laid on fifths of a pixel, and a
+# bitmap drawn at 1x or 3x showed the coin on a grid no screen draws it on
+# (at x 21.6 at 1x, cut across its pixels). So each measurement tells the
+# tree it is on the screen the measurement stands for, and the machine's own
+# scale no longer decides the outcome.
+function Set-TreeDpi($top, [double]$k) {
+    [System.Windows.Media.VisualTreeHelper]::SetRootDpi($top, (New-Object System.Windows.DpiScale($k, $k)))
+    $q = New-Object System.Collections.Queue; $q.Enqueue($top)
+    while ($q.Count -gt 0) {
+        $x = $q.Dequeue()
+        if ($x -is [System.Windows.UIElement]) { $x.InvalidateMeasure(); $x.InvalidateArrange() }
+        $n = [System.Windows.Media.VisualTreeHelper]::GetChildrenCount($x)
+        for ($i = 0; $i -lt $n; $i++) { $q.Enqueue([System.Windows.Media.VisualTreeHelper]::GetChild($x, $i)) }
+    }
+    $top.UpdateLayout()
+}
+
 function Measure-Coin($root, [double]$size, [double]$scale) {
     $coin = Find-Coin $root $size
     if (-not $coin) { return @{ Error = 'no coin' } }
@@ -1183,7 +1202,13 @@ function Measure-Coin($root, [double]$size, [double]$scale) {
         if ($null -eq $su) { break }
         $top = $su
     }
-    $top.UpdateLayout()
+    $machine = [System.Windows.Media.VisualTreeHelper]::GetDpi($top).DpiScaleX
+    Set-TreeDpi $top $scale
+    try { return (Measure-Drawn $coin $top $size $scale) }
+    finally { Set-TreeDpi $top $machine }
+}
+
+function Measure-Drawn($coin, $top, [double]$size, [double]$scale) {
     $p = $coin.TransformToAncestor($top).Transform((New-Object System.Windows.Point(0, 0)))
     $cx = ($p.X + $size / 2) * $scale; $cy = ($p.Y + $size / 2) * $scale
     $W = [int][Math]::Ceiling($top.ActualWidth * $scale); $H = [int][Math]::Ceiling($top.ActualHeight * $scale)
@@ -1225,9 +1250,12 @@ function Measure-Coin($root, [double]$size, [double]$scale) {
     return @{ CentroidX = ($sx / $sw - $cx) / $scale; CentroidY = ($sy / $sw - $cy) / $scale
               BoxX = (($x0 + $x1) / 2.0 - $cx) / $scale; BoxY = (($y0 + $y1) / 2.0 - $cy) / $scale
               BoxW = ($x1 - $x0) / $scale; BoxH = ($y1 - $y0) / $scale
-              Area = $sw / ($scale * $scale); Reach = $reach }
+              Area = $sw / ($scale * $scale); Reach = $reach; Coin = $coin.ActualWidth }
 }
 
+# the screens measured: the three whole ones, and the three in between that a
+# laptop or a 1440p monitor is set to
+$scales = @(1, 1.25, 1.5, 1.75, 2, 3)
 try {
     $w = New-Object System.Windows.Window
     $w.WindowStyle = 'None'; $w.ShowInTaskbar = $false; $w.ShowActivated = $false
@@ -1245,7 +1273,7 @@ try {
         $g.Children.Clear(); [void]$g.Children.Add($pk.Element)
         $w.UpdateLayout()
         $btn = $pk.Element.Children[0]
-        foreach ($s in 1, 2, 3) { $out["$($caso.Name)Pill$s"] = Measure-Coin $btn 22 $s }
+        foreach ($s in $scales) { $out["$($caso.Name)Pill$s"] = Measure-Coin $btn 22 $s }
         $pk.Toggle()
         # the popup is a window of its own and lays itself out on the
         # dispatcher: everything queued above idle runs before this returns
@@ -1258,7 +1286,7 @@ try {
         }
         $riga = $pk.Popup.Child.Child.Content.Children[0]
         $riga.UpdateLayout()
-        foreach ($s in 1, 2, 3) { $out["$($caso.Name)Row$s"] = Measure-Coin $riga 18 $s }
+        foreach ($s in $scales) { $out["$($caso.Name)Row$s"] = Measure-Coin $riga 18 $s }
         # and no thread of a border inside the disc: the only things in it
         # are the coin and the drawing
         $coin = Find-Coin $btn 22
@@ -1282,6 +1310,10 @@ _DISC_MARK = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
 </svg>"""
 
 
+# the scales the probe measures at ($scales above)
+_DISC_SCALES = [1, 1.25, 1.5, 1.75, 2, 3]
+
+
 @pytest.fixture(scope="module")
 def disc(tmp_path_factory) -> dict:
     folder = tmp_path_factory.mktemp("slantdisc")
@@ -1294,15 +1326,18 @@ def disc(tmp_path_factory) -> dict:
 
 
 @pytest.mark.parametrize("where", ["Pill", "Row"])
-@pytest.mark.parametrize("scale", [1, 2, 3])
+@pytest.mark.parametrize("scale", _DISC_SCALES)
 def test_a_flag_is_a_disc_centred_on_its_circle(disc, where, scale):
     """The centroid of the coloured area on the centre of the circle, within a
     tenth of a pixel at 3x (a quarter at 1x, where a pixel is a pixel); the
     area of a full disc of 14, and not the 14 by 12 the bordered box left
     behind, whose border stayed inside the circle as a flat band above and
-    another below."""
+    another below. And the circle is the size it was asked to be: the frame of
+    the dropdown rounds its layout, and at 125 per cent a row's coin of 18 came
+    out 17.6, its centre a fifth of a pixel off the one the row gave it."""
     m = disc[f"flag{where}{scale}"]
     assert "Error" not in m, m
+    assert m["Coin"] == (22 if where == "Pill" else 18), m
     tol = 0.1 if scale == 3 else 0.25
     assert abs(m["CentroidX"]) <= tol, m
     assert abs(m["CentroidY"]) <= tol, m
@@ -1327,7 +1362,7 @@ def test_nothing_but_the_coin_and_the_drawing_is_in_the_circle(disc):
 
 
 @pytest.mark.parametrize("where", ["Pill", "Row"])
-@pytest.mark.parametrize("scale", [1, 2, 3])
+@pytest.mark.parametrize("scale", _DISC_SCALES)
 def test_a_mark_sits_whole_and_centred_on_its_coin(disc, where, scale):
     """A mark is centred on its own bounds, not on its weight (a llama has its
     ears up top), and is never cut by the circle: its box is the inner square,

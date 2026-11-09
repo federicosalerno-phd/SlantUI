@@ -19,7 +19,8 @@ fact about the engine that draws the page, found by measuring it, and each is
 written where it is used:
 
 * the rendering mode is Skia's choice for the face and the size (the face's
-  ``gasp`` table), with the grid fit on;
+  ``gasp`` table), and the grid fit is DirectWrite's default, which reads the
+  same table: on for a hinted face, off for a face with no instructions;
 * a glyph is placed at a quarter of a pixel across and a whole pixel down;
 * a face is asked for at the size Blink keys its font cache by, which keeps
   hundredths of a pixel and drops the rest;
@@ -72,7 +73,15 @@ if sys.platform == "win32":
 # IDWriteFactory2, which is where a glyph run analysis takes a grid fit mode
 _IID_FACTORY2 = (0x0439FC60, 0xCA44, 0x4994, (0x8D, 0xEE, 0x3A, 0x9A, 0xF7, 0xB7, 0x32, 0xEC))
 _NATURAL, _NATURAL_SYMMETRIC = 4, 5            # DWRITE_RENDERING_MODE
-_GRID_ON = 2                                   # DWRITE_GRID_FIT_MODE_ENABLED
+# DWRITE_GRID_FIT_MODE_DEFAULT, and not ENABLED: DirectWrite then fits to the
+# grid where the face's gasp table asks for it, which is what the page gets.
+# Forced on, a face with no hinting instructions (Abadi, whose table asks for
+# smoothing and no fitting) has its strokes nudged: at 18.12 and 25.37 pixels,
+# the name at 125 and 175 per cent, the bold run came out up to 45 levels from
+# the page's on some edge pixels (at 14.5, 21.75 and 29 the two happened to
+# agree). Default and the page agree within one level on Abadi, Segoe UI and
+# Arial, upright and bold, at 100, 125, 150, 175 and 200 per cent.
+_GRID_DEFAULT = 0
 _CLEARTYPE = 0                                 # DWRITE_TEXT_ANTIALIAS_MODE_CLEARTYPE
 _MEASURE_NATURAL = 0                           # DWRITE_MEASURING_MODE_NATURAL
 _TEXTURE_3x1 = 1                               # DWRITE_TEXTURE_CLEARTYPE_3x1
@@ -201,7 +210,7 @@ class _DirectWrite:
         analysis = c_void_p()
         if _method(self.factory, 30, POINTER(_GlyphRun), POINTER(_Matrix), c_int32, c_int32, c_int32,
                    c_int32, c_float, c_float, POINTER(c_void_p))(
-                byref(run), byref(xf), mode, _MEASURE_NATURAL, _GRID_ON, _CLEARTYPE, sub_x, 0.0,
+                byref(run), byref(xf), mode, _MEASURE_NATURAL, _GRID_DEFAULT, _CLEARTYPE, sub_x, 0.0,
                 byref(analysis)):
             raise OSError("DirectWrite would not analyse a glyph")
         try:
