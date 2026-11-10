@@ -2638,8 +2638,11 @@ function New-SlantPicker {
                      else { New-Object System.Windows.Thickness(9, 0, 9, 0) })
     if ($Width -gt 0) { $btn.Width = $Width }
     $btn.Cursor = 'Hand'
-    $riga = New-Object System.Windows.Controls.StackPanel
-    $riga.Orientation = 'Horizontal'
+    # A dock and not a stack: at its natural width it lays the same row out,
+    # and when the application widens the button (SetMinWidth) the dot and the
+    # chevron stay at the right end instead of trailing after the caption.
+    $riga = New-Object System.Windows.Controls.DockPanel
+    $riga.LastChildFill = $false
     $riga.VerticalAlignment = 'Center'
     $ospiteIcona = New-Object System.Windows.Controls.ContentControl
     $ospiteIcona.VerticalAlignment = 'Center'
@@ -2711,8 +2714,12 @@ function New-SlantPicker {
     if ($Pill) { [void]$riga.Children.Add($cerchioIcona) } elseif (-not $Plain) { [void]$riga.Children.Add($ospiteIcona) }
     [void]$riga.Children.Add($sigla)
     [void]$riga.Children.Add($seconda)
-    [void]$riga.Children.Add($punto)
+    # the chevron first, so that it takes the right end and the dot sits
+    # just before it
+    [System.Windows.Controls.DockPanel]::SetDock($freccia, 'Right')
+    [System.Windows.Controls.DockPanel]::SetDock($punto, 'Right')
     [void]$riga.Children.Add($freccia)
+    [void]$riga.Children.Add($punto)
     $btn.Child = $riga
     # a fixed width: the caption takes what is left once the padding and the
     # chevron are counted, is cut with an ellipsis past it, and the chevron
@@ -3349,6 +3356,35 @@ function New-SlantPicker {
     }.GetNewClosure()
     $picker | Add-Member -MemberType ScriptMethod -Name Caption -Value { return "$($sigla.Text)" }.GetNewClosure()
     $picker | Add-Member -MemberType ScriptMethod -Name SubCaption -Value { return "$($seconda.Text)" }.GetNewClosure()
+    # A button that keeps one width whatever it says: given every caption and
+    # every second word it can show, it takes the width of the widest pair, so
+    # that changing model or level does not move the row it sits in, and no
+    # caption is cut. Returns the width it set.
+    $picker | Add-Member -MemberType ScriptMethod -Name FitCaptions -Value {
+        param([string[]]$mains, [string[]]$subs)
+        $misura = {
+            param($tb, [string]$t)
+            if (-not $t) { return 0.0 }
+            $ppd = 1.0
+            try { $ppd = [System.Windows.Media.VisualTreeHelper]::GetDpi($tb).PixelsPerDip } catch { }
+            $tf = [System.Windows.Media.Typeface]::new($tb.FontFamily, $tb.FontStyle, $tb.FontWeight, $tb.FontStretch)
+            $ft = [System.Windows.Media.FormattedText]::new($t, [System.Globalization.CultureInfo]::CurrentUICulture,
+                [System.Windows.FlowDirection]::LeftToRight, $tf, $tb.FontSize, [System.Windows.Media.Brushes]::Black, $ppd)
+            return [double]$ft.WidthIncludingTrailingWhitespace
+        }
+        $wm = 0.0
+        foreach ($m in @($mains)) { $wm = [Math]::Max($wm, [double](& $misura $sigla "$m")) }
+        $ws = 0.0
+        foreach ($s in @($subs)) { $ws = [Math]::Max($ws, [double](& $misura $seconda "$s")) }
+        $btn.MinWidth = 0
+        $btn.Measure([System.Windows.Size]::new([double]::PositiveInfinity, [double]::PositiveInfinity))
+        $nat = $btn.DesiredSize.Width
+        $ora = [double](& $misura $sigla "$($sigla.Text)")
+        if ($seconda.Visibility -eq 'Visible') { $ora += [double](& $misura $seconda "$($seconda.Text)") + $seconda.Margin.Left }
+        $serve = $wm + $(if ($ws -gt 0) { $ws + $seconda.Margin.Left } else { 0.0 })
+        $btn.MinWidth = [Math]::Ceiling([Math]::Max($nat, $nat - $ora + $serve) + 2)
+        return $btn.MinWidth
+    }.GetNewClosure()
     return $picker
 }
 
