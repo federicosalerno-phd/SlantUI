@@ -177,7 +177,7 @@ WINDOW_EXPORTS = (
     "Set-SlantWindowScheme", "Set-SlantWindowTransitions", "Test-SlantWindowZoomed",
     "Get-SlantWindowStyle", "Get-SlantWindowSizes", "Get-SlantWindowHandle",
     "Get-SlantWorkArea", "New-SlantWindowButton", "New-SlantTitleBar",
-    "Set-SlantLogo", "Install-SlantWindow",
+    "Set-SlantLogo", "Install-SlantWindow", "Set-SlantWindowClear",
 )
 
 
@@ -284,6 +284,95 @@ def test_the_window_glyphs_are_paths_and_not_characters():
     for name in ("Minimise", "Close", "Maximise", "Restore"):
         assert name in block, name
     assert block.count("'M") >= 4
+
+
+# ── the clear colour ────────────────────────────────────────────────────────
+# What the render thread puts where the page has not been drawn yet, which is
+# what a maximise uncovers for a few frames. The window gets a handle and is
+# never shown: the colour is a property of the composition target, readable
+# the moment the handle exists.
+_CLEAR_PROBE = r"""
+$ErrorActionPreference = 'Stop'
+Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
+Import-Module '{module}' -Force
+$out = [ordered]@{{}}
+function New-Dressed {{
+    $w = New-Object System.Windows.Window
+    $w.Left = -20000; $w.Top = -20000; $w.Width = 400; $w.Height = 300
+    $w.ShowInTaskbar = $false
+    $c = Install-SlantWindow -Window $w -Bold 'Slant' -Name ' check'
+    $h = (New-Object System.Windows.Interop.WindowInteropHelper($w)).EnsureHandle()
+    $c.Attach()
+    return @($w, $c, [System.Windows.Interop.HwndSource]::FromHwnd($h).CompositionTarget)
+}}
+try {{
+    $w, $chrome, $target = New-Dressed
+    $out.Stage = "$([System.Windows.Media.ColorConverter]::ConvertFromString((Get-SlantColor 'surface-0')))"
+    $out.First = "$($target.BackgroundColor)"
+    $w.Background = New-SlantBrush '#FF336699'
+    $out.Solid = "$($target.BackgroundColor)"
+    $w.Background = New-SlantBrush '#80FFFFFF'
+    $out.Translucent = "$($target.BackgroundColor)"
+    $w.Background = $null
+    $out.None = "$($target.BackgroundColor)"
+    $out.Watching = ($null -ne $chrome.ClearWatch)
+    $w.Close()
+    $out.WatchingAfter = ($null -ne $chrome.ClearWatch)
+    $env:SLANTUI_NO_CLEAR = '1'
+    $w2, $chrome2, $target2 = New-Dressed
+    $out.Switched = "$($target2.BackgroundColor)"
+    $w2.Close()
+}} catch {{
+    $out.Error = "$($_.Exception.Message) @ $($_.InvocationInfo.ScriptLineNumber)"
+}}
+$out | ConvertTo-Json -Compress
+"""
+
+
+@pytest.fixture(scope="module")
+def clear(tmp_path_factory) -> dict:
+    folder = tmp_path_factory.mktemp("slantclear")
+    install(folder)
+    script = folder / "clear.ps1"
+    script.write_text(_CLEAR_PROBE.format(module=(folder / MODULE).as_posix()),
+                      encoding="utf-8")
+    run = subprocess.run(
+        ["powershell", "-NoProfile", "-NonInteractive", "-STA", "-ExecutionPolicy",
+         "Bypass", "-File", str(script)],
+        capture_output=True, text=True)
+    out = run.stdout.strip().splitlines()
+    if run.returncode != 0 or not out:
+        pytest.fail(f"the clear probe did not run:\n{run.stdout}\n{run.stderr}")
+    got = json.loads(out[-1])
+    assert "Error" not in got, got.get("Error")
+    return got
+
+
+def test_the_clear_colour_is_the_stage_and_not_black(clear):
+    """WPF starts every window's clear colour at black, and the render thread
+    shows it wherever a tree still laid out at the old size does not reach:
+    four frames of black when a heavy page maximised."""
+    assert clear["First"] == clear["Stage"] != "#FF000000"
+
+
+def test_the_clear_colour_follows_the_background(clear):
+    """A flat colour is taken, a translucent one gives the window back the
+    colour WPF had, because there the clear colour shows through at rest."""
+    assert clear["Solid"] == "#FF336699"
+    assert clear["Translucent"] == "#FF000000"
+    assert clear["None"] == clear["Stage"]
+
+
+def test_the_background_watch_comes_off_with_the_window(clear):
+    """The descriptor's table is static: a handler left on it keeps the window
+    alive for the life of the process."""
+    assert clear["Watching"] is True
+    assert clear["WatchingAfter"] is False
+
+
+def test_the_clear_colour_can_be_left_to_wpf(clear):
+    """SLANTUI_NO_CLEAR=1 is there so the black can be measured both ways."""
+    assert clear["Switched"] == "#FF000000"
 
 
 # ── the real window ─────────────────────────────────────────────────────────

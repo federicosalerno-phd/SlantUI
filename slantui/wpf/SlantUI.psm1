@@ -300,9 +300,10 @@ function Get-SlantBandGeometry {
 # above whatever was inside it, so the application's own layout is untouched
 # and gains a row. What comes back carries the parts and the state changes.
 #
-# Three things in here are not obvious and each has a reason written above it:
+# Four things in here are not obvious and each has a reason written above it:
 # the real Win32 frame behind a frameless window, the hit test that gives the
-# edges back, and a maximise that never zooms.
+# edges back, a maximise that is a real zoom with the work area as its client
+# area, and the colour WPF clears the window to, made the page's.
 
 $script:SlantChromeReady = $false
 $script:SlantCreditText = 'Layout by Federico Salerno'
@@ -793,14 +794,83 @@ function Set-SlantWindowTransitions {
     [SlantUI.Chrome]::SetTransitions($Handle, $Enabled)
 }
 
+function Set-SlantWindowClear {
+    <#  .SYNOPSIS  The colour WPF puts where the page has not been drawn yet,
+        made the colour of the page.
+
+        WPF renders on a thread of its own, and every frame starts by clearing
+        the window to one colour, HwndTarget.BackgroundColor, before the tree
+        is drawn over it. When the window grows, the render thread is told the
+        new size at once and goes on drawing the tree it has, which is still
+        laid out at the old size; what that tree does not reach is the clear
+        colour until the UI thread has laid the page out again. Out of the box
+        the colour is black (HwndTarget starts it at 0, 0, 0), and that is the
+        black a maximise showed for a few frames on a page that takes time to
+        lay out (measured on the night of 2026-11-05: four frames, up to 8.5
+        per cent of the window, 192 to 242 ms after the command).
+
+        The colour is the window's own background when that is one flat,
+        opaque colour, and the palette's stage when the window has none. A
+        background the clear colour shows through (a translucent brush, a
+        gradient, an image) is left alone, and so is a layered window: there
+        the clear colour is part of what the window looks like at rest.
+
+        The window class is not the place for it. WPF registers a class of its
+        own for every window, with the stock null brush, and it answers
+        WM_ERASEBKGND itself without painting anything, so a brush put on the
+        class is never drawn. Painting WM_ERASEBKGND by hand instead lays GDI
+        over what the render thread has already put in the window.
+
+        SLANTUI_NO_CLEAR=1 in the environment leaves the colour as WPF has it,
+        so a measurement can be taken both ways on the same machine.
+
+        A window whose background stops being a flat colour gets back the
+        colour it had before this first changed it.
+
+        Returns whether the colour was set.  #>
+    param([Parameter(Mandatory = $true)]$Window, [string]$Palette)
+    Initialize-SlantWpf
+    if ("$env:SLANTUI_NO_CLEAR" -eq '1') { return $false }
+    if ($Window.AllowsTransparency) { return $false }
+    $handle = Get-SlantWindowHandle $Window
+    if ($handle -eq [IntPtr]::Zero) { return $false }
+    $source = [System.Windows.Interop.HwndSource]::FromHwnd($handle)
+    if ($null -eq $source -or $null -eq $source.CompositionTarget) { return $false }
+    $target = $source.CompositionTarget
+    $key = $handle.ToInt64()
+    $bg = $Window.Background
+    $colour = $null
+    if ($null -eq $bg) {
+        $colour = [System.Windows.Media.ColorConverter]::ConvertFromString((Get-SlantPalette $Palette).Wpf['surface-0'])
+    } elseif ($bg -is [System.Windows.Media.SolidColorBrush] -and $bg.Opacity -ge 1) {
+        $c = Get-SlantBaseBrushColor $bg
+        if ($c.A -eq 255) { $colour = $c }
+    }
+    if ($null -eq $colour) {
+        if ($script:SlantClearWas.ContainsKey($key)) {
+            $target.BackgroundColor = $script:SlantClearWas[$key]
+            $script:SlantClearWas.Remove($key)
+        }
+        return $false
+    }
+    if ($target.BackgroundColor -ne $colour) {
+        if (-not $script:SlantClearWas.ContainsKey($key)) { $script:SlantClearWas[$key] = $target.BackgroundColor }
+        $target.BackgroundColor = $colour
+    }
+    return $true
+}
+# what each window's clear colour was before Set-SlantWindowClear first changed it
+$script:SlantClearWas = @{}
+
 function Test-SlantWindowZoomed {
     <#  .SYNOPSIS  Whether Windows has zoomed this window.
-        It never should. A window carrying the frame styles is placed by
-        Windows with its frame past the edge of the screen when it zooms,
-        eleven pixels a side at 150 per cent, and for a window whose client
-        area is the whole window that is eleven pixels of the page cut off
-        on every side. So maximised is a state the window keeps, and this is
-        the check that says the design still holds.  #>
+        Since November 2026 that is what maximised is. A window carrying the
+        frame styles is placed by Windows with its frame past the edge of the
+        screen when it zooms, eleven pixels a side at 150 per cent; the window
+        procedure answers WM_NCCALCSIZE on a zoomed window with the work area
+        of its screen, so the client area is what is in sight and nothing of
+        the page is cut. Before, maximised was a state the window kept and
+        this was expected to be false.  #>
     param([Parameter(Mandatory = $true)][IntPtr]$Handle)
     Initialize-SlantChrome
     [SlantUI.Chrome]::IsZoomed($Handle)
@@ -1700,10 +1770,12 @@ function Install-SlantWindow {
         .PARAMETER Name     The rest of the name, in the quieter ink.
         .PARAMETER Logo     A path to an image, a brush, or nothing.
         .PARAMETER Palette  A palette slug. The default palette otherwise.
-        .PARAMETER StateMs  How long maximise and restore take. Zero for no
-                            animation at all. A window that turns out not to
-                            be able to keep up finishes the move at once by
-                            itself, so this rarely needs setting.
+        .PARAMETER StateMs  How long Animate takes to move the window by hand.
+                            Zero for no animation at all. Maximise and restore
+                            are the system's and do not read it. A window that
+                            turns out not to be able to keep up finishes the
+                            move at once by itself, so this rarely needs
+                            setting.
         .PARAMETER SlowMs   A frame slower than this, twice running, ends the
                             animation early. 40 ms is under thirty frames a
                             second, which is where a move stops reading as
@@ -1797,6 +1869,9 @@ function Install-SlantWindow {
         HeldStrip  = $null
         StripTimer = $null
         StripColours = ''
+        # what is told when the window's background changes, so the clear
+        # colour follows it; taken off when the window closes
+        ClearWatch = $null
     }
 
     # Before anything is measured the strip has the window's own colour, which
@@ -1908,6 +1983,7 @@ function Install-SlantWindow {
         Set-SlantWindowFrame -Handle $handle -Border $this.Border -Corner $this.Corner `
             -Resizable $this.Resizable
         Set-SlantWindowScheme -Handle $handle -Palette $this.Palette
+        [void]$this.PaintClear()
         [SlantUI.Chrome]::SetMaximized($handle, ($this.Maximized -or $this.Window.WindowState -eq 'Maximized'))
         $me = $this
         [SlantUI.Chrome]::OnSysCommand($handle, [Func[IntPtr, int, bool]] {
@@ -1924,6 +2000,16 @@ function Install-SlantWindow {
             param([IntPtr]$hwnd, [bool]$active)
             if ($null -ne $me.OnSizing) { try { & $me.OnSizing $active } catch { } }
         }.GetNewClosure())
+    }
+
+    $chrome | Add-Member -MemberType ScriptMethod -Name PaintClear -Value {
+        <#  The colour the render thread clears the window to, made the
+            window's own: what a maximise uncovers before the page has been
+            laid out at the new size is then the page's colour and not black.
+            See Set-SlantWindowClear.  #>
+        if ($this.Handle -eq [IntPtr]::Zero) { return $false }
+        try { return [bool](Set-SlantWindowClear -Window $this.Window -Palette $this.Palette) }
+        catch { return $false }
     }
 
     $chrome | Add-Member -MemberType ScriptMethod -Name Shape -Value {
@@ -2246,7 +2332,17 @@ function Install-SlantWindow {
 
     $chrome.Attach()
     $Window.add_SourceInitialized({ $chrome.Attach() }.GetNewClosure())
-    $Window.add_Loaded({ $chrome.Attach(); $chrome.Shape() }.GetNewClosure())
+    $Window.add_Loaded({ $chrome.Attach(); [void]$chrome.PaintClear(); $chrome.Shape() }.GetNewClosure())
+    # An application that changes the window's background (a theme, a page of
+    # another colour) gets the clear colour changed with it. A descriptor's
+    # handler is held by a static table, so it comes off when the window closes.
+    try {
+        $descriptor = [System.ComponentModel.DependencyPropertyDescriptor]::FromProperty(
+            [System.Windows.Controls.Control]::BackgroundProperty, [System.Windows.Window])
+        $onBackground = [System.EventHandler] { try { [void]$chrome.PaintClear() } catch { } }.GetNewClosure()
+        $descriptor.AddValueChanged($Window, $onBackground)
+        $chrome.ClearWatch = [PSCustomObject]@{ Descriptor = $descriptor; Handler = $onBackground }
+    } catch { }
     $Window.add_ContentRendered({ $chrome.Shape(); $chrome.PaintStrip() }.GetNewClosure())
     $shell.add_SizeChanged({ $chrome.PaintStripSoon() }.GetNewClosure())
     $bar.Element.add_SizeChanged({ $chrome.Shape() }.GetNewClosure())
@@ -2260,6 +2356,11 @@ function Install-SlantWindow {
     }.GetNewClosure())
     $Window.add_Closed({
         if ($chrome.Handle -ne [IntPtr]::Zero) { [SlantUI.Chrome]::Forget($chrome.Handle) }
+        $watch = $chrome.ClearWatch
+        if ($null -ne $watch) {
+            try { $watch.Descriptor.RemoveValueChanged($chrome.Window, $watch.Handler) } catch { }
+            $chrome.ClearWatch = $null
+        }
     }.GetNewClosure())
 
     # Anywhere on the band except the buttons drags the window, and two
@@ -3397,8 +3498,8 @@ function New-SlantPicker {
 # opens at once and wears this over its body: the window itself, empty, in
 # the palette's own surface, with the brand in the middle of a ring that fills
 # as the work goes. The page is not shown through it while it is being put
-# together; it arrives when the work is done, out of focus and coming into
-# focus as the ring leaves, over --t-reveal. A wait in the middle of work is
+# together; it is uncovered when the work is done, sharp and standing still,
+# as the empty window thins out over --t-reveal. A wait in the middle of work is
 # the other case (-Veil): there the page stays in sight under the scrim.
 #
 # None of it is drawn on the application's thread. WPF beats its animations
@@ -3543,8 +3644,8 @@ function Show-SlantSplash {
         opaque, and the strip under the band's thin half the same colour. The
         band is left sharp so the window can still be moved and closed while
         it loads. Hide hands the window over to the page in one long movement:
-        the ring grows a little and fades, the empty window thins out, and the
-        page comes into focus through it. With -Veil the page stays in sight
+        the ring grows a little and fades, and the empty window thins out over
+        the page, uncovered sharp and still. With -Veil the page stays in sight
         instead, out of focus under the scrim: that is for a wait in the middle
         of work, where the page is the person's work and must not vanish.
 
@@ -3634,8 +3735,9 @@ function Show-SlantSplash {
                                        -MotionOptions @{ Period = 3.2; Still = @(1) }
 
         .OUTPUTS  An object with SetProgress(fraction, text), SetText(text),
-                  SetBusy(on), IsBusy(), Draw(fraction), Hide([ms]),
-                  Snapshot(scale) and Visible. Hide() with no length takes
+                  SetExpected(ms), SetBusy(on), IsBusy(), Draw(fraction),
+                  Hide([ms]), Snapshot(scale), Visible, and Core, whose
+                  MotionFromNow() lets a held 'flow' entrance go. Hide() with no length takes
                   the library's: --t-reveal for an empty window, a fifth of a
                   second under a veil or on a bare window.  #>
     [CmdletBinding(DefaultParameterSetName = 'Chrome')]
@@ -3902,14 +4004,15 @@ function Show-SlantSplash {
     }
 
     # The handover. The screen goes on the drawing thread, so it is smooth
-    # whatever the application is doing; the page comes into focus here, and
-    # it starts once the dispatcher has nothing left queued, because a
-    # movement that begins under a busy thread is a movement nobody sees.
+    # whatever the application is doing; the page is uncovered here (and under
+    # a veil its blur goes), and it starts once the dispatcher has nothing left
+    # queued, because a movement that begins under a busy thread is a movement
+    # nobody sees.
     #
     # With no length given the length is the library's: --t-reveal when the
-    # window was empty and the page is arriving, the long movement that finds
-    # the page by focusing it; a fifth of a second under a veil, where the page
-    # was in sight all along, and on a bare window.
+    # window was empty and the page is arriving, the long movement in which the
+    # empty window thins out over it; a fifth of a second under a veil, where
+    # the page was in sight all along, and on a bare window.
     $splash | Add-Member -MemberType ScriptMethod -Name Hide -Value {
         param([int]$ms = -1)
         if (-not $this.Visible) { return }
@@ -4048,7 +4151,7 @@ Export-ModuleMember -Function Get-SlantDataPath, Get-SlantTokens, Get-SlantPalet
     Get-SlantBandPoints, Get-SlantRoundedPolyPath, Get-SlantBandPath, Get-SlantBandGeometry,
     Format-SlantCoord,
     Initialize-SlantChrome, Get-SlantCreditText, Set-SlantWindowFrame, Set-SlantWindowScheme,
-    Set-SlantWindowTransitions, Test-SlantWindowZoomed, Get-SlantWindowStyle,
+    Set-SlantWindowTransitions, Set-SlantWindowClear, Test-SlantWindowZoomed, Get-SlantWindowStyle,
     Get-SlantWindowSizes, Get-SlantWindowHandle, Get-SlantWorkArea,
     New-SlantWindowButton, New-SlantTitleBar, Set-SlantLogo, Install-SlantWindow, Get-SlantFillUnder,
     New-SlantBrandButton, Set-SlantBrandAction,
