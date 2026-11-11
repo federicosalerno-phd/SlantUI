@@ -44,10 +44,11 @@ rule with another syntax. What a toolkit gets is the vocabulary to draw its
 own widgets so they look like the others.
 
 The window is the exception, and it earned it. The frameless window, the
-band, the buttons, the resize edges and a maximise that never zooms are the
-same behaviour on both sides, and it is behaviour and not markup: an
-application that wrote it again would be writing the same eight Win32
-messages a second time and getting one of them wrong.
+band, the buttons and the resize edges are the same behaviour on both sides,
+and it is behaviour and not markup: an application that wrote it again would
+be writing the same eight Win32 messages a second time and getting one of them
+wrong. Maximise is where the two sides part, and the section on the whole
+window below says why.
 
 ## The band
 
@@ -189,8 +190,8 @@ PowerShell, which cannot read a stylesheet at all.
 
 Everything above draws with the design. A WPF window can wear it instead, and
 then it is the same window the Qt shell opens: no Windows frame, the oblique
-band as the title bar, the buttons, the eight resize edges, and a maximise
-that puts the window on the work area without ever letting Windows zoom it.
+band as the title bar, the buttons and the eight resize edges. Maximised is a
+real maximised window of Windows, which the Qt shell's is not.
 
 ```powershell
 $chrome = Install-SlantWindow -Window $window -Bold 'My' -Name ' App' -Logo $iconPath
@@ -211,14 +212,14 @@ keeps its arrangement and its icon and gains a title bar.
 | `Maximize()` `Restore()` `ToggleMaximize()` `Minimize()` `Close()` | the state changes |
 | `IsMaximized()` `NormalBounds()` | what to write down when the window closes |
 | `OnMaximized` | a scriptblock called with true or false |
-| `StateMs` | how long a state change takes. Zero for none |
+| `StateMs` | how long `Animate` takes to move the window by hand. Zero for no animation |
 
 `NormalBounds()` is the one worth knowing about. It answers with the
 rectangle a restore would use, whatever state the window is in, so an
 application that remembers where its window was writes that and the
 maximised flag and nothing else.
 
-Three things inside are not obvious, and each is a day someone else does not
+Four things inside are not obvious, and each is a day someone else does not
 have to spend.
 
 **The frame is real and is never laid out.** Windows only animates a window
@@ -228,16 +229,32 @@ those styles and then answers `WM_NCCALCSIZE` with "the client area is the
 whole window", which takes the caption and the borders back out. It is the
 technique the browsers use.
 
-**The window never zooms.** A window carrying those styles is placed by
+**Maximised is a real zoom.** A window carrying those styles is placed by
 Windows with its frame past the edge of the screen when it zooms, eleven
-pixels a side at 150 per cent, and it stays there. For a window whose client
-area is the whole window that is eleven pixels of the page cut off on every
-side. So maximised is a state the object keeps: the window animates onto the
-work area and remembers that it did, `Win+Up` and `Win+Down` and the taskbar
-menu arrive as system commands and are answered there, and a zoom Windows
-manages anyway is undone the moment WPF reports it. `Test-SlantWindowZoomed`
-is the check that says this still holds, and it belongs in an application's
-own tests.
+pixels a side at 150 per cent, and for a window whose client area is the
+whole window that would be eleven pixels of the page cut off on every side.
+So a zoomed window is answered differently: `WM_NCCALCSIZE` gives it the work
+area of its screen as its client area, which is exactly what is in sight, and
+the window is then an ordinary maximised window, animated in and out by the
+compositor from a picture of itself. `Win+Up`, `Win+Down` and the taskbar menu
+are left to Windows. Until November 2026 maximised was a state the object
+kept, and the window was moved onto the work area by hand, a step a frame;
+the page stayed behind at the old size while the frame grew, and what the
+move uncovered was black or the desktop. `Animate` is still there for an
+application that wants to move its window somewhere by hand.
+
+**The clear colour is the page's.** WPF renders on a thread of its own, and
+every frame starts by clearing the window to one colour before the tree is
+drawn over it. When the window grows, that thread is told the new size at
+once and draws the tree it has, still laid out at the old size, so what the
+tree does not reach is the clear colour until the page has been laid out
+again. Out of the box the colour is black. `Install-SlantWindow` makes it the
+window's own background when that is one flat, opaque colour, and keeps it so
+when the background changes (`Set-SlantWindowClear` does it for a window the
+library did not dress). A background the clear colour shows through is left
+alone, because there the clear colour is part of how the window looks at rest.
+A brush on the window class would not do it: WPF registers a class per window
+with the stock null brush and answers `WM_ERASEBKGND` itself, painting nothing.
 
 **The window procedure is compiled.** A scriptblock handed to a delegate is
 given a copy of anything passed by reference, so the `handled` flag an
@@ -258,9 +275,10 @@ doing what it says.
 | `Set-SlantWindowFrame` | the styles and the subclass, on a bare handle |
 | `Set-SlantWindowScheme` | tells Windows the palette is dark or light |
 | `Set-SlantWindowTransitions` | the system's own state animation, on or off |
+| `Set-SlantWindowClear` | the colour WPF clears the window to, made the page's |
 | `Get-SlantWorkArea` | the work area of the window's screen, in the units WPF lays out in |
 | `Get-SlantWindowStyle` `Get-SlantWindowSizes` | what a test wants to read |
-| `Test-SlantWindowZoomed` | false, always, and a test should say so |
+| `Test-SlantWindowZoomed` | whether Windows has zoomed the window, which is what maximised is |
 | `Get-SlantCreditText` | the line the licence puts in the bar |
 
 
@@ -277,10 +295,25 @@ $splash.SetProgress(0.4, 'reading the folders')
 $splash.Hide()
 ```
 
-The page it is about to show, blurred and darkened, the brand in the middle of
-a ring, a line of text, and a thin bar under that. The band stays sharp and
-its buttons stay live, so the window can still be moved or closed while it
-loads.
+The window empty, in the palette's own surface, with the brand in the middle of
+a ring, a line of text, and a thin bar under that. The page being put together
+underneath is hidden, not blurred: blurred under an opaque surface it was
+drawn and blurred whole on every frame of the ring, on the render thread the
+ring shares with it, and the ring missed frames for a second and more while the
+page filled. The band stays sharp and its buttons stay live, so the window can
+still be moved or closed while it loads.
+
+`Hide()` hands the window over in one long movement, `--t-reveal`: the ring
+grows a little and fades, and the empty window thins out over the page, which
+is uncovered sharp and standing still. It used to come back blurred and come
+into focus, and to settle from a touch larger. A blur over a whole page is a
+shader over every pixel of every frame, and on a 4K screen the reveal ran at
+thirty frames a second; the scale made the whole window dirty on every frame.
+
+`-Veil` is the wait in the middle of work, where the page is the person's work
+and must not vanish: it stays in sight, out of focus under the scrim, by
+`-Blur` pixels (the metric `--blur` unless the application gives its own), and
+`Hide()` takes a fifth of a second.
 
 A load that can be measured shows one way of loading and not two. The ring is
 the measure: one arc from twelve o'clock, and the figure under it is written by
@@ -328,6 +361,33 @@ Put together, the two forms hand over without a seam: the first screen turns,
 the second comes up turning, and the first announced step turns the ring into
 a measure. They are the same screen drawn by the same code.
 
+**The mark can move.** A vector brand is read into its parts, its top-level
+shapes, and the part sitting on the middle of the frame is the hub, which holds
+still; every other part moves on the line from the hub through its own
+centroid. `-Motion breathe` moves each part out and back in turns, `pulse` all
+of them in step, and both open out of the whole mark as the screen comes up.
+`-Motion flow` is a choreography instead of a breath: the parts come
+in from close by, 70 ms apart, turning a little and growing, and land with a
+hint of overshoot, the hub grows in at the middle and a glow comes up behind,
+all in six tenths of a second; then a wave goes round the mark every 1.8
+seconds, lifting each part in turn, and the whole mark floats. `-MotionOptions`
+changes the numbers (`Period`, `Offset`, `Amplitude`, `Stagger`, `Still`,
+`Centre`, `Arrive`, `Settle`, `Curve`), and distances are fractions of the
+mark's height, so a preset fits a mark it has never seen. `Hide()` brings the
+parts home before the fade.
+
+A window shown cloaked until it has drawn would have the entrance play under
+the cloak, and the first frames on screen would show the mark whole, then gone,
+then coming in. `Wait = $true` holds the entrance at its first frame, where
+nothing of the mark is drawn, until `$splash.Core.MotionFromNow()`, which the
+window calls as it is uncovered; without the call it starts by itself after two
+seconds.
+
+```powershell
+$splash = Show-SlantSplash -Chrome $chrome -Logo .\brand.svg -ExpectedMs 2400 `
+                           -Motion flow -MotionOptions @{ Wait = $true }
+```
+
 | On the object it returns | What it does |
 |---|---|
 | `SetProgress(fraction, text)` | announce a step, and a line to go with it |
@@ -335,7 +395,9 @@ a measure. They are the same screen drawn by the same code.
 | `SetText(text)` | change the line without moving the ring |
 | `SetBusy(on)` `IsBusy()` | swap the two modes, and ask which one it is in |
 | `Snapshot(scale)` | what the drawing thread has on screen, as a bitmap |
-| `Hide([ms])` | the handover: the veil fades, the blur goes, the page arrives |
+| `SetExpected(ms)` | say the pace again, for a wait that learns how long it will take |
+| `Hide([ms])` | the handover: the parts come home, the screen fades, the page is uncovered |
+| `Core.MotionFromNow()` | let a held `flow` entrance go, at the moment the window is uncovered |
 
 `Snapshot` exists because a `RenderTargetBitmap` of the window does not
 contain the drawing of a `HostVisual`, which lives somewhere else entirely. A

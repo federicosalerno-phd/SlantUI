@@ -709,10 +709,13 @@ the system's opening animation, as sharp in its first frame as in its last. [The
 
 ### The loading screen
 
-Every application wearing this library shows one, and it is the same screen
-on both halves of the library: the brand in the middle of a ring, a figure, a
-line saying what is happening, and a thin bar under it. On the Python side it
-is one object.
+Every application wearing this library shows one, and on both halves of the
+library it is laid out the same way: the brand in the middle of a ring, a
+figure, a line saying what is happening, and a thin bar under it. How it moves
+is no longer the same on both. The WPF half has gone further (its bar fills
+with the ring, its arc keeps the pace of the expected length, its mark moves),
+and [Outside a browser](#outside-a-browser) says how; what follows is the Qt
+half as it is. On the Python side it is one object.
 
 ```python
 from slantui.shell import Splash
@@ -861,9 +864,14 @@ $chrome = Install-SlantWindow -Window $window -Bold 'My' -Name ' App'
 ```
 
 That takes the Windows frame off, puts the oblique band above whatever the
-application had inside, and gives it the buttons, the resize edges and a
-maximise that never lets Windows zoom the window. It answers the same Win32
-messages the Qt side does, for the same reasons.
+application had inside, and gives it the buttons and the resize edges. It
+answers the same Win32 messages the Qt side does, with one difference: here
+maximised is a real maximised window, with the system's own animation in and
+out of it. A zoomed window is given the work area of its screen as its client
+area, so the frame Windows puts past the edges of the screen takes nothing off
+the page. And the colour WPF clears the window to before it draws, which is
+what a growing window shows for the frames before the page is laid out at the
+new size, is the page's own colour instead of black.
 
 An application that has to read a folder before it can show anything wears
 the splash over its body while it does:
@@ -875,18 +883,33 @@ $splash.Hide()
 ```
 
 The window itself, empty, in the palette's own surface, with the brand in the
-middle of a ring; `Hide()` then hands it over to the page in the same long
-movement the Qt half makes, and `-Veil` keeps the page in sight instead, for a
-wait in the middle of work. The ring measures: one arc from twelve o'clock,
-with the figure under it written by the arc's own animation. The thin bar
-under the line fills with it, the same fraction drawn straight, so a load that
-can be measured shows one way of loading and not two. The arc keeps a pace and
-not a destination: it goes round in the time the load is expected to take
-(`-ExpectedMs`, which an application can take from how long its last start
-took), the announced steps only nudge it, half again faster when it is behind
-them and half as fast when it is ahead, and near the end it slows against a
-soft wall. So it never stops before the end and never races to a step and
-then stands still.
+middle of a ring. The page under it is hidden, not blurred, so while the screen
+is up it costs the compositor nothing. `Hide()` hands the window over in one
+long movement, `--t-reveal`: the ring grows a little and fades, and the empty
+window thins out over the page, which is uncovered sharp and standing still.
+It used to come into focus, as it still does in the Qt half, and to settle
+from a touch larger; on a 4K screen each of those was the whole window redrawn
+on every frame of the fade.
+
+`-Veil` is the other kind of wait, the one in the middle of work: the page
+stays in sight, out of focus under the scrim, by `-Blur` pixels (the metric
+`--blur` unless the application asks for its own), and `Hide()` takes a fifth
+of a second.
+
+```powershell
+$wait = Show-SlantSplash -Chrome $chrome -Veil -Blur 9 -Text 'saving'
+```
+
+The ring measures, from its first frame: one arc from twelve o'clock, with the
+figure under it written by the arc's own animation. The thin bar under the
+line (`SlantBar`) fills with it, the same fraction drawn straight and written
+in the same frame, so a load that can be measured shows one way of loading and
+not two. The arc keeps a pace and not a destination: it goes round in the time
+the load is expected to take (`-ExpectedMs`, which an application can take
+from how long its last start took; eight seconds without it), the announced
+steps only nudge it, half again faster when it is behind them and half as
+fast when it is ahead, and near the end it slows against a soft wall. So it
+never stops before the end and never races to a step and then stands still.
 
 None of that is drawn on the application's thread. WPF beats its animations
 on the Dispatcher, not on the composition thread, so a window that loads on
@@ -934,12 +957,36 @@ $splash = Show-SlantSplash -Chrome $chrome -Logo .\brand.svg -Motion breathe `
                            -MotionOptions @{ Period = 3.2; Still = @(1) }
 ```
 
-The parts open out of the whole mark when the screen comes up, and `Hide()`
-brings them home before the fade starts, because a mark that fades with its
-parts still apart looks dropped. The movement is drawn on the splash's own
-thread like the ring, so it keeps going while the application holds its
-thread down. A raster has no parts and stands still, and so does every mark
-when `-Motion` is not given. The Qt half does not move the mark yet.
+With `breathe` and `pulse` the parts open out of the whole mark when the screen
+comes up. `-Motion flow` is a choreography instead of a breath. The parts come
+in from close by, each 70 ms after the one before, turning a little and
+growing, and land with a hint of overshoot; the hub grows in at the middle and
+a glow comes up behind; the whole entrance takes six tenths of a second. Then a
+cycle of 1.8 seconds: a wave goes round the mark, each part in turn lifts out
+along its line and grows a touch, and the whole mark floats. Its time is an
+animation, so every shape in a frame is drawn at that frame's own time, and
+nothing on it goes through a layer once it has come in.
+
+A window shown covered until it has drawn, which is how a window avoids the
+black or white frame WPF shows before its first paint, would have the entrance
+play under the cover. `Wait` holds it at its first frame, where nothing of the
+mark is drawn yet, and the window lets it go as it is uncovered:
+
+```powershell
+$splash = Show-SlantSplash -Chrome $chrome -Logo .\brand.svg -ExpectedMs 2400 `
+                           -Motion flow -MotionOptions @{ Wait = $true }
+# ... the window is shown cloaked, draws, and is uncovered ...
+$splash.Core.MotionFromNow()
+```
+
+A held entrance that is never let go starts by itself after two seconds.
+
+`Hide()` brings the parts home before the fade starts, whatever the preset,
+because a mark that fades with its parts still apart looks dropped. The
+movement is drawn on the splash's own thread like the ring, so it keeps going
+while the application holds its thread down. A raster has no parts and stands
+still, and so does every mark when `-Motion` is not given. The Qt half does not
+move the mark yet.
 
 Two widgets come with it, because two applications would have drawn them
 differently within a month. `Add-SlantHover` is the one hover every clickable
